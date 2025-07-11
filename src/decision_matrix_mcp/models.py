@@ -1,28 +1,30 @@
 """Data models for Decision Matrix MCP"""
 
 from dataclasses import dataclass, field
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from enum import Enum
-from typing import Dict, List, Optional, Any, Union
+from typing import Any
 from uuid import uuid4
 
 
 class ModelBackend(str, Enum):
     """Supported model backends"""
+
     BEDROCK = "bedrock"
-    LITELLM = "litellm" 
+    LITELLM = "litellm"
     OLLAMA = "ollama"
 
 
 @dataclass
 class Score:
     """Represents a score given by a criterion to an option"""
+
     criterion_name: str
     option_name: str
-    score: Optional[float]  # 1-10 scale, None if abstained
+    score: float | None  # 1-10 scale, None if abstained
     justification: str
-    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
-    
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
     @property
     def abstained(self) -> bool:
         """True if this criterion abstained from scoring this option"""
@@ -32,14 +34,15 @@ class Score:
 @dataclass
 class Criterion:
     """Represents an evaluation criterion"""
+
     name: str
     description: str
     weight: float = 1.0
     system_prompt: str = ""
     model_backend: ModelBackend = ModelBackend.BEDROCK
-    model_name: Optional[str] = None
-    
-    def __post_init__(self):
+    model_name: str | None = None
+
+    def __post_init__(self) -> None:
         """Generate system prompt if not provided"""
         if not self.system_prompt:
             self.system_prompt = f"""You are evaluating options based on: {self.description}
@@ -57,95 +60,95 @@ Focus on: {self.description}
 Weight in decision: {self.weight}x importance"""
 
 
-@dataclass 
+@dataclass
 class Option:
     """Represents a decision option"""
+
     name: str
-    description: Optional[str] = None
-    scores: Dict[str, Score] = field(default_factory=dict)  # criterion_name -> Score
-    
-    def add_score(self, score: Score):
+    description: str | None = None
+    scores: dict[str, Score] = field(default_factory=dict)  # criterion_name -> Score
+
+    def add_score(self, score: Score) -> None:
         """Add a score from a criterion"""
         self.scores[score.criterion_name] = score
-    
-    def get_weighted_total(self, criteria: Dict[str, Criterion]) -> float:
+
+    def get_weighted_total(self, criteria: dict[str, Criterion]) -> float:
         """Calculate weighted total score for this option"""
         total = 0.0
         total_weight = 0.0
-        
+
         for criterion_name, score in self.scores.items():
             if not score.abstained and criterion_name in criteria:
                 criterion = criteria[criterion_name]
                 total += score.score * criterion.weight
                 total_weight += criterion.weight
-        
+
         return total / total_weight if total_weight > 0 else 0.0
-    
-    def get_score_breakdown(self, criteria: Dict[str, Criterion]) -> List[Dict[str, Any]]:
+
+    def get_score_breakdown(self, criteria: dict[str, Criterion]) -> list[dict[str, Any]]:
         """Get detailed breakdown of scores"""
         breakdown = []
         for criterion_name, criterion in criteria.items():
             score = self.scores.get(criterion_name)
             if score:
-                breakdown.append({
-                    "criterion": criterion_name,
-                    "weight": criterion.weight,
-                    "raw_score": score.score,
-                    "weighted_score": score.score * criterion.weight if score.score else None,
-                    "justification": score.justification,
-                    "abstained": score.abstained
-                })
+                breakdown.append(
+                    {
+                        "criterion": criterion_name,
+                        "weight": criterion.weight,
+                        "raw_score": score.score,
+                        "weighted_score": score.score * criterion.weight if score.score else None,
+                        "justification": score.justification,
+                        "abstained": score.abstained,
+                    }
+                )
         return breakdown
 
 
 @dataclass
 class CriterionThread:
     """Represents a criterion evaluation thread"""
+
     id: str
     criterion: Criterion
-    conversation_history: List[Dict[str, str]] = field(default_factory=list)
-    
-    def add_message(self, role: str, content: str):
+    conversation_history: list[dict[str, str]] = field(default_factory=list)
+
+    def add_message(self, role: str, content: str) -> None:
         """Add a message to conversation history"""
-        self.conversation_history.append({
-            "role": role,
-            "content": content,
-            "timestamp": datetime.now(UTC).isoformat()
-        })
+        self.conversation_history.append(
+            {"role": role, "content": content, "timestamp": datetime.now(timezone.utc).isoformat()}
+        )
 
 
 @dataclass
 class DecisionSession:
     """Manages a complete decision analysis session"""
+
     session_id: str
     created_at: datetime
     topic: str
-    options: Dict[str, Option] = field(default_factory=dict)  # option_name -> Option
-    criteria: Dict[str, Criterion] = field(default_factory=dict)  # criterion_name -> Criterion  
-    threads: Dict[str, CriterionThread] = field(default_factory=dict)  # criterion_name -> Thread
-    evaluations: List[Dict[str, Any]] = field(default_factory=list)  # History of evaluations
-    
-    def add_option(self, name: str, description: Optional[str] = None):
+    options: dict[str, Option] = field(default_factory=dict)  # option_name -> Option
+    criteria: dict[str, Criterion] = field(default_factory=dict)  # criterion_name -> Criterion
+    threads: dict[str, CriterionThread] = field(default_factory=dict)  # criterion_name -> Thread
+    evaluations: list[dict[str, Any]] = field(default_factory=list)  # History of evaluations
+
+    def add_option(self, name: str, description: str | None = None) -> None:
         """Add a new option to evaluate"""
         if name not in self.options:
             self.options[name] = Option(name=name, description=description)
-    
-    def add_criterion(self, criterion: Criterion):
+
+    def add_criterion(self, criterion: Criterion) -> None:
         """Add a new evaluation criterion"""
         self.criteria[criterion.name] = criterion
-        
+
         # Create thread for this criterion
-        thread = CriterionThread(
-            id=str(uuid4()),
-            criterion=criterion
-        )
+        thread = CriterionThread(id=str(uuid4()), criterion=criterion)
         self.threads[criterion.name] = thread
-    
-    def get_decision_matrix(self) -> Dict[str, Any]:
+
+    def get_decision_matrix(self) -> dict[str, Any]:
         """Generate complete decision matrix with scores and recommendations"""
         if not self.options or not self.criteria:
             return {"error": "Need both options and criteria to generate matrix"}
-        
+
         # Calculate scores matrix
         matrix = {}
         for option_name, option in self.options.items():
@@ -156,28 +159,30 @@ class DecisionSession:
                     matrix[option_name][criterion_name] = {
                         "raw_score": score.score,
                         "weighted_score": score.score * self.criteria[criterion_name].weight,
-                        "justification": score.justification
+                        "justification": score.justification,
                     }
                 else:
                     matrix[option_name][criterion_name] = {
                         "raw_score": None,
-                        "weighted_score": None, 
-                        "justification": "Abstained - criterion not applicable"
+                        "weighted_score": None,
+                        "justification": "Abstained - criterion not applicable",
                     }
-        
+
         # Calculate totals and rankings
         rankings = []
         for option_name, option in self.options.items():
             weighted_total = option.get_weighted_total(self.criteria)
-            rankings.append({
-                "option": option_name,
-                "weighted_total": weighted_total,
-                "breakdown": option.get_score_breakdown(self.criteria)
-            })
-        
+            rankings.append(
+                {
+                    "option": option_name,
+                    "weighted_total": weighted_total,
+                    "breakdown": option.get_score_breakdown(self.criteria),
+                }
+            )
+
         # Sort by weighted total (descending)
         rankings.sort(key=lambda x: x["weighted_total"], reverse=True)
-        
+
         # Generate recommendation
         if rankings:
             winner = rankings[0]
@@ -187,7 +192,7 @@ class DecisionSession:
                 recommendation = f"Close race, but {winner['option']} edges ahead with {winner['weighted_total']:.1f} points"
         else:
             recommendation = "No clear recommendation available"
-        
+
         return {
             "session_id": self.session_id,
             "topic": self.topic,
@@ -195,12 +200,11 @@ class DecisionSession:
             "rankings": rankings,
             "recommendation": recommendation,
             "criteria_weights": {name: crit.weight for name, crit in self.criteria.items()},
-            "evaluation_timestamp": datetime.now(UTC).isoformat()
+            "evaluation_timestamp": datetime.now(timezone.utc).isoformat(),
         }
-    
-    def record_evaluation(self, evaluation_results: Dict[str, Any]):
+
+    def record_evaluation(self, evaluation_results: dict[str, Any]) -> None:
         """Record an evaluation for history"""
-        self.evaluations.append({
-            "timestamp": datetime.now(UTC).isoformat(),
-            "results": evaluation_results
-        })
+        self.evaluations.append(
+            {"timestamp": datetime.now(timezone.utc).isoformat(), "results": evaluation_results}
+        )
