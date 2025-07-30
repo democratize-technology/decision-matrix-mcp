@@ -134,6 +134,10 @@ class AddCriterionRequest(BaseModel):
     custom_prompt: str | None = Field(
         default=None, description="Custom evaluation prompt for this criterion"
     )
+    model_backend: ModelBackend = Field(
+        default=ModelBackend.BEDROCK, description="LLM backend to use for this criterion"
+    )
+    model_name: str | None = Field(default=None, description="Specific model to use")
 
 
 @mcp.tool(
@@ -170,8 +174,8 @@ async def add_criterion(request: AddCriterionRequest) -> dict[str, Any]:
             name=request.name,
             description=request.description,
             weight=request.weight,
-            model_backend=ModelBackend.BEDROCK,  # Use session default
-            model_name=None,
+            model_backend=request.model_backend,
+            model_name=request.model_name,
         )
 
         # Override system prompt if provided
@@ -385,7 +389,6 @@ async def add_option(request: AddOptionRequest) -> dict[str, Any]:
     except Exception as e:
         logger.error(f"Error adding option: {e}")
         return {"error": f"Failed to add option: {str(e)}"}
-
 
 
 @mcp.tool(description="List all active decision analysis sessions")
