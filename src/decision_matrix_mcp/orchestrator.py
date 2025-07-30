@@ -6,6 +6,7 @@ import logging
 import os
 import re
 
+from .exceptions import ConfigurationError, LLMBackendError
 from .models import CriterionThread, ModelBackend, Option
 
 logger = logging.getLogger(__name__)
@@ -93,9 +94,12 @@ JUSTIFICATION: [your reasoning]"""
 
             return self._parse_evaluation_response(response)
 
-        except Exception as e:
-            logger.error(f"Failed to evaluate {option.name} for {thread.criterion.name}: {e}")
-            return (None, f"Evaluation failed: {str(e)}")
+        except LLMBackendError as e:
+            logger.error(f"LLM backend error evaluating {option.name} for {thread.criterion.name}: {e}")
+            return (None, e.user_message)
+        except Exception:
+            logger.exception(f"Unexpected error evaluating {option.name} for {thread.criterion.name}")
+            return (None, "Evaluation failed due to an unexpected error")
 
     def _parse_evaluation_response(self, response: str) -> tuple[float | None, str]:
         """Parse the structured evaluation response
@@ -144,7 +148,10 @@ JUSTIFICATION: [your reasoning]"""
         """Get response from a single thread with retry logic"""
         backend_fn = self.backends.get(thread.criterion.model_backend)
         if not backend_fn:
-            raise ValueError(f"Unknown model backend: {thread.criterion.model_backend}")
+            raise ConfigurationError(
+                f"Unknown model backend: {thread.criterion.model_backend}",
+                f"Model backend '{thread.criterion.model_backend}' is not configured"
+            )
 
         # Try with exponential backoff
         last_error = None

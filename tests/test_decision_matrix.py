@@ -8,6 +8,7 @@ from decision_matrix_mcp.models import (
     DecisionSession, Option, Criterion, Score, ModelBackend
 )
 from decision_matrix_mcp.session_manager import SessionManager, SessionValidator
+from decision_matrix_mcp.exceptions import ResourceLimitError
 
 
 class TestModels:
@@ -121,8 +122,9 @@ class TestSessionManager:
         session2 = manager.create_session("Topic 2")
         
         # Third session should fail
-        with pytest.raises(Exception, match="Session limit reached"):
+        with pytest.raises(ResourceLimitError) as exc_info:
             manager.create_session("Topic 3")
+        assert "Maximum number of active sessions" in str(exc_info.value.user_message)
 
 
 class TestSessionValidator:

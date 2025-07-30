@@ -19,6 +19,14 @@ from uuid import uuid4
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
+from .exceptions import (
+    ConfigurationError,
+    DecisionMatrixError,
+    LLMBackendError,
+    ResourceLimitError,
+    SessionError,
+    ValidationError,
+)
 from .models import Criterion, DecisionSession, ModelBackend, Option, Score
 from .orchestrator import DecisionOrchestrator
 from .session_manager import SessionValidator, session_manager
@@ -119,9 +127,15 @@ async def start_decision_analysis(request: StartDecisionAnalysisRequest) -> dict
             ],
         }
 
-    except Exception as e:
-        logger.error(f"Error creating decision session: {e}")
-        return {"error": f"Failed to create session: {str(e)}"}
+    except ValidationError as e:
+        logger.warning(f"Invalid input for decision session: {e}")
+        return {"error": e.user_message}
+    except ResourceLimitError as e:
+        logger.warning(f"Resource limit exceeded: {e}")
+        return {"error": e.user_message}
+    except Exception:
+        logger.exception("Unexpected error creating decision session")
+        return {"error": "Failed to create session due to an unexpected error"}
 
 
 class AddCriterionRequest(BaseModel):
@@ -195,9 +209,15 @@ async def add_criterion(request: AddCriterionRequest) -> dict[str, Any]:
             "message": f"Added criterion '{request.name}' with weight {request.weight}x",
         }
 
-    except Exception as e:
-        logger.error(f"Error adding criterion: {e}")
-        return {"error": f"Failed to add criterion: {str(e)}"}
+    except SessionError as e:
+        logger.warning(f"Session error when adding criterion: {e}")
+        return {"error": e.user_message}
+    except ValidationError as e:
+        logger.warning(f"Invalid criterion input: {e}")
+        return {"error": e.user_message}
+    except Exception:
+        logger.exception("Unexpected error adding criterion")
+        return {"error": "Failed to add criterion due to an unexpected error"}
 
 
 class EvaluateOptionsRequest(BaseModel):

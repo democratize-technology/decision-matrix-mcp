@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import uuid4
 
+from .exceptions import ResourceLimitError
 from .models import DecisionSession
 
 logger = logging.getLogger(__name__)
@@ -48,8 +49,9 @@ class SessionManager:
             self._cleanup_expired_sessions()
 
             if len(self.sessions) >= self.max_sessions:
-                raise Exception(
-                    f"Session limit reached ({self.max_sessions}). Please try again later."
+                raise ResourceLimitError(
+                    f"Session limit of {self.max_sessions} exceeded",
+                    f"Maximum number of active sessions ({self.max_sessions}) reached. Please try again later."
                 )
 
         session_id = str(uuid4())
@@ -175,7 +177,7 @@ class SessionValidator:
     @staticmethod
     def validate_weight(weight: float) -> bool:
         """Validate criterion weight"""
-        if not isinstance(weight, int | float):
+        if not isinstance(weight, (int, float)):
             return False
         return 0.1 <= weight <= 10.0  # Reasonable weight range
 
