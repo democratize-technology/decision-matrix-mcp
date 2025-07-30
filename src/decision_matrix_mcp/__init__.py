@@ -446,27 +446,27 @@ async def clear_all_sessions() -> dict[str, Any]:
 def main() -> None:
     """Run the Decision Matrix MCP server"""
     try:
-        print("🔍 [DEBUG] Starting Decision Matrix MCP server...", file=sys.stderr)
-        print("🔍 [DEBUG] Initializing FastMCP...", file=sys.stderr)
+        logger.info("Starting Decision Matrix MCP server...")
+        logger.debug("Initializing FastMCP...")
 
         # Test server creation
-        print(f"🔍 [DEBUG] MCP server created: {mcp}", file=sys.stderr)
-        print("🔍 [DEBUG] Starting MCP server run...", file=sys.stderr)
+        logger.debug(f"MCP server created: {mcp}")
+        logger.info("Starting MCP server run...")
 
         mcp.run()
 
     except KeyboardInterrupt:
-        print("🔍 [DEBUG] Server stopped by user", file=sys.stderr)
+        logger.info("Server stopped by user")
     except (BrokenPipeError, ConnectionResetError):
         # Normal disconnection from client
-        print("🔍 [DEBUG] Client disconnected normally", file=sys.stderr)
+        logger.debug("Client disconnected normally")
     except Exception as e:
         # Check if it's a stdio disconnection wrapped in ExceptionGroup
         error_str = str(e).lower()
         if "brokenresourceerror" in error_str or "broken pipe" in error_str:
-            print("🔍 [DEBUG] Client disconnected (stdio closed)", file=sys.stderr)
+            logger.debug("Client disconnected (stdio closed)")
         else:
-            print(f"❌ [ERROR] Server error: {e}", file=sys.stderr)
+            logger.error(f"Server error: {e}")
             import traceback
 
             traceback.print_exc(file=sys.stderr)
@@ -474,5 +474,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    print("🔍 [DEBUG] Module started as main", file=sys.stderr)
+    logger.debug("Module started as main")
     main()
