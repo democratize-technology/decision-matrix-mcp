@@ -45,7 +45,7 @@ class Criterion:
     def __post_init__(self) -> None:
         """Generate system prompt if not provided"""
         if not self.system_prompt:
-            self.system_prompt = f"""You are evaluating options based on: {self.description}
+            self.system_prompt = f"""You are evaluating options based on the '{self.name}' criterion: {self.description}
 
 SCORING INSTRUCTIONS:
 1. Score each option from 1-10 (10 = excellent, 1 = poor)

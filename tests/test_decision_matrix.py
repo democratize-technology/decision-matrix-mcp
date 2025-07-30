@@ -1,7 +1,7 @@
 """Tests for Decision Matrix MCP"""
 
 import pytest
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
 from decision_matrix_mcp.models import (
@@ -76,7 +76,7 @@ class TestModels:
         """Test DecisionSession functionality"""
         session = DecisionSession(
             session_id="test-123",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             topic="Test decision"
         )
         
