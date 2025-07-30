@@ -33,7 +33,6 @@ class SessionManager:
         self.sessions: dict[str, DecisionSession] = {}
         self.last_cleanup = datetime.now(timezone.utc)
 
-        # Statistics
         self.stats = {
             "sessions_created": 0,
             "sessions_expired": 0,
@@ -43,12 +42,9 @@ class SessionManager:
 
     def create_session(self, topic: str, initial_options: list | None = None) -> DecisionSession:
         """Create a new decision analysis session"""
-        # Cleanup if needed
         self._cleanup_if_needed()
 
-        # Check session limit
         if len(self.sessions) >= self.max_sessions:
-            # Try cleaning up expired sessions
             self._cleanup_expired_sessions()
 
             if len(self.sessions) >= self.max_sessions:
@@ -56,21 +52,17 @@ class SessionManager:
                     f"Session limit reached ({self.max_sessions}). Please try again later."
                 )
 
-        # Create new session
         session_id = str(uuid4())
         session = DecisionSession(
             session_id=session_id, created_at=datetime.now(timezone.utc), topic=topic
         )
 
-        # Add initial options if provided
         if initial_options:
             for option_name in initial_options:
                 session.add_option(option_name)
 
-        # Store session
         self.sessions[session_id] = session
 
-        # Update stats
         self.stats["sessions_created"] += 1
         self.stats["max_concurrent"] = max(self.stats["max_concurrent"], len(self.sessions))
 
@@ -119,7 +111,6 @@ class SessionManager:
             if self._is_session_expired(session):
                 expired_sessions.append(session_id)
 
-        # Remove expired sessions
         for session_id in expired_sessions:
             self._remove_session(session_id)
 
@@ -198,5 +189,4 @@ class SessionValidator:
         return True
 
 
-# Global session manager instance
 session_manager = SessionManager()

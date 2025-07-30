@@ -43,20 +43,17 @@ class DecisionOrchestrator:
         all_tasks = []
         task_metadata = []
 
-        # Create evaluation tasks for each criterion-option pair
         for criterion_name, thread in threads.items():
             for option in options:
                 task = self._evaluate_single_option(thread, option)
                 all_tasks.append(task)
                 task_metadata.append((criterion_name, option.name))
 
-        # Execute all evaluations in parallel
         logger.info(
             f"Starting parallel evaluation of {len(options)} options across {len(threads)} criteria"
         )
         results = await asyncio.gather(*all_tasks, return_exceptions=True)
 
-        # Organize results by criterion and option
         evaluation_results = {}
         for i, result in enumerate(results):
             criterion_name, option_name = task_metadata[i]
@@ -80,7 +77,6 @@ class DecisionOrchestrator:
         Returns:
             (score, justification) where score is None if abstained
         """
-        # Create evaluation prompt
         prompt = f"""Evaluate this option: {option.name}
 
 Option Description: {option.description or "No additional description provided"}
@@ -89,15 +85,12 @@ Remember to follow the scoring format:
 SCORE: [1-10 or NO_RESPONSE if not applicable]
 JUSTIFICATION: [your reasoning]"""
 
-        # Add to thread history
         thread.add_message("user", prompt)
 
-        # Get response with retry logic
         try:
             response = await self._get_thread_response(thread)
             thread.add_message("assistant", response)
 
-            # Parse response
             return self._parse_evaluation_response(response)
 
         except Exception as e:

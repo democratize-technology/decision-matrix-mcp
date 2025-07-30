@@ -33,13 +33,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Initialize MCP server
 mcp = FastMCP("decision-matrix")
 
-# Create shared orchestrator instance
 orchestrator = DecisionOrchestrator()
-
-# MCP Tool Definitions
 
 
 class StartDecisionAnalysisRequest(BaseModel):
@@ -62,7 +58,6 @@ class StartDecisionAnalysisRequest(BaseModel):
 async def start_decision_analysis(request: StartDecisionAnalysisRequest) -> dict[str, Any]:
     """Initialize a new decision analysis session with options and optional criteria"""
 
-    # Validate inputs
     if not SessionValidator.validate_topic(request.topic):
         return {"error": "Invalid topic: must be a non-empty string under 500 characters"}
 
@@ -72,18 +67,15 @@ async def start_decision_analysis(request: StartDecisionAnalysisRequest) -> dict
     if len(request.options) > 20:
         return {"error": "Too many options (max 20). Consider grouping similar options."}
 
-    # Validate option names
     for option_name in request.options:
         if not SessionValidator.validate_option_name(option_name):
             return {"error": f"Invalid option name: '{option_name}' (must be 1-200 characters)"}
 
     try:
-        # Create new session
         session = session_manager.create_session(
             topic=request.topic, initial_options=request.options
         )
 
-        # Add initial criteria if provided
         criteria_added = []
         if request.initial_criteria:
             for criterion_spec in request.initial_criteria:
@@ -395,8 +387,6 @@ async def add_option(request: AddOptionRequest) -> dict[str, Any]:
         return {"error": f"Failed to add option: {str(e)}"}
 
 
-# Session management tools
-
 
 @mcp.tool(description="List all active decision analysis sessions")
 async def list_sessions() -> dict[str, Any]:
@@ -450,7 +440,6 @@ async def clear_all_sessions() -> dict[str, Any]:
         return {"error": f"Failed to clear sessions: {str(e)}"}
 
 
-# Main entry point
 def main() -> None:
     """Run the Decision Matrix MCP server"""
     try:
