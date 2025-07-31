@@ -60,6 +60,25 @@ class StartDecisionAnalysisRequest(BaseModel):
     model_name: str | None = Field(default=None, description="Specific model to use")
 
 
+def get_session_or_error(session_id: str) -> tuple[DecisionSession | None, dict[str, Any] | None]:
+    """
+    Get session or return error dict for consistent session validation.
+    
+    Returns:
+        Tuple of (session, None) if successful, or (None, error_dict) if failed
+    """
+    # Validate session ID format first
+    if not SessionValidator.validate_session_id(session_id):
+        return None, {"error": "Invalid session ID format"}
+    
+    # Get session from manager
+    session = session_manager.get_session(session_id)
+    if not session:
+        return None, {"error": f"Session {session_id} not found or expired"}
+    
+    return session, None
+
+
 @mcp.tool(
     description="When facing multiple options and need structured evaluation - create a decision matrix to systematically compare choices across weighted criteria"
 )
@@ -174,9 +193,9 @@ async def add_criterion(request: AddCriterionRequest) -> dict[str, Any]:
         return {"error": "Invalid weight: must be between 0.1 and 10.0"}
 
     # Get session
-    session = session_manager.get_session(request.session_id)
-    if not session:
-        return {"error": f"Session {request.session_id} not found or expired"}
+    session, error = get_session_or_error(request.session_id)
+    if error:
+        return error
 
     # Check if criterion already exists
     if request.name in session.criteria:
@@ -237,9 +256,9 @@ async def evaluate_options(request: EvaluateOptionsRequest) -> dict[str, Any]:
         return {"error": "Invalid session ID"}
 
     # Get session
-    session = session_manager.get_session(request.session_id)
-    if not session:
-        return {"error": f"Session {request.session_id} not found or expired"}
+    session, error = get_session_or_error(request.session_id)
+    if error:
+        return error
 
     # Check prerequisites
     if not session.options:
@@ -332,9 +351,9 @@ async def get_decision_matrix(request: GetDecisionMatrixRequest) -> dict[str, An
         return {"error": "Invalid session ID"}
 
     # Get session
-    session = session_manager.get_session(request.session_id)
-    if not session:
-        return {"error": f"Session {request.session_id} not found or expired"}
+    session, error = get_session_or_error(request.session_id)
+    if error:
+        return error
 
     try:
         # Generate decision matrix
@@ -384,9 +403,9 @@ async def add_option(request: AddOptionRequest) -> dict[str, Any]:
         return {"error": "Invalid option name: must be 1-200 characters"}
 
     # Get session
-    session = session_manager.get_session(request.session_id)
-    if not session:
-        return {"error": f"Session {request.session_id} not found or expired"}
+    session, error = get_session_or_error(request.session_id)
+    if error:
+        return error
 
     # Check if option already exists
     if request.option_name in session.options:
