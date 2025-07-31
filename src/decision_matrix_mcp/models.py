@@ -80,8 +80,10 @@ class Option:
         for criterion_name, score in self.scores.items():
             if not score.abstained and criterion_name in criteria:
                 criterion = criteria[criterion_name]
-                total += score.score * criterion.weight
-                total_weight += criterion.weight
+                # Type safety: Check score.score is not None before multiplication
+                if score.score is not None:
+                    total += score.score * criterion.weight
+                    total_weight += criterion.weight
 
         return total / total_weight if total_weight > 0 else 0.0
 
@@ -96,7 +98,7 @@ class Option:
                         "criterion": criterion_name,
                         "weight": criterion.weight,
                         "raw_score": score.score,
-                        "weighted_score": score.score * criterion.weight if score.score else None,
+                        "weighted_score": score.score * criterion.weight if score.score is not None else None,
                         "justification": score.justification,
                         "abstained": score.abstained,
                     }
@@ -150,17 +152,25 @@ class DecisionSession:
             return {"error": "Need both options and criteria to generate matrix"}
 
         # Calculate scores matrix
-        matrix = {}
+        matrix: dict[str, dict[str, dict[str, Any]]] = {}
         for option_name, option in self.options.items():
             matrix[option_name] = {}
             for criterion_name in self.criteria.keys():
                 score = option.scores.get(criterion_name)
                 if score and not score.abstained:
-                    matrix[option_name][criterion_name] = {
-                        "raw_score": score.score,
-                        "weighted_score": score.score * self.criteria[criterion_name].weight,
-                        "justification": score.justification,
-                    }
+                    # Type safety: Check score.score is not None before multiplication
+                    if score.score is not None:
+                        matrix[option_name][criterion_name] = {
+                            "raw_score": score.score,
+                            "weighted_score": score.score * self.criteria[criterion_name].weight,
+                            "justification": score.justification,
+                        }
+                    else:
+                        matrix[option_name][criterion_name] = {
+                            "raw_score": None,
+                            "weighted_score": None,
+                            "justification": "Score not available",
+                        }
                 else:
                     matrix[option_name][criterion_name] = {
                         "raw_score": None,
@@ -169,7 +179,7 @@ class DecisionSession:
                     }
 
         # Calculate totals and rankings
-        rankings = []
+        rankings: list[dict[str, Any]] = []
         for option_name, option in self.options.items():
             weighted_total = option.get_weighted_total(self.criteria)
             rankings.append(

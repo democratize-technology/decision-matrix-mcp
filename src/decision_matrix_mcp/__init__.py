@@ -33,7 +33,28 @@ from .orchestrator import DecisionOrchestrator
 from .session_manager import SessionManager, SessionValidator
 from .validation_decorators import validate_criteria_spec, validate_request
 
-__all__ = ["main", "mcp", "create_server_components"]
+__all__ = [
+    "main",
+    "mcp",
+    "create_server_components",
+    "ServerComponents",
+    "get_session_or_error",
+    "get_server_components",
+    # Request models
+    "StartDecisionAnalysisRequest",
+    "AddCriterionRequest",
+    "EvaluateOptionsRequest",
+    "GetDecisionMatrixRequest",
+    "AddOptionRequest",
+    # Tool functions
+    "start_decision_analysis",
+    "add_criterion",
+    "evaluate_options",
+    "get_decision_matrix",
+    "add_option",
+    "list_sessions",
+    "clear_all_sessions",
+]
 
 # Configure logging to stderr only - NEVER stdout in MCP servers
 logging.basicConfig(
@@ -43,38 +64,53 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+class ServerComponents:
+    """Container for server dependencies with proper lifecycle management."""
+
+    def __init__(self, orchestrator: DecisionOrchestrator | None = None,
+                 session_manager: SessionManager | None = None):
+        """Initialize server components.
+
+        Args:
+            orchestrator: Decision orchestrator instance
+            session_manager: Session manager instance
+        """
+        self.orchestrator = orchestrator or DecisionOrchestrator()
+        self.session_manager = session_manager or SessionManager()
+
+    def cleanup(self) -> None:
+        """Clean up server resources."""
+        # Clear all sessions to prevent memory leaks
+        self.session_manager.clear_all_sessions()
+
+
+def create_server_components() -> ServerComponents:
+    """Create server components for dependency injection.
+
+    Returns:
+        ServerComponents: Container with orchestrator and session_manager
+    """
+    return ServerComponents()
+
+
+# Create FastMCP instance with component factory
 mcp = FastMCP("decision-matrix")
 
-# Server components - created per server instance
-_orchestrator = None
-_session_manager = None
+# Server components - injected per request context
+_server_components: ServerComponents | None = None
 
 
-def create_server_components():
-    """Create server components for dependency injection.
-    
+def get_server_components() -> ServerComponents:
+    """Get or create server components.
+
     Returns:
-        tuple: (orchestrator, session_manager) instances
+        ServerComponents: Server component container
     """
-    orchestrator = DecisionOrchestrator()
-    session_manager = SessionManager()
-    return orchestrator, session_manager
-
-
-def get_orchestrator():
-    """Get the orchestrator instance, creating if needed."""
-    global _orchestrator
-    if _orchestrator is None:
-        _orchestrator = DecisionOrchestrator()
-    return _orchestrator
-
-
-def get_session_manager():
-    """Get the session manager instance, creating if needed."""
-    global _session_manager
-    if _session_manager is None:
-        _session_manager = SessionManager()
-    return _session_manager
+    global _server_components
+    if _server_components is None:
+        _server_components = create_server_components()
+    return _server_components
 
 
 class StartDecisionAnalysisRequest(BaseModel):
@@ -91,9 +127,13 @@ class StartDecisionAnalysisRequest(BaseModel):
     model_name: str | None = Field(default=None, description="Specific model to use")
 
 
-def get_session_or_error(session_id: str) -> tuple[DecisionSession | None, dict[str, Any] | None]:
+def get_session_or_error(session_id: str, components: ServerComponents) -> tuple[DecisionSession | None, dict[str, Any] | None]:
     """
     Get session or return error dict for consistent session validation.
+
+    Args:
+        session_id: ID of the session to retrieve
+        components: Server components container
 
     Returns:
         Tuple of (session, None) if successful, or (None, error_dict) if failed
@@ -103,7 +143,7 @@ def get_session_or_error(session_id: str) -> tuple[DecisionSession | None, dict[
         return None, {"error": "Invalid session ID format"}
 
     # Get session from manager
-    session = get_session_manager().get_session(session_id)
+    session = components.session_manager.get_session(session_id)
     if not session:
         return None, {"error": f"Session {session_id} not found or expired"}
 
@@ -120,8 +160,10 @@ def get_session_or_error(session_id: str) -> tuple[DecisionSession | None, dict[
 async def start_decision_analysis(request: StartDecisionAnalysisRequest) -> dict[str, Any]:
     """Initialize a new decision analysis session with options and optional criteria"""
 
+    components = get_server_components()
+
     try:
-        session = get_session_manager().create_session(
+        session = components.session_manager.create_session(
             topic=request.topic, initial_options=request.options
         )
 
@@ -204,10 +246,15 @@ class AddCriterionRequest(BaseModel):
 async def add_criterion(request: AddCriterionRequest) -> dict[str, Any]:
     """Add a new evaluation criterion to an existing decision session"""
 
+    components = get_server_components()
+
     # Get session
-    session, error = get_session_or_error(request.session_id)
+    session, error = get_session_or_error(request.session_id, components)
     if error:
         return error
+
+    # Session validation guard
+    assert session is not None, "Session should not be None after successful get_session_or_error"
 
     # Check if criterion already exists
     if request.name in session.criteria:
@@ -264,10 +311,15 @@ class EvaluateOptionsRequest(BaseModel):
 async def evaluate_options(request: EvaluateOptionsRequest) -> dict[str, Any]:
     """Evaluate all options across all criteria using parallel thread orchestration"""
 
+    components = get_server_components()
+
     # Get session
-    session, error = get_session_or_error(request.session_id)
+    session, error = get_session_or_error(request.session_id, components)
     if error:
         return error
+
+    # Session validation guard
+    assert session is not None, "Session should not be None after successful get_session_or_error"
 
     # Check prerequisites
     if not session.options:
@@ -282,7 +334,7 @@ async def evaluate_options(request: EvaluateOptionsRequest) -> dict[str, Any]:
         )
 
         # Run parallel evaluation using orchestrator
-        evaluation_results = await get_orchestrator().evaluate_options_across_criteria(
+        evaluation_results = await components.orchestrator.evaluate_options_across_criteria(
             session.threads, list(session.options.values())
         )
 
@@ -356,10 +408,15 @@ class GetDecisionMatrixRequest(BaseModel):
 async def get_decision_matrix(request: GetDecisionMatrixRequest) -> dict[str, Any]:
     """Get the complete decision matrix with scores, rankings, and recommendations"""
 
+    components = get_server_components()
+
     # Get session
-    session, error = get_session_or_error(request.session_id)
+    session, error = get_session_or_error(request.session_id, components)
     if error:
         return error
+
+    # Session validation guard
+    assert session is not None, "Session should not be None after successful get_session_or_error"
 
     try:
         # Generate decision matrix
@@ -405,10 +462,15 @@ class AddOptionRequest(BaseModel):
 async def add_option(request: AddOptionRequest) -> dict[str, Any]:
     """Add a new option to an existing decision analysis"""
 
+    components = get_server_components()
+
     # Get session
-    session, error = get_session_or_error(request.session_id)
+    session, error = get_session_or_error(request.session_id, components)
     if error:
         return error
+
+    # Session validation guard
+    assert session is not None, "Session should not be None after successful get_session_or_error"
 
     # Check if option already exists
     if request.option_name in session.options:
@@ -436,8 +498,10 @@ async def add_option(request: AddOptionRequest) -> dict[str, Any]:
 @mcp.tool(description="List all active decision analysis sessions")
 async def list_sessions() -> dict[str, Any]:
     """List all active decision analysis sessions"""
+    components = get_server_components()
+
     try:
-        active_sessions = get_session_manager().list_active_sessions()
+        active_sessions = components.session_manager.list_active_sessions()
 
         session_list = []
         for sid, session in active_sessions.items():
@@ -454,7 +518,7 @@ async def list_sessions() -> dict[str, Any]:
             )
 
         # Get session manager stats
-        stats = get_session_manager().get_stats()
+        stats = components.session_manager.get_stats()
 
         return {"sessions": session_list, "total_active": len(active_sessions), "stats": stats}
 
@@ -466,18 +530,20 @@ async def list_sessions() -> dict[str, Any]:
 @mcp.tool(description="Clear all active decision analysis sessions")
 async def clear_all_sessions() -> dict[str, Any]:
     """Clear all active sessions from the session manager"""
+    components = get_server_components()
+
     try:
-        active_sessions = get_session_manager().list_active_sessions()
+        active_sessions = components.session_manager.list_active_sessions()
         cleared_count = 0
 
         for session_id in list(active_sessions.keys()):
-            if get_session_manager().remove_session(session_id):
+            if components.session_manager.remove_session(session_id):
                 cleared_count += 1
 
         return {
             "cleared": cleared_count,
             "message": f"Cleared {cleared_count} active sessions",
-            "stats": get_session_manager().get_stats(),
+            "stats": components.session_manager.get_stats(),
         }
 
     except Exception as e:

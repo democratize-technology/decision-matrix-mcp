@@ -3,7 +3,7 @@ Validation decorators for request validation with consistent error handling.
 Eliminates duplication of validation patterns across MCP tool functions.
 """
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from functools import wraps
 from typing import Any
 
@@ -34,7 +34,7 @@ def get_error_message(field: str, value: Any = None) -> str:
     return base_message
 
 
-def validate_request(**validators: Callable[[Any], bool]):
+def validate_request(**validators: Callable[[Any], bool]) -> Callable[[Any], Any]:
     """
     Decorator for request validation with consistent error handling.
 
@@ -50,9 +50,9 @@ def validate_request(**validators: Callable[[Any], bool]):
             # Function body with validation already handled
     """
 
-    def decorator(func):
+    def decorator(func: Callable[..., Awaitable[dict[str, Any]]]) -> Callable[..., Awaitable[dict[str, Any]]]:
         @wraps(func)
-        async def wrapper(request, *args, **kwargs):
+        async def wrapper(request: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
             # Validate each field
             for field, validator in validators.items():
                 value = getattr(request, field, None)

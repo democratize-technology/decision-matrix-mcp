@@ -17,6 +17,7 @@ from decision_matrix_mcp import (
     evaluate_options,
     get_decision_matrix,
     get_session_or_error,
+    get_server_components,
     list_sessions,
     start_decision_analysis,
 )
@@ -25,7 +26,15 @@ from decision_matrix_mcp.models import Criterion, ModelBackend, Score
 
 
 # Create server components for testing
-orchestrator, session_manager = create_server_components()
+server_components = create_server_components()
+orchestrator = server_components.orchestrator
+session_manager = server_components.session_manager
+
+
+@pytest.fixture(autouse=True)
+def patch_server_components(monkeypatch):
+    """Automatically patch get_server_components to return our test components"""
+    monkeypatch.setattr("decision_matrix_mcp.get_server_components", lambda: server_components)
 
 
 class TestSessionHelpers:
@@ -34,14 +43,14 @@ class TestSessionHelpers:
     def test_get_session_or_error_invalid_id(self):
         """Test get_session_or_error with invalid session ID"""
         # Use empty string which is invalid
-        session, error = get_session_or_error("")
+        session, error = get_session_or_error("", server_components)
         assert session is None
         assert error == {"error": "Invalid session ID format"}
 
     def test_get_session_or_error_not_found(self):
         """Test get_session_or_error with non-existent session"""
         valid_uuid = "12345678-1234-5678-1234-567812345678"
-        session, error = get_session_or_error(valid_uuid)
+        session, error = get_session_or_error(valid_uuid, server_components)
         assert session is None
         assert error == {"error": f"Session {valid_uuid} not found or expired"}
 
@@ -51,7 +60,7 @@ class TestSessionHelpers:
         test_session = session_manager.create_session("Test topic", ["Option 1", "Option 2"])
 
         # Get it back
-        session, error = get_session_or_error(test_session.session_id)
+        session, error = get_session_or_error(test_session.session_id, server_components)
         assert session is not None
         assert error is None
         assert session.topic == "Test topic"

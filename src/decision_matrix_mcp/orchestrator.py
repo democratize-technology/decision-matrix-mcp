@@ -80,7 +80,7 @@ class DecisionOrchestrator:
         )
         results = await asyncio.gather(*all_tasks, return_exceptions=True)
 
-        evaluation_results = {}
+        evaluation_results: dict[str, dict[str, tuple[float | None, str]]] = {}
         for i, result in enumerate(results):
             criterion_name, option_name = task_metadata[i]
 
@@ -90,8 +90,11 @@ class DecisionOrchestrator:
             if isinstance(result, Exception):
                 logger.error(f"Error evaluating {option_name} for {criterion_name}: {result}")
                 evaluation_results[criterion_name][option_name] = (None, f"Error: {str(result)}")
-            else:
+            elif isinstance(result, tuple):
                 evaluation_results[criterion_name][option_name] = result
+            else:
+                logger.error(f"Unexpected result type for {option_name}/{criterion_name}: {type(result)}")
+                evaluation_results[criterion_name][option_name] = (None, "Error: Unexpected result type")
 
         return evaluation_results
 

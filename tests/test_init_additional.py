@@ -18,19 +18,16 @@ class TestInitAdditionalCoverage:
     @pytest.mark.asyncio
     async def test_add_criterion_validation_error_path(self):
         """Test lines 218-219: ValidationError in add_criterion"""
-        from decision_matrix_mcp import session_manager
+        from decision_matrix_mcp import get_server_components
         from decision_matrix_mcp import AddCriterionRequest
         
+        # Get session manager from server components
+        components = get_server_components()
+        session_manager = components.session_manager
+        
         # Create a valid session first
-        session_id = str(uuid4())
-        session = DecisionSession(
-            session_id=session_id,
-            topic="Test Topic",
-            options={"A": Option(name="A"), "B": Option(name="B")},
-            criteria={},
-            created_at=datetime.now(timezone.utc)
-        )
-        session_manager.create_session(session)
+        session = session_manager.create_session("Test Topic", ["A", "B"])
+        session_id = session.session_id
         
         # Create request with invalid weight
         request = AddCriterionRequest(
@@ -46,6 +43,9 @@ class TestInitAdditionalCoverage:
         assert "error" in result
         assert "Invalid weight" in result["error"]
         assert "0.1" in result["error"] and "10" in result["error"]
+        
+        # Cleanup
+        session_manager.remove_session(session_id)
     
     def test_main_module_execution_coverage(self):
         """Test lines 490-491: Module execution as __main__"""

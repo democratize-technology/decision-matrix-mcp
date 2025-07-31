@@ -42,7 +42,7 @@ class SessionManager:
             "max_concurrent": 0,
         }
 
-    def create_session(self, topic: str, initial_options: list | None = None) -> DecisionSession:
+    def create_session(self, topic: str, initial_options: list[str] | None = None) -> DecisionSession:
         """Create a new decision analysis session"""
         self._cleanup_if_needed()
 
@@ -91,6 +91,13 @@ class SessionManager:
         """List all active (non-expired) sessions"""
         self._cleanup_if_needed()
         return self.sessions.copy()
+
+    def clear_all_sessions(self) -> None:
+        """Clear all sessions from the manager"""
+        self.sessions.clear()
+        self.stats["total_sessions"] = 0
+        self.stats["total_expired"] = 0
+        self.stats["total_removed"] = 0
 
     def get_stats(self) -> dict[str, Any]:
         """Get session manager statistics"""
