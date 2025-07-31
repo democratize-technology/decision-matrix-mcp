@@ -296,10 +296,10 @@ async def evaluate_options(request: EvaluateOptionsRequest) -> dict[str, Any]:
                 if option_name in session.options:
                     session.options[option_name].add_score(score_obj)
 
-                    if score is None:
-                        abstentions += 1
-                    elif "Error:" in justification:
+                    if "Error:" in justification:
                         errors.append(f"{criterion_name}→{option_name}: {justification}")
+                    elif score is None:
+                        abstentions += 1
                     else:
                         total_scores += 1
 
