@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import uuid4
 
+from .constants import ValidationLimits
 from .exceptions import ResourceLimitError
 from .models import DecisionSession
 
@@ -143,7 +144,7 @@ class SessionValidator:
         """Validate session ID format"""
         if not session_id or not isinstance(session_id, str):
             return False
-        if len(session_id) > 100:  # Reasonable limit
+        if len(session_id) > ValidationLimits.MAX_SESSION_ID_LENGTH:
             return False
         return True
 
@@ -152,7 +153,7 @@ class SessionValidator:
         """Validate topic string"""
         if not topic or not isinstance(topic, str):
             return False
-        if len(topic.strip()) == 0 or len(topic) > 500:  # Reasonable limits
+        if len(topic.strip()) == 0 or len(topic) > ValidationLimits.MAX_TOPIC_LENGTH:
             return False
         return True
 
@@ -161,7 +162,7 @@ class SessionValidator:
         """Validate option name"""
         if not option_name or not isinstance(option_name, str):
             return False
-        if len(option_name.strip()) == 0 or len(option_name) > 200:
+        if len(option_name.strip()) == 0 or len(option_name) > ValidationLimits.MAX_OPTION_NAME_LENGTH:
             return False
         return True
 
@@ -170,7 +171,7 @@ class SessionValidator:
         """Validate criterion name"""
         if not criterion_name or not isinstance(criterion_name, str):
             return False
-        if len(criterion_name.strip()) == 0 or len(criterion_name) > 100:
+        if len(criterion_name.strip()) == 0 or len(criterion_name) > ValidationLimits.MAX_CRITERION_NAME_LENGTH:
             return False
         return True
 
@@ -179,14 +180,14 @@ class SessionValidator:
         """Validate criterion weight"""
         if not isinstance(weight, int | float):
             return False
-        return 0.1 <= weight <= 10.0  # Reasonable weight range
+        return ValidationLimits.MIN_CRITERION_WEIGHT <= weight <= ValidationLimits.MAX_CRITERION_WEIGHT
 
     @staticmethod
     def validate_description(description: str) -> bool:
         """Validate description text"""
         if not description or not isinstance(description, str):
             return False
-        if len(description.strip()) == 0 or len(description) > 1000:
+        if len(description.strip()) == 0 or len(description) > ValidationLimits.MAX_DESCRIPTION_LENGTH:
             return False
         return True
 
