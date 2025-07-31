@@ -111,47 +111,123 @@ JUSTIFICATION: [your reasoning]"""
             return (None, "Evaluation failed due to an unexpected error")
 
     def _parse_evaluation_response(self, response: str) -> tuple[float | None, str]:
-        """Parse the structured evaluation response
+        """Parse the structured evaluation response with multiple fallback patterns
 
         Expected format:
         SCORE: [number or NO_RESPONSE]
         JUSTIFICATION: [text]
+
+        Fallback patterns:
+        - Score: X/10
+        - Rating: X
+        - [NO_RESPONSE] anywhere in response
         """
         try:
-            # Extract score
-            score_match = re.search(r"SCORE:\s*([^\n]+)", response, re.IGNORECASE)
-            if not score_match:
-                return (None, f"Could not parse score from response: {response[:200]}...")
+            # Normalize response for consistent parsing
+            normalized_response = response.strip()
 
-            score_text = score_match.group(1).strip()
+            # Check for abstention patterns first
+            abstention_patterns = [
+                NO_RESPONSE,
+                "NO_RESPONSE",
+                "not applicable",
+                "cannot evaluate",
+                "unable to score",
+                "abstain",
+            ]
 
-            # Check for abstention
-            if NO_RESPONSE in score_text.upper() or "NO_RESPONSE" in score_text:
-                score = None
-            else:
-                # Try to extract numeric score
-                score_num_match = re.search(r"(\d+(?:\.\d+)?)", score_text)
-                if score_num_match:
-                    score = float(score_num_match.group(1))
-                    # Clamp to 1-10 range
-                    score = max(1.0, min(10.0, score))
-                else:
-                    score = None
+            if any(
+                pattern.lower() in normalized_response.lower() for pattern in abstention_patterns
+            ):
+                # Extract justification even for abstentions
+                justification = self._extract_justification(normalized_response)
+                return (None, justification)
+
+            # Extract score with multiple patterns
+            score = self._extract_score(normalized_response)
 
             # Extract justification
-            justification_match = re.search(
-                r"JUSTIFICATION:\s*(.+)", response, re.IGNORECASE | re.DOTALL
-            )
-            if justification_match:
-                justification = justification_match.group(1).strip()
-            else:
-                justification = "No justification provided"
+            justification = self._extract_justification(normalized_response)
+
+            # Validate that we have at least a score or justification
+            if score is None and justification == "No justification provided":
+                logger.warning(
+                    f"Could not parse meaningful content from response: {response[:200]}..."
+                )
+                return (None, "Could not parse evaluation from response")
 
             return (score, justification)
 
         except Exception as e:
             logger.error(f"Error parsing evaluation response: {e}")
-            return (None, f"Parse error: {str(e)}")
+            # Return partial parse if possible
+            try:
+                justification = self._extract_justification(response)
+                return (None, justification)
+            except Exception:
+                return (None, "Parse error: Unable to extract evaluation")
+
+    def _extract_score(self, response: str) -> float | None:
+        """Extract numeric score using multiple patterns"""
+        # Pattern 1: SCORE: X
+        score_patterns = [
+            (r"SCORE:\s*([0-9]+(?:\.[0-9]+)?)", 1),
+            (r"SCORE:\s*([0-9]+)/10", 1),
+            (r"SCORE:.*?([0-9]+(?:\.[0-9]+)?)", 1),  # SCORE: with text before number
+            (r"Rating:\s*([0-9]+(?:\.[0-9]+)?)", 1),
+            (r"([0-9]+(?:\.[0-9]+)?)/10", 1),
+            (r"Score\s*=\s*([0-9]+(?:\.[0-9]+)?)", 1),
+            (r"score\s+is\s+([0-9]+(?:\.[0-9]+)?)", 1),  # "score is X"
+            (r"rate\s+this\s+([0-9]+(?:\.[0-9]+)?)", 1),  # "rate this X"
+            (r"^([0-9]+(?:\.[0-9]+)?)\s*$", 1),  # Just a number
+        ]
+
+        for pattern, group in score_patterns:
+            match = re.search(pattern, response, re.IGNORECASE | re.MULTILINE)
+            if match:
+                try:
+                    score = float(match.group(group))
+                    # Clamp to 1-10 range
+                    return max(1.0, min(10.0, score))
+                except (ValueError, IndexError):
+                    continue
+
+        return None
+
+    def _extract_justification(self, response: str) -> str:
+        """Extract justification using multiple patterns"""
+        # Pattern 1: JUSTIFICATION: text
+        patterns = [
+            r"JUSTIFICATION:\s*(.+)",
+            r"Justification:\s*(.+)",
+            r"Reasoning:\s*(.+)",
+            r"Explanation:\s*(.+)",
+            r"Because\s+(.+)",
+            r"Rationale:\s*(.+)",
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, response, re.IGNORECASE | re.DOTALL)
+            if match:
+                justification = match.group(1).strip()
+                # Clean up common endings
+                justification = re.sub(
+                    r"\s*(SCORE:|Rating:|Score\s*=)", "", justification, flags=re.IGNORECASE
+                )
+                return justification.strip()
+
+        # Fallback: If response has multiple lines, take everything after first line
+        lines = response.strip().split("\n")
+        if len(lines) > 1:
+            # Skip first line if it contains score
+            if re.search(r"(score|rating|^\d+)", lines[0], re.IGNORECASE):
+                return "\n".join(lines[1:]).strip()
+
+        # Last fallback: Return trimmed response if it's descriptive
+        if len(response.strip()) > 20 and not re.match(r"^\d+(\.\d+)?$", response.strip()):
+            return response.strip()[:500]  # Cap length
+
+        return "No justification provided"
 
     async def _get_thread_response(self, thread: CriterionThread) -> str:
         """Get response from a single thread with retry logic"""

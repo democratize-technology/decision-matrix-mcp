@@ -22,7 +22,7 @@ class TestRemainingCoverage:
 
         # Should handle the exception and return error
         assert score is None
-        assert "Could not parse score" in justification
+        assert "Could not parse evaluation from response" in justification
 
     def test_init_validation_error_logging(self):
         """Test validation error message formatting"""

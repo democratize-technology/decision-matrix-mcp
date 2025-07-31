@@ -116,7 +116,7 @@ JUSTIFICATION: This criterion doesn't apply to this option."""
 
         score, justification = orchestrator._parse_evaluation_response(response)
         assert score is None
-        assert "Could not parse score" in justification
+        assert justification == "This is a good option."
 
     def test_parse_evaluation_response_missing_justification(self, orchestrator):
         """Test parsing response with missing justification"""
@@ -527,11 +527,12 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
         # Empty response
         score, justification = orchestrator._parse_evaluation_response("")
         assert score is None
-        assert "Could not parse score" in justification
+        assert "Could not parse evaluation from response" in justification
 
         # Only whitespace
         score, justification = orchestrator._parse_evaluation_response("   \n   \t   ")
         assert score is None
+        assert "Could not parse evaluation from response" in justification
 
         # Score with extra text
         response = "SCORE: I think 8 would be fair\nJUSTIFICATION: Good option"
