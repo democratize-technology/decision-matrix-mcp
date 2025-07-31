@@ -162,7 +162,10 @@ class SessionValidator:
         """Validate option name"""
         if not option_name or not isinstance(option_name, str):
             return False
-        if len(option_name.strip()) == 0 or len(option_name) > ValidationLimits.MAX_OPTION_NAME_LENGTH:
+        if (
+            len(option_name.strip()) == 0
+            or len(option_name) > ValidationLimits.MAX_OPTION_NAME_LENGTH
+        ):
             return False
         return True
 
@@ -171,7 +174,10 @@ class SessionValidator:
         """Validate criterion name"""
         if not criterion_name or not isinstance(criterion_name, str):
             return False
-        if len(criterion_name.strip()) == 0 or len(criterion_name) > ValidationLimits.MAX_CRITERION_NAME_LENGTH:
+        if (
+            len(criterion_name.strip()) == 0
+            or len(criterion_name) > ValidationLimits.MAX_CRITERION_NAME_LENGTH
+        ):
             return False
         return True
 
@@ -180,14 +186,19 @@ class SessionValidator:
         """Validate criterion weight"""
         if not isinstance(weight, int | float):
             return False
-        return ValidationLimits.MIN_CRITERION_WEIGHT <= weight <= ValidationLimits.MAX_CRITERION_WEIGHT
+        return (
+            ValidationLimits.MIN_CRITERION_WEIGHT <= weight <= ValidationLimits.MAX_CRITERION_WEIGHT
+        )
 
     @staticmethod
     def validate_description(description: str) -> bool:
         """Validate description text"""
         if not description or not isinstance(description, str):
             return False
-        if len(description.strip()) == 0 or len(description) > ValidationLimits.MAX_DESCRIPTION_LENGTH:
+        if (
+            len(description.strip()) == 0
+            or len(description) > ValidationLimits.MAX_DESCRIPTION_LENGTH
+        ):
             return False
         return True
 

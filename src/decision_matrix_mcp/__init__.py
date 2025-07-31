@@ -87,17 +87,23 @@ async def start_decision_analysis(request: StartDecisionAnalysisRequest) -> dict
     """Initialize a new decision analysis session with options and optional criteria"""
 
     if not SessionValidator.validate_topic(request.topic):
-        return {"error": f"Invalid topic: must be a non-empty string under {ValidationLimits.MAX_TOPIC_LENGTH} characters"}
+        return {
+            "error": f"Invalid topic: must be a non-empty string under {ValidationLimits.MAX_TOPIC_LENGTH} characters"
+        }
 
     if not request.options or len(request.options) < ValidationLimits.MIN_OPTIONS_REQUIRED:
         return {"error": "Need at least 2 options to create a meaningful decision matrix"}
 
     if len(request.options) > ValidationLimits.MAX_OPTIONS_ALLOWED:
-        return {"error": f"Too many options (max {ValidationLimits.MAX_OPTIONS_ALLOWED}). Consider grouping similar options."}
+        return {
+            "error": f"Too many options (max {ValidationLimits.MAX_OPTIONS_ALLOWED}). Consider grouping similar options."
+        }
 
     for option_name in request.options:
         if not SessionValidator.validate_option_name(option_name):
-            return {"error": f"Invalid option name: '{option_name}' (must be 1-{ValidationLimits.MAX_OPTION_NAME_LENGTH} characters)"}
+            return {
+                "error": f"Invalid option name: '{option_name}' (must be 1-{ValidationLimits.MAX_OPTION_NAME_LENGTH} characters)"
+            }
 
     try:
         session = session_manager.create_session(
@@ -118,7 +124,9 @@ async def start_decision_analysis(request: StartDecisionAnalysisRequest) -> dict
                     return {"error": f"Invalid criterion description for '{name}'"}
 
                 if not SessionValidator.validate_weight(weight):
-                    return {"error": f"Invalid weight for '{name}': must be {ValidationLimits.MIN_CRITERION_WEIGHT}-{ValidationLimits.MAX_CRITERION_WEIGHT}"}
+                    return {
+                        "error": f"Invalid weight for '{name}': must be {ValidationLimits.MIN_CRITERION_WEIGHT}-{ValidationLimits.MAX_CRITERION_WEIGHT}"
+                    }
 
                 criterion = Criterion(
                     name=name,
@@ -185,13 +193,19 @@ async def add_criterion(request: AddCriterionRequest) -> dict[str, Any]:
         return {"error": "Invalid session ID"}
 
     if not SessionValidator.validate_criterion_name(request.name):
-        return {"error": f"Invalid criterion name: must be 1-{ValidationLimits.MAX_CRITERION_NAME_LENGTH} characters"}
+        return {
+            "error": f"Invalid criterion name: must be 1-{ValidationLimits.MAX_CRITERION_NAME_LENGTH} characters"
+        }
 
     if not SessionValidator.validate_description(request.description):
-        return {"error": f"Invalid description: must be 1-{ValidationLimits.MAX_DESCRIPTION_LENGTH} characters"}
+        return {
+            "error": f"Invalid description: must be 1-{ValidationLimits.MAX_DESCRIPTION_LENGTH} characters"
+        }
 
     if not SessionValidator.validate_weight(request.weight):
-        return {"error": f"Invalid weight: must be between {ValidationLimits.MIN_CRITERION_WEIGHT} and {ValidationLimits.MAX_CRITERION_WEIGHT}"}
+        return {
+            "error": f"Invalid weight: must be between {ValidationLimits.MIN_CRITERION_WEIGHT} and {ValidationLimits.MAX_CRITERION_WEIGHT}"
+        }
 
     # Get session
     session, error = get_session_or_error(request.session_id)
@@ -401,7 +415,9 @@ async def add_option(request: AddOptionRequest) -> dict[str, Any]:
         return {"error": "Invalid session ID"}
 
     if not SessionValidator.validate_option_name(request.option_name):
-        return {"error": f"Invalid option name: must be 1-{ValidationLimits.MAX_OPTION_NAME_LENGTH} characters"}
+        return {
+            "error": f"Invalid option name: must be 1-{ValidationLimits.MAX_OPTION_NAME_LENGTH} characters"
+        }
 
     # Get session
     session, error = get_session_or_error(request.session_id)
