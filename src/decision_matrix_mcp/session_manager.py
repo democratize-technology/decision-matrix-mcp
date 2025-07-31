@@ -51,7 +51,7 @@ class SessionManager:
             if len(self.sessions) >= self.max_sessions:
                 raise ResourceLimitError(
                     f"Session limit of {self.max_sessions} exceeded",
-                    f"Maximum number of active sessions ({self.max_sessions}) reached. Please try again later."
+                    f"Maximum number of active sessions ({self.max_sessions}) reached. Please try again later.",
                 )
 
         session_id = str(uuid4())
@@ -177,7 +177,7 @@ class SessionValidator:
     @staticmethod
     def validate_weight(weight: float) -> bool:
         """Validate criterion weight"""
-        if not isinstance(weight, (int, float)):
+        if not isinstance(weight, int | float):
             return False
         return 0.1 <= weight <= 10.0  # Reasonable weight range
 

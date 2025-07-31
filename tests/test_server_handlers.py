@@ -391,7 +391,8 @@ class TestEvaluateOptions:
         }
 
         with patch.object(
-            orchestrator, "evaluate_options_across_criteria",
+            orchestrator,
+            "evaluate_options_across_criteria",
             return_value=mock_results,
         ):
             request = EvaluateOptionsRequest(session_id=test_session_with_criteria.session_id)
@@ -419,7 +420,8 @@ class TestEvaluateOptions:
         }
 
         with patch.object(
-            orchestrator, "evaluate_options_across_criteria",
+            orchestrator,
+            "evaluate_options_across_criteria",
             return_value=mock_results,
         ):
             request = EvaluateOptionsRequest(session_id=test_session_with_criteria.session_id)
@@ -443,7 +445,8 @@ class TestEvaluateOptions:
         }
 
         with patch.object(
-            orchestrator, "evaluate_options_across_criteria",
+            orchestrator,
+            "evaluate_options_across_criteria",
             return_value=mock_results,
         ):
             request = EvaluateOptionsRequest(session_id=test_session_with_criteria.session_id)
@@ -486,7 +489,8 @@ class TestEvaluateOptions:
     async def test_evaluate_options_orchestrator_error(self, test_session_with_criteria):
         """Test handling orchestrator errors"""
         with patch.object(
-            orchestrator, "evaluate_options_across_criteria",
+            orchestrator,
+            "evaluate_options_across_criteria",
             side_effect=Exception("Orchestrator failed"),
         ):
             request = EvaluateOptionsRequest(session_id=test_session_with_criteria.session_id)
@@ -507,8 +511,18 @@ class TestGetDecisionMatrix:
         session.add_criterion(criterion)
 
         # Add scores
-        score_a = Score(criterion_name="Performance", option_name="Option A", score=8.0, justification="Good performance")
-        score_b = Score(criterion_name="Performance", option_name="Option B", score=6.0, justification="Average performance")
+        score_a = Score(
+            criterion_name="Performance",
+            option_name="Option A",
+            score=8.0,
+            justification="Good performance",
+        )
+        score_b = Score(
+            criterion_name="Performance",
+            option_name="Option B",
+            score=6.0,
+            justification="Average performance",
+        )
         session.options["Option A"].add_score(score_a)
         session.options["Option B"].add_score(score_b)
 

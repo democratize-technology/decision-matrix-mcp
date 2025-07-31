@@ -95,10 +95,14 @@ JUSTIFICATION: [your reasoning]"""
             return self._parse_evaluation_response(response)
 
         except LLMBackendError as e:
-            logger.error(f"LLM backend error evaluating {option.name} for {thread.criterion.name}: {e}")
+            logger.error(
+                f"LLM backend error evaluating {option.name} for {thread.criterion.name}: {e}"
+            )
             return (None, e.user_message)
         except Exception:
-            logger.exception(f"Unexpected error evaluating {option.name} for {thread.criterion.name}")
+            logger.exception(
+                f"Unexpected error evaluating {option.name} for {thread.criterion.name}"
+            )
             return (None, "Evaluation failed due to an unexpected error")
 
     def _parse_evaluation_response(self, response: str) -> tuple[float | None, str]:
@@ -150,7 +154,7 @@ JUSTIFICATION: [your reasoning]"""
         if not backend_fn:
             raise ConfigurationError(
                 f"Unknown model backend: {thread.criterion.model_backend}",
-                f"Model backend '{thread.criterion.model_backend}' is not configured"
+                f"Model backend '{thread.criterion.model_backend}' is not configured",
             )
 
         # Try with exponential backoff

@@ -63,19 +63,19 @@ class StartDecisionAnalysisRequest(BaseModel):
 def get_session_or_error(session_id: str) -> tuple[DecisionSession | None, dict[str, Any] | None]:
     """
     Get session or return error dict for consistent session validation.
-    
+
     Returns:
         Tuple of (session, None) if successful, or (None, error_dict) if failed
     """
     # Validate session ID format first
     if not SessionValidator.validate_session_id(session_id):
         return None, {"error": "Invalid session ID format"}
-    
+
     # Get session from manager
     session = session_manager.get_session(session_id)
     if not session:
         return None, {"error": f"Session {session_id} not found or expired"}
-    
+
     return session, None
 
 

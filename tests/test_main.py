@@ -189,9 +189,10 @@ class TestServerCreation:
         # Just verify the mcp instance is properly initialized
         assert mcp is not None
         assert mcp.name == "decision-matrix"
-        
+
         # Verify orchestrator is initialized
         from decision_matrix_mcp import orchestrator
+
         assert orchestrator is not None
 
 
