@@ -269,7 +269,7 @@ JUSTIFICATION: [your reasoning]"""
             ) from e
         except Exception as e:
             # Only catch truly unexpected errors
-            if isinstance(e, LLMBackendError | ConfigurationError):
+            if isinstance(e, (LLMBackendError, ConfigurationError)):
                 raise  # Re-raise our custom exceptions
             raise LLMBackendError(
                 backend="bedrock",
@@ -390,7 +390,7 @@ JUSTIFICATION: [your reasoning]"""
                 original_error=e,
             ) from e
         except Exception as e:
-            if isinstance(e, LLMBackendError | ConfigurationError):
+            if isinstance(e, (LLMBackendError, ConfigurationError)):
                 raise  # Re-raise our custom exceptions
 
             # Check for connection errors
