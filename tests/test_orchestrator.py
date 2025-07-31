@@ -368,11 +368,18 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
     @pytest.mark.asyncio
     async def test_call_bedrock_import_error(self, orchestrator, sample_thread):
         """Test Bedrock call when boto3 not available"""
-        with patch.dict("sys.modules", {"boto3": None}):
+        # Temporarily patch the BOTO3_AVAILABLE flag
+        import sys
+        orch_module = sys.modules['decision_matrix_mcp.orchestrator']
+        original_value = orch_module.BOTO3_AVAILABLE
+        try:
+            orch_module.BOTO3_AVAILABLE = False
             with pytest.raises(LLMConfigurationError) as exc_info:
                 await orchestrator._call_bedrock(sample_thread)
 
-            assert "boto3 dependency missing" in str(exc_info.value)
+            assert "boto3 is not installed" in str(exc_info.value)
+        finally:
+            orch_module.BOTO3_AVAILABLE = original_value
 
     @pytest.mark.asyncio
     async def test_call_bedrock_api_error(self, orchestrator, sample_thread):
@@ -428,11 +435,18 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
     @pytest.mark.asyncio
     async def test_call_litellm_import_error(self, orchestrator, sample_thread):
         """Test LiteLLM call when litellm not available"""
-        with patch.dict("sys.modules", {"litellm": None}):
+        # Temporarily patch the LITELLM_AVAILABLE flag
+        import sys
+        orch_module = sys.modules['decision_matrix_mcp.orchestrator']
+        original_value = orch_module.LITELLM_AVAILABLE
+        try:
+            orch_module.LITELLM_AVAILABLE = False
             with pytest.raises(LLMConfigurationError) as exc_info:
                 await orchestrator._call_litellm(sample_thread)
 
-            assert "litellm dependency missing" in str(exc_info.value)
+            assert "litellm is not installed" in str(exc_info.value)
+        finally:
+            orch_module.LITELLM_AVAILABLE = original_value
 
     @pytest.mark.asyncio
     async def test_call_litellm_api_error(self, orchestrator, sample_thread):
@@ -484,11 +498,18 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
     @pytest.mark.asyncio
     async def test_call_ollama_import_error(self, orchestrator, sample_thread):
         """Test Ollama call when httpx not available"""
-        with patch.dict("sys.modules", {"httpx": None}):
+        # Temporarily patch the HTTPX_AVAILABLE flag
+        import sys
+        orch_module = sys.modules['decision_matrix_mcp.orchestrator']
+        original_value = orch_module.HTTPX_AVAILABLE
+        try:
+            orch_module.HTTPX_AVAILABLE = False
             with pytest.raises(LLMConfigurationError) as exc_info:
                 await orchestrator._call_ollama(sample_thread)
 
-            assert "httpx dependency missing" in str(exc_info.value)
+            assert "httpx is not installed" in str(exc_info.value)
+        finally:
+            orch_module.HTTPX_AVAILABLE = original_value
 
     @pytest.mark.asyncio
     async def test_call_ollama_api_error(self, orchestrator, sample_thread):

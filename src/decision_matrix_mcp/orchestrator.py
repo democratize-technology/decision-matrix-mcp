@@ -14,6 +14,26 @@ from .exceptions import (
 )
 from .models import CriterionThread, ModelBackend, Option
 
+# Optional dependency imports with availability flags
+try:
+    import boto3
+    from botocore.exceptions import BotoCoreError, ClientError
+    BOTO3_AVAILABLE = True
+except ImportError:
+    BOTO3_AVAILABLE = False
+
+try:
+    import litellm
+    LITELLM_AVAILABLE = True
+except ImportError:
+    LITELLM_AVAILABLE = False
+
+try:
+    import httpx
+    HTTPX_AVAILABLE = True
+except ImportError:
+    HTTPX_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 # Constants
@@ -278,10 +298,13 @@ JUSTIFICATION: [your reasoning]"""
 
     async def _call_bedrock(self, thread: CriterionThread) -> str:
         """Call AWS Bedrock for criterion evaluation"""
-        try:
-            import boto3
-            from botocore.exceptions import BotoCoreError, ClientError
+        if not BOTO3_AVAILABLE:
+            raise LLMConfigurationError(
+                backend="bedrock",
+                message="boto3 is not installed. Please install with: pip install boto3"
+            )
 
+        try:
             # Initialize Bedrock client
             session = boto3.Session()
             # Get region from environment or default to us-east-1
@@ -356,9 +379,13 @@ JUSTIFICATION: [your reasoning]"""
 
     async def _call_litellm(self, thread: CriterionThread) -> str:
         """Call LiteLLM for criterion evaluation"""
-        try:
-            import litellm
+        if not LITELLM_AVAILABLE:
+            raise LLMConfigurationError(
+                backend="litellm",
+                message="litellm is not installed. Please install with: pip install litellm"
+            )
 
+        try:
             # Prepare messages
             messages = [{"role": "system", "content": thread.criterion.system_prompt}]
             for msg in thread.conversation_history:
@@ -403,9 +430,13 @@ JUSTIFICATION: [your reasoning]"""
 
     async def _call_ollama(self, thread: CriterionThread) -> str:
         """Call Ollama for criterion evaluation"""
-        try:
-            import httpx
+        if not HTTPX_AVAILABLE:
+            raise LLMConfigurationError(
+                backend="ollama",
+                message="httpx is not installed. Please install with: pip install httpx"
+            )
 
+        try:
             # Prepare messages
             messages = [{"role": "system", "content": thread.criterion.system_prompt}]
             for msg in thread.conversation_history:
