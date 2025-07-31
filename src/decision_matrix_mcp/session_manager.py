@@ -184,7 +184,7 @@ class SessionValidator:
     @staticmethod
     def validate_weight(weight: float) -> bool:
         """Validate criterion weight"""
-        if not isinstance(weight, int | float):
+        if not isinstance(weight, (int, float)):
             return False
         return (
             ValidationLimits.MIN_CRITERION_WEIGHT <= weight <= ValidationLimits.MAX_CRITERION_WEIGHT

@@ -313,7 +313,7 @@ JUSTIFICATION: [your reasoning]"""
                 user_message = "API authentication failed, check your API key"
             elif "model" in error_message.lower() and "not found" in error_message.lower():
                 user_message = f"Model not available: {model}"
-            elif isinstance(e, LLMBackendError | ConfigurationError):
+            elif isinstance(e, (LLMBackendError, ConfigurationError)):
                 raise  # Re-raise our custom exceptions
             else:
                 user_message = "LLM service temporarily unavailable"
