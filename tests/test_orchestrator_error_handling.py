@@ -56,17 +56,20 @@ class TestOrchestratorErrorHandling:
         return CriterionThread(id="test-thread", criterion=criterion)
 
     @pytest.mark.asyncio
-    async def test_bedrock_configuration_error(self, orchestrator, bedrock_thread):
+    async def test_bedrock_configuration_error(self, bedrock_thread):
         """Test Bedrock configuration error handling"""
-        with patch.dict("sys.modules", {"boto3": None}):
+        # Temporarily set BOTO3_AVAILABLE to False to test the error path
+        with patch("decision_matrix_mcp.orchestrator.BOTO3_AVAILABLE", False):
+            from decision_matrix_mcp.orchestrator import DecisionOrchestrator
+            orchestrator = DecisionOrchestrator()
+            
             with pytest.raises(LLMConfigurationError) as exc_info:
                 await orchestrator._call_bedrock(bedrock_thread)
 
             error = exc_info.value
             assert error.backend == "bedrock"
-            assert "boto3 dependency missing" in str(error)
+            assert "boto3 is not installed" in str(error)
             assert error.user_message == "bedrock backend not properly configured"
-            assert isinstance(error.original_error, ImportError)
 
     @pytest.mark.asyncio
     async def test_bedrock_rate_limit_error(self, orchestrator, bedrock_thread):
@@ -201,15 +204,19 @@ class TestOrchestratorErrorHandling:
             assert "Model not available" in error.user_message
 
     @pytest.mark.asyncio
-    async def test_ollama_configuration_error(self, orchestrator, ollama_thread):
+    async def test_ollama_configuration_error(self, ollama_thread):
         """Test Ollama configuration error handling"""
-        with patch.dict("sys.modules", {"httpx": None}):
+        # Temporarily set HTTPX_AVAILABLE to False to test the error path
+        with patch("decision_matrix_mcp.orchestrator.HTTPX_AVAILABLE", False):
+            from decision_matrix_mcp.orchestrator import DecisionOrchestrator
+            orchestrator = DecisionOrchestrator()
+            
             with pytest.raises(LLMConfigurationError) as exc_info:
                 await orchestrator._call_ollama(ollama_thread)
 
             error = exc_info.value
             assert error.backend == "ollama"
-            assert "httpx dependency missing" in str(error)
+            assert "httpx is not installed" in str(error)
 
     @pytest.mark.asyncio
     async def test_ollama_connection_error(self, orchestrator, ollama_thread):
