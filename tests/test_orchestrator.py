@@ -4,7 +4,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from decision_matrix_mcp.exceptions import ConfigurationError, LLMBackendError
+from decision_matrix_mcp.exceptions import (
+    ConfigurationError,
+    LLMAPIError,
+    LLMBackendError,
+    LLMConfigurationError,
+)
 from decision_matrix_mcp.models import Criterion, CriterionThread, ModelBackend, Option
 from decision_matrix_mcp.orchestrator import DecisionOrchestrator
 
@@ -190,7 +195,11 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
         self, orchestrator, sample_thread, sample_options
     ):
         """Test handling LLM backend errors"""
-        error = LLMBackendError("API rate limit exceeded", "Rate limit reached. Try again later.")
+        error = LLMBackendError(
+            backend="test",
+            message="API rate limit exceeded",
+            user_message="Rate limit reached. Try again later.",
+        )
 
         with patch.object(orchestrator, "_get_thread_response", side_effect=error):
             score, justification = await orchestrator._evaluate_single_option(
@@ -360,10 +369,10 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
     async def test_call_bedrock_import_error(self, orchestrator, sample_thread):
         """Test Bedrock call when boto3 not available"""
         with patch.dict("sys.modules", {"boto3": None}):
-            with pytest.raises(Exception) as exc_info:
+            with pytest.raises(LLMConfigurationError) as exc_info:
                 await orchestrator._call_bedrock(sample_thread)
 
-            assert "boto3 not available" in str(exc_info.value)
+            assert "boto3 dependency missing" in str(exc_info.value)
 
     @pytest.mark.asyncio
     async def test_call_bedrock_api_error(self, orchestrator, sample_thread):
@@ -378,10 +387,10 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
             )
             mock_session.return_value.client.return_value = mock_client
 
-            with pytest.raises(Exception) as exc_info:
+            with pytest.raises(LLMAPIError) as exc_info:
                 await orchestrator._call_bedrock(sample_thread)
 
-            assert "Bedrock API error" in str(exc_info.value)
+            assert "Bedrock API call failed" in str(exc_info.value)
 
     @pytest.mark.asyncio
     async def test_call_bedrock_invalid_response(self, orchestrator, sample_thread):
@@ -393,7 +402,7 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
             mock_client.invoke_model.return_value = mock_response
             mock_session.return_value.client.return_value = mock_client
 
-            with pytest.raises(Exception) as exc_info:
+            with pytest.raises(LLMAPIError) as exc_info:
                 await orchestrator._call_bedrock(sample_thread)
 
             assert "Invalid response format" in str(exc_info.value)
@@ -420,19 +429,19 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
     async def test_call_litellm_import_error(self, orchestrator, sample_thread):
         """Test LiteLLM call when litellm not available"""
         with patch.dict("sys.modules", {"litellm": None}):
-            with pytest.raises(Exception) as exc_info:
+            with pytest.raises(LLMConfigurationError) as exc_info:
                 await orchestrator._call_litellm(sample_thread)
 
-            assert "litellm not available" in str(exc_info.value)
+            assert "litellm dependency missing" in str(exc_info.value)
 
     @pytest.mark.asyncio
     async def test_call_litellm_api_error(self, orchestrator, sample_thread):
         """Test LiteLLM API errors"""
         with patch("litellm.acompletion", side_effect=Exception("API key invalid")):
-            with pytest.raises(Exception) as exc_info:
+            with pytest.raises(LLMAPIError) as exc_info:
                 await orchestrator._call_litellm(sample_thread)
 
-            assert "LiteLLM call failed" in str(exc_info.value)
+            assert "LiteLLM API call failed" in str(exc_info.value)
 
     @pytest.mark.asyncio
     async def test_call_ollama_success(self, orchestrator, sample_thread):
@@ -476,10 +485,10 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
     async def test_call_ollama_import_error(self, orchestrator, sample_thread):
         """Test Ollama call when httpx not available"""
         with patch.dict("sys.modules", {"httpx": None}):
-            with pytest.raises(Exception) as exc_info:
+            with pytest.raises(LLMConfigurationError) as exc_info:
                 await orchestrator._call_ollama(sample_thread)
 
-            assert "httpx not available" in str(exc_info.value)
+            assert "httpx dependency missing" in str(exc_info.value)
 
     @pytest.mark.asyncio
     async def test_call_ollama_api_error(self, orchestrator, sample_thread):
@@ -493,10 +502,11 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
             mock_client.post.return_value = mock_response
             mock_client_class.return_value = mock_client
 
-            with pytest.raises(Exception) as exc_info:
+            with pytest.raises(LLMAPIError) as exc_info:
                 await orchestrator._call_ollama(sample_thread)
 
-            assert "Ollama API error: 404" in str(exc_info.value)
+            assert exc_info.value.backend == "ollama"
+            assert exc_info.value.user_message == "Model not available in Ollama: llama2"
 
     @pytest.mark.asyncio
     async def test_call_ollama_connection_error(self, orchestrator, sample_thread):
@@ -507,7 +517,7 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
             mock_client.post.side_effect = Exception("Connection refused")
             mock_client_class.return_value = mock_client
 
-            with pytest.raises(Exception) as exc_info:
+            with pytest.raises(LLMAPIError) as exc_info:
                 await orchestrator._call_ollama(sample_thread)
 
             assert "Ollama call failed" in str(exc_info.value)

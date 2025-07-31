@@ -6,7 +6,12 @@ import logging
 import os
 import re
 
-from .exceptions import ConfigurationError, LLMBackendError
+from .exceptions import (
+    ConfigurationError,
+    LLMAPIError,
+    LLMBackendError,
+    LLMConfigurationError,
+)
 from .models import CriterionThread, ModelBackend, Option
 
 logger = logging.getLogger(__name__)
@@ -234,14 +239,44 @@ JUSTIFICATION: [your reasoning]"""
             if "content" in response_body and len(response_body["content"]) > 0:
                 return response_body["content"][0]["text"]
             else:
-                raise Exception("Invalid response format from Bedrock")
+                raise LLMAPIError(
+                    backend="bedrock",
+                    message=f"Invalid response format from Bedrock: {response_body}",
+                    user_message="Unexpected response format from LLM",
+                ) from None
 
-        except ImportError:
-            raise Exception("boto3 not available for Bedrock backend") from None
+        except ImportError as e:
+            raise LLMConfigurationError(
+                backend="bedrock",
+                message=f"boto3 dependency missing: {e}",
+                original_error=e,
+            ) from e
         except (BotoCoreError, ClientError) as e:
-            raise Exception(f"Bedrock API error: {str(e)}") from e
+            # Check for specific error types
+            error_message = str(e)
+            if "rate limit" in error_message.lower() or "throttling" in error_message.lower():
+                user_message = "Request rate limit exceeded, please try again later"
+            elif "invalid" in error_message.lower() and "model" in error_message.lower():
+                user_message = f"Invalid model ID: {model_id}"
+            else:
+                user_message = "LLM service temporarily unavailable"
+
+            raise LLMAPIError(
+                backend="bedrock",
+                message=f"Bedrock API call failed: {e}",
+                user_message=user_message,
+                original_error=e,
+            ) from e
         except Exception as e:
-            raise Exception(f"Bedrock call failed: {str(e)}") from e
+            # Only catch truly unexpected errors
+            if isinstance(e, LLMBackendError | ConfigurationError):
+                raise  # Re-raise our custom exceptions
+            raise LLMBackendError(
+                backend="bedrock",
+                message=f"Unexpected error in Bedrock call: {e}",
+                user_message="An unexpected error occurred",
+                original_error=e,
+            ) from e
 
     async def _call_litellm(self, thread: CriterionThread) -> str:
         """Call LiteLLM for criterion evaluation"""
@@ -263,10 +298,32 @@ JUSTIFICATION: [your reasoning]"""
 
             return response.choices[0].message.content
 
-        except ImportError:
-            raise Exception("litellm not available") from None
+        except ImportError as e:
+            raise LLMConfigurationError(
+                backend="litellm",
+                message=f"litellm dependency missing: {e}",
+                original_error=e,
+            ) from e
         except Exception as e:
-            raise Exception(f"LiteLLM call failed: {str(e)}") from e
+            # Check for specific error types
+            error_message = str(e)
+            if "rate limit" in error_message.lower() or "quota" in error_message.lower():
+                user_message = "API rate limit exceeded, please try again later"
+            elif "api key" in error_message.lower() or "authentication" in error_message.lower():
+                user_message = "API authentication failed, check your API key"
+            elif "model" in error_message.lower() and "not found" in error_message.lower():
+                user_message = f"Model not available: {model}"
+            elif isinstance(e, LLMBackendError | ConfigurationError):
+                raise  # Re-raise our custom exceptions
+            else:
+                user_message = "LLM service temporarily unavailable"
+
+            raise LLMAPIError(
+                backend="litellm",
+                message=f"LiteLLM API call failed: {e}",
+                user_message=user_message,
+                original_error=e,
+            ) from e
 
     async def _call_ollama(self, thread: CriterionThread) -> str:
         """Call Ollama for criterion evaluation"""
@@ -296,12 +353,56 @@ JUSTIFICATION: [your reasoning]"""
                 )
 
                 if response.status_code != 200:
-                    raise Exception(f"Ollama API error: {response.status_code}")
+                    error_msg = f"Ollama API error: {response.status_code}"
+                    try:
+                        error_data = response.json()
+                        if "error" in error_data:
+                            error_msg = f"Ollama API error: {error_data['error']}"
+                    except Exception:
+                        pass
+
+                    if response.status_code == 404:
+                        raise LLMAPIError(
+                            backend="ollama",
+                            message=error_msg,
+                            user_message=f"Model not available in Ollama: {model}",
+                        )
+                    elif response.status_code == 503:
+                        raise LLMAPIError(
+                            backend="ollama",
+                            message=error_msg,
+                            user_message="Ollama service is not running",
+                        )
+                    else:
+                        raise LLMAPIError(
+                            backend="ollama",
+                            message=error_msg,
+                            user_message="Ollama service temporarily unavailable",
+                        )
 
                 result = response.json()
                 return result["message"]["content"]
 
-        except ImportError:
-            raise Exception("httpx not available for Ollama backend") from None
+        except ImportError as e:
+            raise LLMConfigurationError(
+                backend="ollama",
+                message=f"httpx dependency missing: {e}",
+                original_error=e,
+            ) from e
         except Exception as e:
-            raise Exception(f"Ollama call failed: {str(e)}") from e
+            if isinstance(e, LLMBackendError | ConfigurationError):
+                raise  # Re-raise our custom exceptions
+
+            # Check for connection errors
+            error_message = str(e)
+            if "connection" in error_message.lower() or "refused" in error_message.lower():
+                user_message = "Cannot connect to Ollama service. Is it running?"
+            else:
+                user_message = "Ollama service error"
+
+            raise LLMAPIError(
+                backend="ollama",
+                message=f"Ollama call failed: {e}",
+                user_message=user_message,
+                original_error=e,
+            ) from e
