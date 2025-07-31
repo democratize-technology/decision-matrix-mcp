@@ -31,6 +31,7 @@ from .exceptions import (
 from .models import Criterion, DecisionSession, ModelBackend, Option, Score
 from .orchestrator import DecisionOrchestrator
 from .session_manager import SessionValidator, session_manager
+from .validation_decorators import validate_criteria_spec, validate_request
 
 __all__ = ["main", "mcp"]
 
@@ -83,27 +84,12 @@ def get_session_or_error(session_id: str) -> tuple[DecisionSession | None, dict[
 @mcp.tool(
     description="When facing multiple options and need structured evaluation - create a decision matrix to systematically compare choices across weighted criteria"
 )
+@validate_request(
+    topic=SessionValidator.validate_topic,
+    options=SessionValidator.validate_option_name,  # Special handling in decorator for lists
+)
 async def start_decision_analysis(request: StartDecisionAnalysisRequest) -> dict[str, Any]:
     """Initialize a new decision analysis session with options and optional criteria"""
-
-    if not SessionValidator.validate_topic(request.topic):
-        return {
-            "error": f"Invalid topic: must be a non-empty string under {ValidationLimits.MAX_TOPIC_LENGTH} characters"
-        }
-
-    if not request.options or len(request.options) < ValidationLimits.MIN_OPTIONS_REQUIRED:
-        return {"error": "Need at least 2 options to create a meaningful decision matrix"}
-
-    if len(request.options) > ValidationLimits.MAX_OPTIONS_ALLOWED:
-        return {
-            "error": f"Too many options (max {ValidationLimits.MAX_OPTIONS_ALLOWED}). Consider grouping similar options."
-        }
-
-    for option_name in request.options:
-        if not SessionValidator.validate_option_name(option_name):
-            return {
-                "error": f"Invalid option name: '{option_name}' (must be 1-{ValidationLimits.MAX_OPTION_NAME_LENGTH} characters)"
-            }
 
     try:
         session = session_manager.create_session(
@@ -112,21 +98,16 @@ async def start_decision_analysis(request: StartDecisionAnalysisRequest) -> dict
 
         criteria_added = []
         if request.initial_criteria:
+            # Validate all criteria specs
+            validation_error = validate_criteria_spec(request.initial_criteria)
+            if validation_error:
+                return validation_error
+
+            # Add validated criteria
             for criterion_spec in request.initial_criteria:
                 name = criterion_spec.get("name", "")
                 description = criterion_spec.get("description", "")
                 weight = criterion_spec.get("weight", 1.0)
-
-                if not SessionValidator.validate_criterion_name(name):
-                    return {"error": f"Invalid criterion name: '{name}'"}
-
-                if not SessionValidator.validate_description(description):
-                    return {"error": f"Invalid criterion description for '{name}'"}
-
-                if not SessionValidator.validate_weight(weight):
-                    return {
-                        "error": f"Invalid weight for '{name}': must be {ValidationLimits.MIN_CRITERION_WEIGHT}-{ValidationLimits.MAX_CRITERION_WEIGHT}"
-                    }
 
                 criterion = Criterion(
                     name=name,
@@ -185,27 +166,14 @@ class AddCriterionRequest(BaseModel):
 @mcp.tool(
     description="When you identify another factor to consider - add evaluation criteria with weights to structure your decision analysis"
 )
+@validate_request(
+    session_id=SessionValidator.validate_session_id,
+    name=SessionValidator.validate_criterion_name,
+    description=SessionValidator.validate_description,
+    weight=SessionValidator.validate_weight,
+)
 async def add_criterion(request: AddCriterionRequest) -> dict[str, Any]:
     """Add a new evaluation criterion to an existing decision session"""
-
-    # Validate inputs
-    if not SessionValidator.validate_session_id(request.session_id):
-        return {"error": "Invalid session ID"}
-
-    if not SessionValidator.validate_criterion_name(request.name):
-        return {
-            "error": f"Invalid criterion name: must be 1-{ValidationLimits.MAX_CRITERION_NAME_LENGTH} characters"
-        }
-
-    if not SessionValidator.validate_description(request.description):
-        return {
-            "error": f"Invalid description: must be 1-{ValidationLimits.MAX_DESCRIPTION_LENGTH} characters"
-        }
-
-    if not SessionValidator.validate_weight(request.weight):
-        return {
-            "error": f"Invalid weight: must be between {ValidationLimits.MIN_CRITERION_WEIGHT} and {ValidationLimits.MAX_CRITERION_WEIGHT}"
-        }
 
     # Get session
     session, error = get_session_or_error(request.session_id)
@@ -263,12 +231,9 @@ class EvaluateOptionsRequest(BaseModel):
 @mcp.tool(
     description="When ready to score your options systematically - run parallel evaluation where each criterion scores every option independently"
 )
+@validate_request(session_id=SessionValidator.validate_session_id)
 async def evaluate_options(request: EvaluateOptionsRequest) -> dict[str, Any]:
     """Evaluate all options across all criteria using parallel thread orchestration"""
-
-    # Validate session ID
-    if not SessionValidator.validate_session_id(request.session_id):
-        return {"error": "Invalid session ID"}
 
     # Get session
     session, error = get_session_or_error(request.session_id)
@@ -358,12 +323,9 @@ class GetDecisionMatrixRequest(BaseModel):
 @mcp.tool(
     description="When you need the complete picture - see the scored matrix with weighted totals, rankings, and clear recommendations"
 )
+@validate_request(session_id=SessionValidator.validate_session_id)
 async def get_decision_matrix(request: GetDecisionMatrixRequest) -> dict[str, Any]:
     """Get the complete decision matrix with scores, rankings, and recommendations"""
-
-    # Validate session ID
-    if not SessionValidator.validate_session_id(request.session_id):
-        return {"error": "Invalid session ID"}
 
     # Get session
     session, error = get_session_or_error(request.session_id)
@@ -407,17 +369,12 @@ class AddOptionRequest(BaseModel):
 @mcp.tool(
     description="When new alternatives emerge during analysis - add additional options to your existing decision matrix"
 )
+@validate_request(
+    session_id=SessionValidator.validate_session_id,
+    option_name=SessionValidator.validate_option_name,
+)
 async def add_option(request: AddOptionRequest) -> dict[str, Any]:
     """Add a new option to an existing decision analysis"""
-
-    # Validate inputs
-    if not SessionValidator.validate_session_id(request.session_id):
-        return {"error": "Invalid session ID"}
-
-    if not SessionValidator.validate_option_name(request.option_name):
-        return {
-            "error": f"Invalid option name: must be 1-{ValidationLimits.MAX_OPTION_NAME_LENGTH} characters"
-        }
 
     # Get session
     session, error = get_session_or_error(request.session_id)
