@@ -13,16 +13,19 @@ from decision_matrix_mcp import (
     add_criterion,
     add_option,
     clear_all_sessions,
+    create_server_components,
     evaluate_options,
     get_decision_matrix,
     get_session_or_error,
     list_sessions,
-    orchestrator,
     start_decision_analysis,
 )
 from decision_matrix_mcp.exceptions import ResourceLimitError, SessionError, ValidationError
 from decision_matrix_mcp.models import Criterion, ModelBackend, Score
-from decision_matrix_mcp.session_manager import session_manager
+
+
+# Create server components for testing
+orchestrator, session_manager = create_server_components()
 
 
 class TestSessionHelpers:

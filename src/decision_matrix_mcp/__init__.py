@@ -30,10 +30,10 @@ from .exceptions import (
 )
 from .models import Criterion, DecisionSession, ModelBackend, Option, Score
 from .orchestrator import DecisionOrchestrator
-from .session_manager import SessionValidator, session_manager
+from .session_manager import SessionManager, SessionValidator
 from .validation_decorators import validate_criteria_spec, validate_request
 
-__all__ = ["main", "mcp"]
+__all__ = ["main", "mcp", "create_server_components"]
 
 # Configure logging to stderr only - NEVER stdout in MCP servers
 logging.basicConfig(
@@ -45,7 +45,36 @@ logger = logging.getLogger(__name__)
 
 mcp = FastMCP("decision-matrix")
 
-orchestrator = DecisionOrchestrator()
+# Server components - created per server instance
+_orchestrator = None
+_session_manager = None
+
+
+def create_server_components():
+    """Create server components for dependency injection.
+    
+    Returns:
+        tuple: (orchestrator, session_manager) instances
+    """
+    orchestrator = DecisionOrchestrator()
+    session_manager = SessionManager()
+    return orchestrator, session_manager
+
+
+def get_orchestrator():
+    """Get the orchestrator instance, creating if needed."""
+    global _orchestrator
+    if _orchestrator is None:
+        _orchestrator = DecisionOrchestrator()
+    return _orchestrator
+
+
+def get_session_manager():
+    """Get the session manager instance, creating if needed."""
+    global _session_manager
+    if _session_manager is None:
+        _session_manager = SessionManager()
+    return _session_manager
 
 
 class StartDecisionAnalysisRequest(BaseModel):
@@ -74,7 +103,7 @@ def get_session_or_error(session_id: str) -> tuple[DecisionSession | None, dict[
         return None, {"error": "Invalid session ID format"}
 
     # Get session from manager
-    session = session_manager.get_session(session_id)
+    session = get_session_manager().get_session(session_id)
     if not session:
         return None, {"error": f"Session {session_id} not found or expired"}
 
@@ -92,7 +121,7 @@ async def start_decision_analysis(request: StartDecisionAnalysisRequest) -> dict
     """Initialize a new decision analysis session with options and optional criteria"""
 
     try:
-        session = session_manager.create_session(
+        session = get_session_manager().create_session(
             topic=request.topic, initial_options=request.options
         )
 
@@ -253,7 +282,7 @@ async def evaluate_options(request: EvaluateOptionsRequest) -> dict[str, Any]:
         )
 
         # Run parallel evaluation using orchestrator
-        evaluation_results = await orchestrator.evaluate_options_across_criteria(
+        evaluation_results = await get_orchestrator().evaluate_options_across_criteria(
             session.threads, list(session.options.values())
         )
 
@@ -408,7 +437,7 @@ async def add_option(request: AddOptionRequest) -> dict[str, Any]:
 async def list_sessions() -> dict[str, Any]:
     """List all active decision analysis sessions"""
     try:
-        active_sessions = session_manager.list_active_sessions()
+        active_sessions = get_session_manager().list_active_sessions()
 
         session_list = []
         for sid, session in active_sessions.items():
@@ -425,7 +454,7 @@ async def list_sessions() -> dict[str, Any]:
             )
 
         # Get session manager stats
-        stats = session_manager.get_stats()
+        stats = get_session_manager().get_stats()
 
         return {"sessions": session_list, "total_active": len(active_sessions), "stats": stats}
 
@@ -438,17 +467,17 @@ async def list_sessions() -> dict[str, Any]:
 async def clear_all_sessions() -> dict[str, Any]:
     """Clear all active sessions from the session manager"""
     try:
-        active_sessions = session_manager.list_active_sessions()
+        active_sessions = get_session_manager().list_active_sessions()
         cleared_count = 0
 
         for session_id in list(active_sessions.keys()):
-            if session_manager.remove_session(session_id):
+            if get_session_manager().remove_session(session_id):
                 cleared_count += 1
 
         return {
             "cleared": cleared_count,
             "message": f"Cleared {cleared_count} active sessions",
-            "stats": session_manager.get_stats(),
+            "stats": get_session_manager().get_stats(),
         }
 
     except Exception as e:

@@ -201,6 +201,3 @@ class SessionValidator:
         ):
             return False
         return True
-
-
-session_manager = SessionManager()
