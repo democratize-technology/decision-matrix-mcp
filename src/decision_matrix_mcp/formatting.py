@@ -152,28 +152,36 @@ class DecisionFormatter:
             "## 🏆 Rankings & Recommendations",
             "",
         ]
-        
+
         if rankings:
-            lines.extend([
-                f"### 🥇 **Winner: {rankings[0]['option']}**",
-                f"**Score**: {rankings[0]['weighted_total']:.1f} points",
+            lines.extend(
+                [
+                    f"### 🥇 **Winner: {rankings[0]['option']}**",
+                    f"**Score**: {rankings[0]['weighted_total']:.1f} points",
+                    "",
+                ]
+            )
+
+        lines.extend(
+            [
+                matrix_data["recommendation"],
                 "",
-            ])
-            
-        lines.extend([
-            matrix_data["recommendation"],
-            "",
-        ])
-        
+            ]
+        )
+
         if self.verbosity != self.CONCISE:
-            lines.extend([
-                "---",
-                "",
-            ])
-            
-        lines.extend([
-            "## 📊 Complete Rankings",
-        ])
+            lines.extend(
+                [
+                    "---",
+                    "",
+                ]
+            )
+
+        lines.extend(
+            [
+                "## 📊 Complete Rankings",
+            ]
+        )
 
         # Rankings with visual indicators
         medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
