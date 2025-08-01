@@ -1,0 +1,78 @@
+Decision Matrix MCP
+Copyright (c) 2025 Democratize Technology
+
+This product includes software developed by Democratize Technology
+(https://democratize.technology).
+
+Third-party software included in this distribution:
+
+1. MCP (Model Context Protocol)
+   - License: MIT
+   - Copyright: Anthropic
+   - https://github.com/anthropics/mcp
+
+2. FastMCP
+   - License: MIT
+   - Copyright: FastMCP Contributors
+   - https://github.com/jlowin/fastmcp
+
+3. httpx
+   - License: BSD 3-Clause
+   - Copyright: Tom Christie
+   - https://github.com/encode/httpx
+
+4. Pydantic
+   - License: MIT
+   - Copyright: Samuel Colvin
+   - https://github.com/pydantic/pydantic
+
+5. LiteLLM
+   - License: MIT
+   - Copyright: LiteLLM Contributors
+   - https://github.com/BerriAI/litellm
+
+6. boto3 (AWS SDK for Python)
+   - License: Apache License 2.0
+   - Copyright: Amazon.com, Inc. or its affiliates
+   - https://github.com/boto/boto3
+
+Development dependencies:
+
+1. pytest
+   - License: MIT
+   - Copyright: Holger Krekel and others
+   - https://github.com/pytest-dev/pytest
+
+2. pytest-asyncio
+   - License: Apache License 2.0
+   - Copyright: pytest-asyncio contributors
+   - https://github.com/pytest-dev/pytest-asyncio
+
+3. ruff
+   - License: MIT
+   - Copyright: Charlie Marsh
+   - https://github.com/astral-sh/ruff
+
+4. black
+   - License: MIT
+   - Copyright: Łukasz Langa and contributors
+   - https://github.com/psf/black
+
+5. mypy
+   - License: MIT
+   - Copyright: Jukka Lehtosalo and contributors
+   - https://github.com/python/mypy
+
+ADDITIONAL NOTICES:
+
+The MIT License text for dependencies licensed under MIT can be found in the LICENSE file.
+
+This software uses the Model Context Protocol (MCP) developed by Anthropic to enable
+communication between AI assistants and external tools. MCP is an open protocol designed
+to facilitate structured interactions between language models and computational resources.
+
+NO WARRANTY:
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.

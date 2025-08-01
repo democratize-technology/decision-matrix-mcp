@@ -1,0 +1,73 @@
+name: Question
+description: Ask a question about the project
+title: "[Question]: "
+labels: ["question"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for your interest in decision-matrix-mcp! We're here to help.
+
+  - type: dropdown
+    id: question-type
+    attributes:
+      label: Question Category
+      description: What is your question about?
+      options:
+        - Installation / Setup
+        - Usage / How-to
+        - Integration with Claude Desktop
+        - LLM Backend Configuration
+        - API / Development
+        - Best Practices
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: Please ask your question with as much detail as possible.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: |
+        Any additional context that might help us answer your question better.
+        - What have you already tried?
+        - What documentation have you looked at?
+        - What is your use case?
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment Details
+      description: Please provide any relevant environment details
+      placeholder: |
+        - OS: macOS 14.0
+        - Python: 3.11
+        - decision-matrix-mcp version: 0.1.0
+        - Claude Desktop version: 1.0.0
+
+  - type: checkboxes
+    id: searched
+    attributes:
+      label: Search
+      description: Please search to see if a similar question has already been asked
+      options:
+        - label: I searched the existing issues and didn't find a similar question
+          required: true
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow our [Code of Conduct](https://github.com/democratize-technology/decision-matrix-mcp/blob/main/CODE_OF_CONDUCT.md)
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true
