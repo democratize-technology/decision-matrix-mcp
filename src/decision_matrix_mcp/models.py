@@ -168,7 +168,7 @@ class DecisionSession:
     def add_criterion(self, criterion: Criterion) -> None:
         """Add a new evaluation criterion with parameter inheritance from session defaults"""
         # Apply session defaults if criterion doesn't specify its own values
-        if criterion.temperature == 0.1:  # Using default value
+        if criterion.temperature == 0.0:  # Using default value
             criterion.temperature = self.default_temperature
 
         self.criteria[criterion.name] = criterion

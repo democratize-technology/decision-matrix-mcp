@@ -71,7 +71,7 @@ class DecisionFormatter:
                 "2. **Evaluate options** → Run the analysis",
                 "3. **Get results** → See the decision matrix",
                 "",
-                f"*Model: {session_data.get('model_backend', 'default')}*",
+                f"*Model: {session_data.get('model_backend') or 'default'}*",
             ]
         )
 
@@ -151,15 +151,29 @@ class DecisionFormatter:
             "",
             "## 🏆 Rankings & Recommendations",
             "",
-            f"### 🥇 **Winner: {rankings[0]['option']}**",
-            f"**Score**: {rankings[0]['weighted_total']:.1f} points",
-            "",
+        ]
+        
+        if rankings:
+            lines.extend([
+                f"### 🥇 **Winner: {rankings[0]['option']}**",
+                f"**Score**: {rankings[0]['weighted_total']:.1f} points",
+                "",
+            ])
+            
+        lines.extend([
             matrix_data["recommendation"],
             "",
-            "---",
-            "",
+        ])
+        
+        if self.verbosity != self.CONCISE:
+            lines.extend([
+                "---",
+                "",
+            ])
+            
+        lines.extend([
             "## 📊 Complete Rankings",
-        ]
+        ])
 
         # Rankings with visual indicators
         medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
@@ -211,13 +225,14 @@ class DecisionFormatter:
         )
 
         # Analyze score patterns
-        winner = rankings[0]
-        runner_up = rankings[1] if len(rankings) > 1 else None
+        if rankings:
+            winner = rankings[0]
+            runner_up = rankings[1] if len(rankings) > 1 else None
 
-        if runner_up and winner["weighted_total"] - runner_up["weighted_total"] < 1.0:
-            lines.append("- 🔍 **Very close decision** - top options within 1 point")
-        elif winner["weighted_total"] > 8.0:
-            lines.append("- 🌟 **Strong winner** - excellent scores across criteria")
+            if runner_up and winner["weighted_total"] - runner_up["weighted_total"] < 1.0:
+                lines.append("- 🔍 **Very close decision** - top options within 1 point")
+            elif winner["weighted_total"] > 8.0:
+                lines.append("- 🌟 **Strong winner** - excellent scores across criteria")
 
         # Check for abstentions
         total_abstentions = sum(

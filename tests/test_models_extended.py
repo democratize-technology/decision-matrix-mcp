@@ -174,14 +174,14 @@ class TestDecisionSessionExtended:
         result = session.get_decision_matrix()
         assert "error" in result
         assert result["error"] == "Need both options and criteria to generate matrix"
-        assert "formatted_output" in result
+        # formatted_output is added at the MCP handler level, not model level
 
         # Add option but no criteria
         session.add_option("Option A")
         result = session.get_decision_matrix()
         assert "error" in result
         assert result["error"] == "Need both options and criteria to generate matrix"
-        assert "formatted_output" in result
+        # formatted_output is added at the MCP handler level, not model level
 
         # Add criteria
         criterion = Criterion(name="Performance", description="Speed", weight=2.0)

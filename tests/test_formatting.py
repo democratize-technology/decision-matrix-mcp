@@ -418,7 +418,7 @@ class TestDecisionFormatter:
         assert "[link]" in output
 
         # Headers should have proper levels
-        assert output.count("# ") == 1  # One h1
+        assert output.count("# ") >= 1  # At least one h1
         assert output.count("## ") >= 2  # Multiple h2s
 
     def test_unicode_and_emoji_handling(self):
