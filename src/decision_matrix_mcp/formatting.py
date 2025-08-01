@@ -24,6 +24,8 @@
 
 from typing import Any
 
+from .models import ModelBackend
+
 
 class DecisionFormatter:
     """Format decision matrix outputs for optimal LLM comprehension"""
@@ -312,6 +314,69 @@ class DecisionFormatter:
                 "💡 **Next step**: Add evaluation criteria first",
             ])
 
+        return "\n".join(lines)
+
+    def format_session_summary(self, session: Any) -> str:
+        """Format a session summary for the current_session response"""
+        lines = [
+            "# 📊 Current Decision Analysis Session",
+            "",
+            f"**Topic**: {session.topic}",
+            f"**Session ID**: `{session.session_id}`",
+            f"**Created**: {session.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}",
+            f"**Status**: {'✅ Evaluated' if len(session.evaluations) > 0 else '⏳ Pending evaluation'}",
+            "",
+        ]
+        
+        if session.options:
+            lines.extend([
+                f"## 📋 Options ({len(session.options)})",
+                *[f"- {opt.name}" for opt in session.options.values()],
+                "",
+            ])
+        else:
+            lines.extend([
+                "## 📋 Options",
+                "*(No options defined yet)*",
+                "",
+            ])
+            
+        if session.criteria:
+            lines.extend([
+                f"## ⚖️ Criteria ({len(session.criteria)})",
+                *[f"- **{crit.name}** (weight: {crit.weight}x)" for crit in session.criteria.values()],
+                "",
+            ])
+        else:
+            lines.extend([
+                "## ⚖️ Criteria",
+                "*(No criteria defined yet)*",
+                "",
+            ])
+            
+        if len(session.evaluations) > 0:
+            lines.extend([
+                "## 📊 Analysis Summary",
+                f"- Evaluations completed: {len(session.evaluations)}",
+                f"- Model backend: {getattr(session, 'model_backend', ModelBackend.BEDROCK).value}",
+                "",
+                "💡 **Next step**: Use `get_decision_matrix` to see results",
+            ])
+        else:
+            next_steps = []
+            if not session.options:
+                next_steps.append("`add_option` - Add options to evaluate")
+            if not session.criteria:
+                next_steps.append("`add_criterion` - Add evaluation criteria")
+            if session.options and session.criteria:
+                next_steps.append("`evaluate_options` - Run the analysis")
+                
+            if next_steps:
+                lines.extend([
+                    "## 🎬 Next Steps",
+                    *[f"- {step}" for step in next_steps],
+                ])
+                
         return "\n".join(lines)
 
     def _create_score_bar(self, score: float, max_score: float, width: int = 20) -> str:

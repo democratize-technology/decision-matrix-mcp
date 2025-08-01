@@ -345,3 +345,132 @@ class TestSessionManagerConcurrency:
 
         # Verify we created exactly 1000 unique session IDs
         assert len(session_ids) == 1000
+
+
+class TestGetCurrentSession:
+    """Test the get_current_session functionality"""
+
+    def test_current_session_empty_manager(self):
+        """Test getting current session when no sessions exist"""
+        manager = SessionManager()
+        
+        current = manager.get_current_session()
+        assert current is None
+        
+    def test_current_session_single_session(self):
+        """Test getting current session with only one session"""
+        manager = SessionManager()
+        
+        session = manager.create_session("Test Topic")
+        current = manager.get_current_session()
+        
+        assert current is not None
+        assert current.session_id == session.session_id
+        assert current.topic == "Test Topic"
+        
+    def test_current_session_multiple_sessions(self):
+        """Test getting most recent session with multiple sessions"""
+        manager = SessionManager()
+        
+        # Create sessions with small delays to ensure different timestamps
+        session1 = manager.create_session("First Topic")
+        import time
+        time.sleep(0.01)  # Small delay to ensure different timestamps
+        session2 = manager.create_session("Second Topic")
+        time.sleep(0.01)
+        session3 = manager.create_session("Third Topic")
+        
+        current = manager.get_current_session()
+        
+        assert current is not None
+        assert current.session_id == session3.session_id
+        assert current.topic == "Third Topic"
+        
+    def test_current_session_after_removal(self):
+        """Test getting current session after removing the most recent one"""
+        manager = SessionManager()
+        
+        session1 = manager.create_session("First Topic")
+        import time
+        time.sleep(0.01)
+        session2 = manager.create_session("Second Topic")
+        time.sleep(0.01)
+        session3 = manager.create_session("Third Topic")
+        
+        # Remove the most recent session
+        manager.remove_session(session3.session_id)
+        
+        current = manager.get_current_session()
+        assert current is not None
+        assert current.session_id == session2.session_id
+        assert current.topic == "Second Topic"
+        
+    def test_current_session_expired_cleanup(self):
+        """Test that current session triggers cleanup of expired sessions"""
+        manager = SessionManager(session_ttl_hours=1, cleanup_interval_minutes=0)  # Set interval to 0 for immediate cleanup
+        
+        # Create an old session
+        session1 = manager.create_session("Old Topic")
+        
+        # Make it expired
+        expired_time = datetime.now(timezone.utc) - timedelta(hours=2)
+        session1.created_at = expired_time
+        
+        # Create a new session
+        session2 = manager.create_session("New Topic")
+        
+        # Get current should trigger cleanup and return the new session
+        current = manager.get_current_session()
+        
+        assert current is not None
+        assert current.session_id == session2.session_id
+        assert current.topic == "New Topic"
+        
+        # Old session should be cleaned up
+        assert session1.session_id not in manager.sessions
+        
+    def test_current_session_all_expired(self):
+        """Test getting current session when all sessions are expired"""
+        manager = SessionManager(session_ttl_hours=1)
+        
+        # Create sessions
+        session1 = manager.create_session("Topic 1")
+        session2 = manager.create_session("Topic 2")
+        
+        # Make all expired
+        expired_time = datetime.now(timezone.utc) - timedelta(hours=2)
+        session1.created_at = expired_time
+        session2.created_at = expired_time
+        
+        # Force cleanup to occur
+        future_time = datetime.now(timezone.utc) + timedelta(hours=1)
+        with patch("decision_matrix_mcp.session_manager.datetime") as mock_datetime:
+            mock_datetime.now.return_value = future_time
+            mock_datetime.timezone = timezone
+            
+            current = manager.get_current_session()
+            assert current is None
+            
+            # All sessions should be cleaned up
+            assert len(manager.sessions) == 0
+            
+    def test_current_session_ordering_with_same_timestamp(self):
+        """Test behavior when sessions have the same timestamp"""
+        manager = SessionManager()
+        
+        # Create sessions and manually set same timestamp
+        fixed_time = datetime.now(timezone.utc)
+        
+        session1 = manager.create_session("Topic 1")
+        session1.created_at = fixed_time
+        
+        session2 = manager.create_session("Topic 2")
+        session2.created_at = fixed_time
+        
+        session3 = manager.create_session("Topic 3")
+        session3.created_at = fixed_time
+        
+        # Get current - when timestamps are equal, it should still return one
+        current = manager.get_current_session()
+        assert current is not None
+        assert current.topic in ["Topic 1", "Topic 2", "Topic 3"]

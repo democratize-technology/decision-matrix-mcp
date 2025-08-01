@@ -77,6 +77,7 @@ __all__ = [
     "add_option",
     "list_sessions",
     "clear_all_sessions",
+    "current_session",
 ]
 
 # Configure logging to stderr only - NEVER stdout in MCP servers
@@ -639,6 +640,46 @@ async def clear_all_sessions() -> dict[str, Any]:
     except Exception as e:
         logger.error(f"Error clearing sessions: {e}")
         return {"error": f"Failed to clear sessions: {str(e)}"}
+
+
+@mcp.tool(description="Quick check of your most recent analysis session - see topic and status without remembering session ID")
+async def current_session() -> dict[str, Any]:
+    """Get the most recently created active session without needing the session ID"""
+    components = get_server_components()
+    
+    try:
+        session = components.session_manager.get_current_session()
+        
+        if not session:
+            return {
+                "session": None,
+                "message": "No active sessions found",
+                "formatted_output": components.formatter.format_error("No active sessions", "No current session")
+            }
+        
+        # Return session details
+        response_data = {
+            "session_id": session.session_id,
+            "topic": session.topic,
+            "created_at": session.created_at.isoformat(),
+            "options": [opt for opt in session.options],  # options is a dict, keys are the option names
+            "criteria": [crit for crit in session.criteria],  # criteria is a dict, keys are the criterion names
+            "evaluations_run": len(session.evaluations),
+            "status": "evaluated" if len(session.evaluations) > 0 else "pending",
+            "model_backend": session.model_backend.value if hasattr(session, 'model_backend') else "bedrock",
+            "message": f"Current session: {session.topic}"
+        }
+        
+        # Format for LLM consumption
+        response_data["formatted_output"] = components.formatter.format_session_summary(session)
+        
+        return response_data
+        
+    except Exception as e:
+        logger.error(f"Error getting current session: {e}")
+        error_response = {"error": f"Failed to get current session: {str(e)}"}
+        error_response["formatted_output"] = components.formatter.format_error(error_response["error"], "Current session error")
+        return error_response
 
 
 def main() -> None:

@@ -14,6 +14,7 @@ from decision_matrix_mcp import (
     add_option,
     clear_all_sessions,
     create_server_components,
+    current_session,
     evaluate_options,
     get_decision_matrix,
     get_session_or_error,
@@ -825,3 +826,104 @@ class TestClearAllSessions:
         ):
             result = await clear_all_sessions()
             assert result == {"error": "Failed to clear sessions: Clear failed"}
+
+
+class TestCurrentSession:
+    """Test current_session handler"""
+
+    @pytest.mark.asyncio
+    async def test_current_session_no_sessions(self):
+        """Test getting current session when none exist"""
+        # Clear any existing sessions
+        for sid in list(session_manager.list_active_sessions().keys()):
+            session_manager.remove_session(sid)
+            
+        result = await current_session()
+        
+        assert result["session"] is None
+        assert result["message"] == "No active sessions found"
+        assert "formatted_output" in result
+        
+    @pytest.mark.asyncio
+    async def test_current_session_single_session(self):
+        """Test getting current session with one active session"""
+        # Clear existing sessions first
+        for sid in list(session_manager.list_active_sessions().keys()):
+            session_manager.remove_session(sid)
+            
+        # Create a test session
+        session = session_manager.create_session("Test Decision", ["Option A", "Option B"])
+        criterion = Criterion(name="Cost", description="Price comparison", weight=1.5)
+        session.add_criterion(criterion)
+        
+        result = await current_session()
+        
+        assert result["session_id"] == session.session_id
+        assert result["topic"] == "Test Decision"
+        assert result["options"] == ["Option A", "Option B"]
+        assert result["criteria"] == ["Cost"]
+        assert result["evaluations_run"] == 0
+        assert result["status"] == "pending"
+        assert result["message"] == "Current session: Test Decision"
+        assert "formatted_output" in result
+        
+        # Cleanup
+        session_manager.remove_session(session.session_id)
+        
+    @pytest.mark.asyncio
+    async def test_current_session_multiple_sessions(self):
+        """Test getting most recent session with multiple active sessions"""
+        # Clear existing sessions first
+        for sid in list(session_manager.list_active_sessions().keys()):
+            session_manager.remove_session(sid)
+            
+        # Create multiple sessions
+        session1 = session_manager.create_session("First Decision", ["A", "B"])
+        import time
+        time.sleep(0.01)  # Small delay to ensure different timestamps
+        session2 = session_manager.create_session("Second Decision", ["C", "D"])
+        time.sleep(0.01)
+        session3 = session_manager.create_session("Third Decision", ["E", "F"])
+        
+        result = await current_session()
+        
+        assert result["session_id"] == session3.session_id
+        assert result["topic"] == "Third Decision"
+        assert result["options"] == ["E", "F"]
+        assert result["status"] == "pending"
+        
+        # Cleanup
+        session_manager.remove_session(session1.session_id)
+        session_manager.remove_session(session2.session_id)
+        session_manager.remove_session(session3.session_id)
+        
+    @pytest.mark.asyncio
+    async def test_current_session_evaluated_status(self):
+        """Test current session shows evaluated status correctly"""
+        # Clear existing sessions first
+        for sid in list(session_manager.list_active_sessions().keys()):
+            session_manager.remove_session(sid)
+            
+        # Create a session with evaluation
+        session = session_manager.create_session("Evaluated Decision", ["X", "Y"])
+        session.record_evaluation({"test": "data"})
+        
+        result = await current_session()
+        
+        assert result["session_id"] == session.session_id
+        assert result["evaluations_run"] == 1
+        assert result["status"] == "evaluated"
+        
+        # Cleanup
+        session_manager.remove_session(session.session_id)
+        
+    @pytest.mark.asyncio
+    async def test_current_session_error_handling(self):
+        """Test error handling in current_session"""
+        with patch.object(
+            session_manager, "get_current_session", side_effect=Exception("Get current failed")
+        ):
+            result = await current_session()
+            assert "error" in result
+            assert "Failed to get current session" in result["error"]
+            assert "formatted_output" in result

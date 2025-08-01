@@ -119,9 +119,6 @@ class SessionManager:
     def clear_all_sessions(self) -> None:
         """Clear all sessions from the manager"""
         self.sessions.clear()
-        self.stats["total_sessions"] = 0
-        self.stats["total_expired"] = 0
-        self.stats["total_removed"] = 0
 
     def get_stats(self) -> dict[str, Any]:
         """Get session manager statistics"""
@@ -130,6 +127,27 @@ class SessionManager:
             "active_sessions": len(self.sessions),
             "last_cleanup": self.last_cleanup.isoformat(),
         }
+
+    def get_current_session(self) -> DecisionSession | None:
+        """Get the most recently created active session
+        
+        Returns:
+            The most recent DecisionSession or None if no sessions exist
+        """
+        self._cleanup_if_needed()
+        
+        if not self.sessions:
+            return None
+            
+        # Sort sessions by creation time, most recent first
+        sorted_sessions = sorted(
+            self.sessions.items(), 
+            key=lambda x: x[1].created_at, 
+            reverse=True
+        )
+        
+        # Return the most recent session
+        return sorted_sessions[0][1]
 
     def _cleanup_if_needed(self) -> None:
         """Run cleanup if enough time has passed"""
