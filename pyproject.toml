@@ -10,7 +10,7 @@ readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
 authors = [
-    { name = "Your Name", email = "your.email@example.com" }
+    { name = "Democratize Technology", email = "contact@democratize.technology" }
 ]
 keywords = ["mcp", "decision-analysis", "ai", "llm", "model-context-protocol"]
 classifiers = [
@@ -47,9 +47,9 @@ dev = [
 decision-matrix = "decision_matrix_mcp:main"
 
 [project.urls]
-Homepage = "https://github.com/yourusername/decision-matrix-mcp"
-Repository = "https://github.com/yourusername/decision-matrix-mcp.git"
-Issues = "https://github.com/yourusername/decision-matrix-mcp/issues"
+Homepage = "https://github.com/democratize-technology/decision-matrix-mcp"
+Repository = "https://github.com/democratize-technology/decision-matrix-mcp.git"
+Issues = "https://github.com/democratize-technology/decision-matrix-mcp/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/decision_matrix_mcp"]
