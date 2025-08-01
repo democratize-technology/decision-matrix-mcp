@@ -122,7 +122,9 @@ class Option:
                         "criterion": criterion_name,
                         "weight": criterion.weight,
                         "raw_score": score.score,
-                        "weighted_score": score.score * criterion.weight if score.score is not None else None,
+                        "weighted_score": (
+                            score.score * criterion.weight if score.score is not None else None
+                        ),
                         "justification": score.justification,
                         "abstained": score.abstained,
                     }

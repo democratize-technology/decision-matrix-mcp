@@ -72,7 +72,9 @@ def validate_request(**validators: Callable[[Any], bool]) -> Callable[[Any], Any
             # Function body with validation already handled
     """
 
-    def decorator(func: Callable[..., Awaitable[dict[str, Any]]]) -> Callable[..., Awaitable[dict[str, Any]]]:
+    def decorator(
+        func: Callable[..., Awaitable[dict[str, Any]]],
+    ) -> Callable[..., Awaitable[dict[str, Any]]]:
         @wraps(func)
         async def wrapper(request: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
             # Validate each field

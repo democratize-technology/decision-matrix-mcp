@@ -40,18 +40,21 @@ from .models import CriterionThread, ModelBackend, Option
 try:
     import boto3
     from botocore.exceptions import BotoCoreError, ClientError
+
     BOTO3_AVAILABLE = True
 except ImportError:
     BOTO3_AVAILABLE = False
 
 try:
     import litellm
+
     LITELLM_AVAILABLE = True
 except ImportError:
     LITELLM_AVAILABLE = False
 
 try:
     import httpx
+
     HTTPX_AVAILABLE = True
 except ImportError:
     HTTPX_AVAILABLE = False
@@ -86,7 +89,7 @@ class DecisionOrchestrator:
             return {
                 "status": "error",
                 "error": "boto3 not installed. Install with: pip install boto3",
-                "region": "N/A"
+                "region": "N/A",
             }
 
         region = os.environ.get("AWS_REGION", os.environ.get("AWS_DEFAULT_REGION", "us-east-1"))
@@ -104,10 +107,7 @@ class DecisionOrchestrator:
                 modelId=model_id,
                 messages=messages,
                 system=system_prompts,
-                inferenceConfig={
-                    "maxTokens": 10,
-                    "temperature": 0.1
-                }
+                inferenceConfig={"maxTokens": 10, "temperature": 0.1},
             )
 
             # Parse response - converse API has cleaner structure
@@ -123,11 +123,11 @@ class DecisionOrchestrator:
                 "model_tested": model_id,
                 "response_length": len(response_text),
                 "message": "Bedrock connection successful",
-                "api_version": "converse"
+                "api_version": "converse",
             }
 
         except (BotoCoreError, ClientError) as e:
-            error_code = getattr(e, 'response', {}).get('Error', {}).get('Code', 'Unknown')
+            error_code = getattr(e, "response", {}).get("Error", {}).get("Code", "Unknown")
             error_message = str(e)
 
             return {
@@ -136,7 +136,7 @@ class DecisionOrchestrator:
                 "error_code": error_code,
                 "error": error_message,
                 "model_tested": model_id,
-                "suggestion": self._get_bedrock_error_suggestion(error_code, error_message)
+                "suggestion": self._get_bedrock_error_suggestion(error_code, error_message),
             }
 
         except Exception as e:
@@ -144,17 +144,21 @@ class DecisionOrchestrator:
                 "status": "error",
                 "region": region,
                 "error": f"Unexpected error: {str(e)}",
-                "suggestion": "Check AWS credentials and region configuration"
+                "suggestion": "Check AWS credentials and region configuration",
             }
 
     def _get_bedrock_error_suggestion(self, error_code: str, error_message: str) -> str:
         """Get user-friendly suggestions for common Bedrock errors"""
         if "access" in error_message.lower() or "permission" in error_message.lower():
-            return "Enable model access in AWS Console: Bedrock > Model access > Manage model access"
+            return (
+                "Enable model access in AWS Console: Bedrock > Model access > Manage model access"
+            )
         elif "region" in error_message.lower():
             return "Try us-east-1 or us-west-2 regions where Bedrock is available"
         elif "credentials" in error_message.lower():
-            return "Configure AWS credentials: aws configure or set AWS_PROFILE environment variable"
+            return (
+                "Configure AWS credentials: aws configure or set AWS_PROFILE environment variable"
+            )
         elif "throttling" in error_message.lower():
             return "Request rate limit exceeded. Wait a moment and try again"
         else:
@@ -195,8 +199,13 @@ class DecisionOrchestrator:
             elif isinstance(result, tuple):
                 evaluation_results[criterion_name][option_name] = result
             else:
-                logger.error(f"Unexpected result type for {option_name}/{criterion_name}: {type(result)}")
-                evaluation_results[criterion_name][option_name] = (None, "Error: Unexpected result type")
+                logger.error(
+                    f"Unexpected result type for {option_name}/{criterion_name}: {type(result)}"
+                )
+                evaluation_results[criterion_name][option_name] = (
+                    None,
+                    "Error: Unexpected result type",
+                )
 
         return evaluation_results
 
@@ -406,7 +415,7 @@ JUSTIFICATION: [your reasoning]"""
         if not BOTO3_AVAILABLE:
             raise LLMConfigurationError(
                 backend="bedrock",
-                message="boto3 is not installed. Please install with: pip install boto3"
+                message="boto3 is not installed. Please install with: pip install boto3",
             )
 
         try:
@@ -419,10 +428,7 @@ JUSTIFICATION: [your reasoning]"""
             messages = []
             for msg in thread.conversation_history:
                 # Converse API uses a simpler format
-                messages.append({
-                    "role": msg["role"],
-                    "content": [{"text": msg["content"]}]
-                })
+                messages.append({"role": msg["role"], "content": [{"text": msg["content"]}]})
 
             # Choose model
             model_id = thread.criterion.model_name or "anthropic.claude-3-sonnet-20240229-v1:0"
@@ -466,7 +472,7 @@ JUSTIFICATION: [your reasoning]"""
         except (BotoCoreError, ClientError) as e:
             # Enhanced error logging for diagnostics
             error_message = str(e)
-            error_code = getattr(e, 'response', {}).get('Error', {}).get('Code', 'Unknown')
+            error_code = getattr(e, "response", {}).get("Error", {}).get("Code", "Unknown")
 
             logger.error("Bedrock API error details:")
             logger.error(f"  - Error Code: {error_code}")
@@ -483,7 +489,9 @@ JUSTIFICATION: [your reasoning]"""
             elif "access" in error_message.lower() or "permission" in error_message.lower():
                 user_message = f"No access to model {model_id} in region {region}. Check Bedrock model access in AWS Console."
             elif "region" in error_message.lower():
-                user_message = f"Bedrock not available in region {region}. Try us-east-1 or us-west-2."
+                user_message = (
+                    f"Bedrock not available in region {region}. Try us-east-1 or us-west-2."
+                )
             else:
                 user_message = "LLM service temporarily unavailable"
 
@@ -509,7 +517,7 @@ JUSTIFICATION: [your reasoning]"""
         if not LITELLM_AVAILABLE:
             raise LLMConfigurationError(
                 backend="litellm",
-                message="litellm is not installed. Please install with: pip install litellm"
+                message="litellm is not installed. Please install with: pip install litellm",
             )
 
         try:
@@ -525,7 +533,7 @@ JUSTIFICATION: [your reasoning]"""
                 model=model,
                 messages=messages,
                 temperature=thread.criterion.temperature,
-                max_tokens=thread.criterion.max_tokens
+                max_tokens=thread.criterion.max_tokens,
             )
 
             return response.choices[0].message.content
@@ -562,7 +570,7 @@ JUSTIFICATION: [your reasoning]"""
         if not HTTPX_AVAILABLE:
             raise LLMConfigurationError(
                 backend="ollama",
-                message="httpx is not installed. Please install with: pip install httpx"
+                message="httpx is not installed. Please install with: pip install httpx",
             )
 
         try:
@@ -577,10 +585,7 @@ JUSTIFICATION: [your reasoning]"""
             async with httpx.AsyncClient(timeout=60.0) as client:
                 ollama_host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
                 # Build options with criterion parameters
-                options = {
-                    "temperature": thread.criterion.temperature,
-                    "num_ctx": 4096
-                }
+                options = {"temperature": thread.criterion.temperature, "num_ctx": 4096}
 
                 response = await client.post(
                     f"{ollama_host}/api/chat",
