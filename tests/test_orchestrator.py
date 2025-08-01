@@ -360,53 +360,24 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
 
         with patch("boto3.Session") as mock_session:
             mock_client = MagicMock()
-            mock_client.invoke_model.return_value = mock_response
+            mock_client.converse.return_value = {
+                "output": {
+                    "message": {
+                        "content": [{"text": "SCORE: 8\nJUSTIFICATION: Good"}]
+                    }
+                }
+            }
             mock_session.return_value.client.return_value = mock_client
 
             response = await orchestrator._call_bedrock(sample_thread)
             assert response == "SCORE: 8\nJUSTIFICATION: Good"
             
-            # Verify request body
-            call_args = mock_client.invoke_model.call_args
-            request_body = json.loads(call_args.kwargs["body"])
-            assert request_body["temperature"] == sample_thread.criterion.temperature
-            assert request_body["max_tokens"] == sample_thread.criterion.max_tokens
-            # Seed should not be in request if None
-            assert "seed" not in request_body
+            # Verify request format
+            call_args = mock_client.converse.call_args
+            assert call_args.kwargs["inferenceConfig"]["temperature"] == sample_thread.criterion.temperature
+            assert call_args.kwargs["inferenceConfig"]["maxTokens"] == sample_thread.criterion.max_tokens
+            assert "additionalModelRequestFields" not in call_args.kwargs
 
-    @pytest.mark.asyncio
-    async def test_call_bedrock_with_seed(self, orchestrator):
-        """Test Bedrock API call with custom seed"""
-        # Create criterion with seed
-        criterion = Criterion(
-            name="Performance",
-            description="Test",
-            weight=1.0,
-            temperature=0.5,
-            seed=42,
-            max_tokens=512
-        )
-        thread = CriterionThread(id="test", criterion=criterion)
-        
-        mock_response = {
-            "body": MagicMock(
-                read=lambda: b'{"content": [{"text": "SCORE: 8\\nJUSTIFICATION: Good"}]}'
-            )
-        }
-        
-        with patch("boto3.Session") as mock_session:
-            mock_client = MagicMock()
-            mock_client.invoke_model.return_value = mock_response
-            mock_session.return_value.client.return_value = mock_client
-            
-            await orchestrator._call_bedrock(thread)
-            
-            # Verify seed is included
-            call_args = mock_client.invoke_model.call_args
-            request_body = json.loads(call_args.kwargs["body"])
-            assert request_body["seed"] == 42
-            assert request_body["temperature"] == 0.5
-            assert request_body["max_tokens"] == 512
 
     @pytest.mark.asyncio
     async def test_call_bedrock_import_error(self, orchestrator, sample_thread):
@@ -431,7 +402,7 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
             from botocore.exceptions import ClientError
 
             mock_client = MagicMock()
-            mock_client.invoke_model.side_effect = ClientError(
+            mock_client.converse.side_effect = ClientError(
                 {"Error": {"Code": "ValidationException", "Message": "Invalid model"}},
                 "invoke_model",
             )
@@ -449,7 +420,7 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
 
         with patch("boto3.Session") as mock_session:
             mock_client = MagicMock()
-            mock_client.invoke_model.return_value = mock_response
+            mock_client.converse.return_value = {"output": {}}
             mock_session.return_value.client.return_value = mock_client
 
             with pytest.raises(LLMAPIError) as exc_info:
@@ -474,7 +445,6 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
             call_args = mock_litellm.call_args
             assert call_args.kwargs["temperature"] == sample_thread.criterion.temperature
             assert call_args.kwargs["max_tokens"] == sample_thread.criterion.max_tokens
-            assert call_args.kwargs["seed"] == sample_thread.criterion.seed
 
     @pytest.mark.asyncio
     async def test_call_litellm_import_error(self, orchestrator, sample_thread):
@@ -523,41 +493,7 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
             call_args = mock_client.post.call_args
             request_json = call_args.kwargs["json"]
             assert request_json["options"]["temperature"] == sample_thread.criterion.temperature
-            # Seed should not be in options if None
-            assert "seed" not in request_json["options"]
 
-    @pytest.mark.asyncio
-    async def test_call_ollama_with_seed(self, orchestrator):
-        """Test Ollama API call with custom seed"""
-        # Create criterion with seed
-        criterion = Criterion(
-            name="Test",
-            description="Test",
-            weight=1.0,
-            temperature=0.7,
-            seed=12345
-        )
-        thread = CriterionThread(id="test", criterion=criterion)
-        
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "message": {"content": "SCORE: 6\nJUSTIFICATION: Test"}
-        }
-        
-        with patch("httpx.AsyncClient") as mock_client_class:
-            mock_client = AsyncMock()
-            mock_client.__aenter__.return_value = mock_client
-            mock_client.post.return_value = mock_response
-            mock_client_class.return_value = mock_client
-            
-            await orchestrator._call_ollama(thread)
-            
-            # Verify seed is included
-            call_args = mock_client.post.call_args
-            request_json = call_args.kwargs["json"]
-            assert request_json["options"]["temperature"] == 0.7
-            assert request_json["options"]["seed"] == 12345
 
     @pytest.mark.asyncio
     async def test_call_ollama_custom_host(self, orchestrator, sample_thread):

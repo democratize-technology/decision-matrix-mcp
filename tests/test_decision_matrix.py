@@ -47,8 +47,7 @@ class TestModels:
         assert "scalability" in criterion.system_prompt.lower()
         assert "2.0" in criterion.system_prompt
         # Test new default parameters
-        assert criterion.temperature == 0.1
-        assert criterion.seed is None
+        assert criterion.temperature == 0.0
         assert criterion.max_tokens == 1024
 
     def test_criterion_with_custom_llm_params(self):
@@ -58,12 +57,10 @@ class TestModels:
             description="Performance evaluation",
             weight=1.5,
             temperature=0.7,
-            seed=12345,
             max_tokens=2048
         )
         
         assert criterion.temperature == 0.7
-        assert criterion.seed == 12345
         assert criterion.max_tokens == 2048
 
     def test_option_weighted_total(self):
@@ -108,7 +105,6 @@ class TestModels:
         assert "test_criterion" in session.criteria
         # Test default parameters
         assert session.default_temperature == 0.1
-        assert session.default_seed is None
 
     def test_decision_session_with_custom_defaults(self):
         """Test DecisionSession with custom default parameters"""
@@ -116,12 +112,10 @@ class TestModels:
             session_id="test-456",
             created_at=datetime.now(timezone.utc),
             topic="Test decision",
-            default_temperature=0.5,
-            default_seed=42
+            default_temperature=0.5
         )
         
         assert session.default_temperature == 0.5
-        assert session.default_seed == 42
         
         # Test parameter inheritance when adding criterion
         criterion = Criterion("test", "Test criterion", weight=1.0)
@@ -129,7 +123,6 @@ class TestModels:
         
         # Criterion should inherit session defaults
         assert session.criteria["test"].temperature == 0.5
-        assert session.criteria["test"].seed == 42
 
 
 class TestSessionManager:
@@ -158,12 +151,10 @@ class TestSessionManager:
         session = manager.create_session(
             "Test topic", 
             ["option1", "option2"],
-            temperature=0.7,
-            seed=54321
+            temperature=0.7
         )
         
         assert session.default_temperature == 0.7
-        assert session.default_seed == 54321
 
     def test_session_limit(self):
         """Test session limit enforcement"""

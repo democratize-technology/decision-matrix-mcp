@@ -78,6 +78,7 @@ __all__ = [
     "list_sessions",
     "clear_all_sessions",
     "current_session",
+    "test_aws_bedrock_connection",
 ]
 
 # Configure logging to stderr only - NEVER stdout in MCP servers
@@ -153,7 +154,6 @@ class StartDecisionAnalysisRequest(BaseModel):
     )
     model_name: str | None = Field(default=None, description="Specific model to use")
     temperature: float = Field(default=0.1, description="LLM temperature for response generation")
-    seed: int | None = Field(default=None, description="Random seed for deterministic generation")
 
 
 def get_session_or_error(session_id: str, components: ServerComponents) -> tuple[DecisionSession | None, dict[str, Any] | None]:
@@ -194,7 +194,7 @@ async def start_decision_analysis(request: StartDecisionAnalysisRequest) -> dict
     try:
         session = components.session_manager.create_session(
             topic=request.topic, initial_options=request.options,
-            temperature=request.temperature, seed=request.seed
+            temperature=request.temperature
         )
 
         criteria_added = []
@@ -217,7 +217,6 @@ async def start_decision_analysis(request: StartDecisionAnalysisRequest) -> dict
                     model_backend=request.model_backend,
                     model_name=request.model_name,
                     temperature=criterion_spec.get("temperature", request.temperature),
-                    seed=criterion_spec.get("seed", request.seed),
                 )
 
                 session.add_criterion(criterion)
@@ -276,7 +275,6 @@ class AddCriterionRequest(BaseModel):
     )
     model_name: str | None = Field(default=None, description="Specific model to use")
     temperature: float | None = Field(default=None, description="LLM temperature (None to use session default)")
-    seed: int | None = Field(default=None, description="Random seed for deterministic generation")
 
 
 @mcp.tool(
@@ -317,7 +315,6 @@ async def add_criterion(request: AddCriterionRequest) -> dict[str, Any]:
             model_backend=request.model_backend,
             model_name=request.model_name,
             temperature=request.temperature if request.temperature is not None else session.default_temperature,
-            seed=request.seed if request.seed is not None else session.default_seed,
         )
 
         # Override system prompt if provided
@@ -679,6 +676,48 @@ async def current_session() -> dict[str, Any]:
         logger.error(f"Error getting current session: {e}")
         error_response = {"error": f"Failed to get current session: {str(e)}"}
         error_response["formatted_output"] = components.formatter.format_error(error_response["error"], "Current session error")
+        return error_response
+
+
+@mcp.tool(description="Test AWS Bedrock connectivity and configuration for debugging connection issues")
+async def test_aws_bedrock_connection() -> dict[str, Any]:
+    """Test Bedrock connectivity and return detailed diagnostics"""
+    components = get_server_components()
+
+    try:
+        # Test connectivity using orchestrator's test method
+        test_result = await components.orchestrator.test_bedrock_connection()
+
+        # Format for LLM consumption
+        if test_result["status"] == "ok":
+            formatted_output = f"""# ✅ Bedrock Connection Test: SUCCESS
+
+**Status**: {test_result['status'].upper()}
+**Region**: {test_result['region']}
+**Model Tested**: {test_result['model_tested']}
+**Response Length**: {test_result['response_length']} characters
+
+{test_result['message']}"""
+        else:
+            formatted_output = components.formatter.format_error(
+                f"❌ Bedrock connection failed: {test_result['error']}",
+                f"Suggestion: {test_result.get('suggestion', 'Check AWS configuration')}"
+            )
+
+        test_result["formatted_output"] = formatted_output
+        return test_result
+
+    except Exception as e:
+        logger.error(f"Error testing Bedrock connection: {e}")
+        error_response = {
+            "status": "error",
+            "error": f"Test failed: {str(e)}",
+            "suggestion": "Check server configuration and dependencies"
+        }
+        error_response["formatted_output"] = components.formatter.format_error(
+            error_response["error"],
+            "Bedrock test error"
+        )
         return error_response
 
 

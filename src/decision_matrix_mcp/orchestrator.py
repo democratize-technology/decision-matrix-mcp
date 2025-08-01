@@ -23,10 +23,10 @@
 """Thread orchestration for parallel criterion evaluation"""
 
 import asyncio
-import json
 import logging
 import os
 import re
+from typing import Any
 
 from .exceptions import (
     ConfigurationError,
@@ -79,6 +79,88 @@ class DecisionOrchestrator:
         }
         self.max_retries = max_retries
         self.retry_delay = retry_delay
+
+    async def test_bedrock_connection(self) -> dict[str, Any]:
+        """Test Bedrock connectivity and model access permissions"""
+        if not BOTO3_AVAILABLE:
+            return {
+                "status": "error",
+                "error": "boto3 not installed. Install with: pip install boto3",
+                "region": "N/A"
+            }
+
+        # Initialize variables for error handling
+        region = os.environ.get("AWS_REGION", os.environ.get("AWS_DEFAULT_REGION", "us-east-1"))
+        model_id = "anthropic.claude-3-haiku-20240307-v1:0"
+
+        try:
+            # Initialize Bedrock client
+            session = boto3.Session()
+            bedrock = session.client("bedrock-runtime", region_name=region)
+
+            # Test with minimal request using Haiku (cheaper and faster)
+            messages = [{"role": "user", "content": [{"text": "Hi"}]}]
+            system_prompts = [{"text": "You are a helpful assistant."}]
+
+            response = bedrock.converse(
+                modelId=model_id,
+                messages=messages,
+                system=system_prompts,
+                inferenceConfig={
+                    "maxTokens": 10,
+                    "temperature": 0.1
+                }
+            )
+
+            # Parse response - converse API has cleaner structure
+            response_text = ""
+            if "output" in response and "message" in response["output"]:
+                message_content = response["output"]["message"]["content"]
+                if message_content and len(message_content) > 0:
+                    response_text = message_content[0]["text"]
+
+            return {
+                "status": "ok",
+                "region": region,
+                "model_tested": model_id,
+                "response_length": len(response_text),
+                "message": "Bedrock connection successful",
+                "api_version": "converse"
+            }
+
+        except (BotoCoreError, ClientError) as e:
+            error_code = getattr(e, 'response', {}).get('Error', {}).get('Code', 'Unknown')
+            error_message = str(e)
+
+            return {
+                "status": "error",
+                "region": region,
+                "error_code": error_code,
+                "error": error_message,
+                "model_tested": model_id,
+                "suggestion": self._get_bedrock_error_suggestion(error_code, error_message)
+            }
+
+        except Exception as e:
+            return {
+                "status": "error",
+                "region": region,
+                "error": f"Unexpected error: {str(e)}",
+                "suggestion": "Check AWS credentials and region configuration"
+            }
+
+    def _get_bedrock_error_suggestion(self, error_code: str, error_message: str) -> str:
+        """Get user-friendly suggestions for common Bedrock errors"""
+        if "access" in error_message.lower() or "permission" in error_message.lower():
+            return "Enable model access in AWS Console: Bedrock > Model access > Manage model access"
+        elif "region" in error_message.lower():
+            return "Try us-east-1 or us-west-2 regions where Bedrock is available"
+        elif "credentials" in error_message.lower():
+            return "Configure AWS credentials: aws configure or set AWS_PROFILE environment variable"
+        elif "throttling" in error_message.lower():
+            return "Request rate limit exceeded. Wait a moment and try again"
+        else:
+            return "Check AWS Bedrock service status and model availability"
 
     async def evaluate_options_across_criteria(
         self, threads: dict[str, CriterionThread], options: list[Option]
@@ -336,42 +418,49 @@ JUSTIFICATION: [your reasoning]"""
             region = os.environ.get("AWS_REGION", os.environ.get("AWS_DEFAULT_REGION", "us-east-1"))
             bedrock = session.client("bedrock-runtime", region_name=region)
 
-            # Prepare messages for Bedrock format
+            # Prepare messages for converse API format
             messages = []
             for msg in thread.conversation_history:
-                # Bedrock requires content to be a list of content blocks
-                messages.append(
-                    {"role": msg["role"], "content": [{"type": "text", "text": msg["content"]}]}
-                )
+                # Converse API uses a simpler format
+                messages.append({
+                    "role": msg["role"],
+                    "content": [{"text": msg["content"]}]
+                })
 
             # Choose model
             model_id = thread.criterion.model_name or "anthropic.claude-3-sonnet-20240229-v1:0"
 
-            # Call Bedrock
-            request_body = {
-                "anthropic_version": "bedrock-2023-05-31",
-                "max_tokens": thread.criterion.max_tokens,
+            # Prepare inference configuration
+            inference_config = {
+                "maxTokens": thread.criterion.max_tokens,
                 "temperature": thread.criterion.temperature,
-                "system": thread.criterion.system_prompt,
-                "messages": messages,
             }
 
-            # Add seed if specified
-            if thread.criterion.seed is not None:
-                request_body["seed"] = thread.criterion.seed
+            # Prepare system prompts
+            system_prompts = [{"text": thread.criterion.system_prompt}]
 
-            response = bedrock.invoke_model(modelId=model_id, body=json.dumps(request_body))
+            # Prepare kwargs for converse API
+            converse_kwargs = {
+                "modelId": model_id,
+                "messages": messages,
+                "system": system_prompts,
+                "inferenceConfig": inference_config,
+            }
 
-            # Parse response - Bedrock returns content as a list
-            response_body = json.loads(response["body"].read())
-            if "content" in response_body and len(response_body["content"]) > 0:
-                return response_body["content"][0]["text"]
-            else:
-                raise LLMAPIError(
-                    backend="bedrock",
-                    message=f"Invalid response format from Bedrock: {response_body}",
-                    user_message="Unexpected response format from LLM",
-                ) from None
+            # Call Bedrock converse API
+            response = bedrock.converse(**converse_kwargs)
+
+            # Parse response - converse API has a cleaner response structure
+            if "output" in response and "message" in response["output"]:
+                message_content = response["output"]["message"]["content"]
+                if message_content and len(message_content) > 0:
+                    return message_content[0]["text"]
+
+            raise LLMAPIError(
+                backend="bedrock",
+                message=f"Invalid response format from Bedrock converse API: {response}",
+                user_message="Unexpected response format from LLM",
+            ) from None
 
         except ImportError as e:
             raise LLMConfigurationError(
@@ -380,12 +469,26 @@ JUSTIFICATION: [your reasoning]"""
                 original_error=e,
             ) from e
         except (BotoCoreError, ClientError) as e:
-            # Check for specific error types
+            # Enhanced error logging for diagnostics
             error_message = str(e)
+            error_code = getattr(e, 'response', {}).get('Error', {}).get('Code', 'Unknown')
+
+            logger.error("Bedrock API error details:")
+            logger.error(f"  - Error Code: {error_code}")
+            logger.error(f"  - Error Message: {error_message}")
+            logger.error(f"  - Model ID: {model_id}")
+            logger.error(f"  - Region: {region}")
+            logger.error("  - Using converse API with inference config")
+
+            # Check for specific error types
             if "rate limit" in error_message.lower() or "throttling" in error_message.lower():
                 user_message = "Request rate limit exceeded, please try again later"
             elif "invalid" in error_message.lower() and "model" in error_message.lower():
                 user_message = f"Invalid model ID: {model_id}"
+            elif "access" in error_message.lower() or "permission" in error_message.lower():
+                user_message = f"No access to model {model_id} in region {region}. Check Bedrock model access in AWS Console."
+            elif "region" in error_message.lower():
+                user_message = f"Bedrock not available in region {region}. Try us-east-1 or us-west-2."
             else:
                 user_message = "LLM service temporarily unavailable"
 
@@ -428,8 +531,7 @@ JUSTIFICATION: [your reasoning]"""
                 model=model,
                 messages=messages,
                 temperature=thread.criterion.temperature,
-                max_tokens=thread.criterion.max_tokens,
-                seed=thread.criterion.seed
+                max_tokens=thread.criterion.max_tokens
             )
 
             return response.choices[0].message.content
@@ -487,10 +589,6 @@ JUSTIFICATION: [your reasoning]"""
                     "temperature": thread.criterion.temperature,
                     "num_ctx": 4096
                 }
-
-                # Add seed if specified
-                if thread.criterion.seed is not None:
-                    options["seed"] = thread.criterion.seed
 
                 response = await client.post(
                     f"{ollama_host}/api/chat",

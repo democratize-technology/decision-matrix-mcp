@@ -100,8 +100,7 @@ class TestStartDecisionAnalysis:
         request = StartDecisionAnalysisRequest(
             topic="Choose a model",
             options=["GPT-4", "Claude", "Llama"],
-            temperature=0.7,
-            seed=42
+            temperature=0.7
         )
         
         result = await start_decision_analysis(request)
@@ -111,7 +110,6 @@ class TestStartDecisionAnalysis:
         # Verify session has custom defaults
         session = session_manager.get_session(result["session_id"])
         assert session.default_temperature == 0.7
-        assert session.default_seed == 42
         
         # Cleanup
         session_manager.remove_session(result["session_id"])
@@ -292,8 +290,7 @@ class TestAddCriterion:
             session_id=test_session.session_id,
             name="Reliability",
             description="Evaluate reliability and uptime",
-            temperature=0.3,
-            seed=54321
+            temperature=0.3
         )
         
         result = await add_criterion(request)
@@ -302,21 +299,20 @@ class TestAddCriterion:
         # Verify criterion has custom parameters
         criterion = test_session.criteria["Reliability"]
         assert criterion.temperature == 0.3
-        assert criterion.seed == 54321
 
     @pytest.mark.asyncio
     async def test_add_criterion_inherits_session_defaults(self):
         """Test criterion inherits session defaults when not specified"""
         # Create session with custom defaults
         test_session = session_manager.create_session(
-            "Test", ["A", "B"], temperature=0.8, seed=99999
+            "Test", ["A", "B"], temperature=0.8
         )
         
         request = AddCriterionRequest(
             session_id=test_session.session_id,
             name="TestCriterion",
             description="Test description"
-            # No temperature or seed specified
+            # No temperature specified
         )
         
         result = await add_criterion(request)
@@ -324,7 +320,6 @@ class TestAddCriterion:
         # Verify criterion inherited session defaults
         criterion = test_session.criteria["TestCriterion"]
         assert criterion.temperature == 0.8
-        assert criterion.seed == 99999
         
         # Cleanup
         session_manager.remove_session(test_session.session_id)

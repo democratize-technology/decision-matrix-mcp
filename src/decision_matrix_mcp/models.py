@@ -63,8 +63,7 @@ class Criterion:
     system_prompt: str = ""
     model_backend: ModelBackend = ModelBackend.BEDROCK
     model_name: str | None = None
-    temperature: float = 0.1
-    seed: int | None = None
+    temperature: float = 0.0  # Use 0 for maximum determinism
     max_tokens: int = 1024
 
     def __post_init__(self) -> None:
@@ -158,7 +157,6 @@ class DecisionSession:
     threads: dict[str, CriterionThread] = field(default_factory=dict)  # criterion_name -> Thread
     evaluations: list[dict[str, Any]] = field(default_factory=list)  # History of evaluations
     default_temperature: float = 0.1
-    default_seed: int | None = None
 
     def add_option(self, name: str, description: str | None = None) -> None:
         """Add a new option to evaluate"""
@@ -170,8 +168,6 @@ class DecisionSession:
         # Apply session defaults if criterion doesn't specify its own values
         if criterion.temperature == 0.1:  # Using default value
             criterion.temperature = self.default_temperature
-        if criterion.seed is None and self.default_seed is not None:
-            criterion.seed = self.default_seed
 
         self.criteria[criterion.name] = criterion
 

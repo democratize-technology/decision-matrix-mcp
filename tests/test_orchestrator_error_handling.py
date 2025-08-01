@@ -78,14 +78,14 @@ class TestOrchestratorErrorHandling:
 
         with patch("boto3.Session") as mock_session:
             mock_client = MagicMock()
-            mock_client.invoke_model.side_effect = ClientError(
+            mock_client.converse.side_effect = ClientError(
                 {
                     "Error": {
                         "Code": "ThrottlingException",
                         "Message": "Rate limit exceeded",
                     }
                 },
-                "invoke_model",
+                "converse",
             )
             mock_session.return_value.client.return_value = mock_client
 
@@ -104,14 +104,14 @@ class TestOrchestratorErrorHandling:
 
         with patch("boto3.Session") as mock_session:
             mock_client = MagicMock()
-            mock_client.invoke_model.side_effect = ClientError(
+            mock_client.converse.side_effect = ClientError(
                 {
                     "Error": {
                         "Code": "ValidationException",
                         "Message": "Invalid model ID specified",
                     }
                 },
-                "invoke_model",
+                "converse",
             )
             mock_session.return_value.client.return_value = mock_client
 
@@ -127,7 +127,7 @@ class TestOrchestratorErrorHandling:
         """Test Bedrock unexpected error handling"""
         with patch("boto3.Session") as mock_session:
             mock_client = MagicMock()
-            mock_client.invoke_model.side_effect = RuntimeError("Unexpected error")
+            mock_client.converse.side_effect = RuntimeError("Unexpected error")
             mock_session.return_value.client.return_value = mock_client
 
             with pytest.raises(LLMBackendError) as exc_info:
@@ -142,13 +142,12 @@ class TestOrchestratorErrorHandling:
     @pytest.mark.asyncio
     async def test_bedrock_invalid_response_format(self, orchestrator, bedrock_thread):
         """Test Bedrock invalid response format error"""
-        mock_response = {
-            "body": MagicMock(read=lambda: b'{"invalid": "format"}')
-        }
+        # For converse API, an invalid response is one without proper output structure
+        mock_response = {"output": {}}  # Missing message field
 
         with patch("boto3.Session") as mock_session:
             mock_client = MagicMock()
-            mock_client.invoke_model.return_value = mock_response
+            mock_client.converse.return_value = mock_response
             mock_session.return_value.client.return_value = mock_client
 
             with pytest.raises(LLMAPIError) as exc_info:
@@ -285,7 +284,7 @@ class TestOrchestratorErrorHandling:
 
         with patch("boto3.Session") as mock_session:
             mock_client = MagicMock()
-            mock_client.invoke_model.side_effect = custom_error
+            mock_client.converse.side_effect = custom_error
             mock_session.return_value.client.return_value = mock_client
 
             # The custom error should be re-raised without modification
