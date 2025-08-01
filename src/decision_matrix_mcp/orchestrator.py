@@ -89,12 +89,10 @@ class DecisionOrchestrator:
                 "region": "N/A"
             }
 
-        # Initialize variables for error handling
         region = os.environ.get("AWS_REGION", os.environ.get("AWS_DEFAULT_REGION", "us-east-1"))
         model_id = "anthropic.claude-3-haiku-20240307-v1:0"
 
         try:
-            # Initialize Bedrock client
             session = boto3.Session()
             bedrock = session.client("bedrock-runtime", region_name=region)
 
@@ -412,7 +410,6 @@ JUSTIFICATION: [your reasoning]"""
             )
 
         try:
-            # Initialize Bedrock client
             session = boto3.Session()
             # Get region from environment or default to us-east-1
             region = os.environ.get("AWS_REGION", os.environ.get("AWS_DEFAULT_REGION", "us-east-1"))
@@ -447,10 +444,8 @@ JUSTIFICATION: [your reasoning]"""
                 "inferenceConfig": inference_config,
             }
 
-            # Call Bedrock converse API
             response = bedrock.converse(**converse_kwargs)
 
-            # Parse response - converse API has a cleaner response structure
             if "output" in response and "message" in response["output"]:
                 message_content = response["output"]["message"]["content"]
                 if message_content and len(message_content) > 0:
@@ -526,7 +521,6 @@ JUSTIFICATION: [your reasoning]"""
             # Choose model
             model = thread.criterion.model_name or "gpt-3.5-turbo"
 
-            # Call LiteLLM
             response = await litellm.acompletion(
                 model=model,
                 messages=messages,
@@ -580,9 +574,7 @@ JUSTIFICATION: [your reasoning]"""
             # Choose model
             model = thread.criterion.model_name or "llama2"
 
-            # Call Ollama API
             async with httpx.AsyncClient(timeout=60.0) as client:
-                # Get Ollama host from environment or default
                 ollama_host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
                 # Build options with criterion parameters
                 options = {

@@ -139,14 +139,12 @@ class SessionManager:
         if not self.sessions:
             return None
 
-        # Sort sessions by creation time, most recent first
         sorted_sessions = sorted(
             self.sessions.items(),
             key=lambda x: x[1].created_at,
             reverse=True
         )
 
-        # Return the most recent session
         return sorted_sessions[0][1]
 
     def _cleanup_if_needed(self) -> None:

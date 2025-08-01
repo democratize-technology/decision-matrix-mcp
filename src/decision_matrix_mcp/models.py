@@ -171,7 +171,6 @@ class DecisionSession:
 
         self.criteria[criterion.name] = criterion
 
-        # Create thread for this criterion
         thread = CriterionThread(id=str(uuid4()), criterion=criterion)
         self.threads[criterion.name] = thread
 
@@ -180,7 +179,6 @@ class DecisionSession:
         if not self.options or not self.criteria:
             return {"error": "Need both options and criteria to generate matrix"}
 
-        # Calculate scores matrix
         matrix: dict[str, dict[str, dict[str, Any]]] = {}
         for option_name, option in self.options.items():
             matrix[option_name] = {}
@@ -207,7 +205,6 @@ class DecisionSession:
                         "justification": "Abstained - criterion not applicable",
                     }
 
-        # Calculate totals and rankings
         rankings: list[dict[str, Any]] = []
         for option_name, option in self.options.items():
             weighted_total = option.get_weighted_total(self.criteria)
@@ -219,10 +216,8 @@ class DecisionSession:
                 }
             )
 
-        # Sort by weighted total (descending)
         rankings.sort(key=lambda x: x["weighted_total"], reverse=True)
 
-        # Generate recommendation
         if rankings:
             winner = rankings[0]
             if len(rankings) > 1 and winner["weighted_total"] > rankings[1]["weighted_total"]:

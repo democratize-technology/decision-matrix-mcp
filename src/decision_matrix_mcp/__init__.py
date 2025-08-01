@@ -171,7 +171,6 @@ def get_session_or_error(session_id: str, components: ServerComponents) -> tuple
     if not SessionValidator.validate_session_id(session_id):
         return None, {"error": "Invalid session ID format"}
 
-    # Get session from manager
     session = components.session_manager.get_session(session_id)
     if not session:
         return None, {"error": f"Session {session_id} not found or expired"}
@@ -291,7 +290,6 @@ async def add_criterion(request: AddCriterionRequest) -> dict[str, Any]:
 
     components = get_server_components()
 
-    # Get session
     session, error = get_session_or_error(request.session_id, components)
     if error:
         error["formatted_output"] = components.formatter.format_error(error["error"])
@@ -307,7 +305,6 @@ async def add_criterion(request: AddCriterionRequest) -> dict[str, Any]:
         return error_response
 
     try:
-        # Create criterion
         criterion = Criterion(
             name=request.name,
             description=request.description,
@@ -321,7 +318,6 @@ async def add_criterion(request: AddCriterionRequest) -> dict[str, Any]:
         if request.custom_prompt:
             criterion.system_prompt = request.custom_prompt
 
-        # Add to session
         session.add_criterion(criterion)
 
         response_data = {
@@ -365,7 +361,6 @@ async def evaluate_options(request: EvaluateOptionsRequest) -> dict[str, Any]:
 
     components = get_server_components()
 
-    # Get session
     session, error = get_session_or_error(request.session_id, components)
     if error:
         error["formatted_output"] = components.formatter.format_error(error["error"])
@@ -402,7 +397,6 @@ async def evaluate_options(request: EvaluateOptionsRequest) -> dict[str, Any]:
 
         for criterion_name, option_results in evaluation_results.items():
             for option_name, (score, justification) in option_results.items():
-                # Create Score object
                 score_obj = Score(
                     criterion_name=criterion_name,
                     option_name=option_name,
@@ -410,7 +404,6 @@ async def evaluate_options(request: EvaluateOptionsRequest) -> dict[str, Any]:
                     justification=justification,
                 )
 
-                # Add to option
                 if option_name in session.options:
                     session.options[option_name].add_score(score_obj)
 
@@ -474,7 +467,6 @@ async def get_decision_matrix(request: GetDecisionMatrixRequest) -> dict[str, An
 
     components = get_server_components()
 
-    # Get session
     session, error = get_session_or_error(request.session_id, components)
     if error:
         error["formatted_output"] = components.formatter.format_error(error["error"])
@@ -484,7 +476,6 @@ async def get_decision_matrix(request: GetDecisionMatrixRequest) -> dict[str, An
     assert session is not None, "Session should not be None after successful get_session_or_error"
 
     try:
-        # Generate decision matrix
         matrix_result = session.get_decision_matrix()
 
         if "error" in matrix_result:
@@ -535,7 +526,6 @@ async def add_option(request: AddOptionRequest) -> dict[str, Any]:
 
     components = get_server_components()
 
-    # Get session
     session, error = get_session_or_error(request.session_id, components)
     if error:
         error["formatted_output"] = components.formatter.format_error(error["error"])
@@ -551,7 +541,6 @@ async def add_option(request: AddOptionRequest) -> dict[str, Any]:
         return error_response
 
     try:
-        # Add option
         session.add_option(request.option_name, request.description)
 
         response_data = {
@@ -598,7 +587,6 @@ async def list_sessions() -> dict[str, Any]:
                 }
             )
 
-        # Get session manager stats
         stats = components.session_manager.get_stats()
 
         response_data = {"sessions": session_list, "total_active": len(active_sessions), "stats": stats}
