@@ -63,6 +63,9 @@ class Criterion:
     system_prompt: str = ""
     model_backend: ModelBackend = ModelBackend.BEDROCK
     model_name: str | None = None
+    temperature: float = 0.1
+    seed: int | None = None
+    max_tokens: int = 1024
 
     def __post_init__(self) -> None:
         """Generate system prompt if not provided"""
@@ -154,6 +157,8 @@ class DecisionSession:
     criteria: dict[str, Criterion] = field(default_factory=dict)  # criterion_name -> Criterion
     threads: dict[str, CriterionThread] = field(default_factory=dict)  # criterion_name -> Thread
     evaluations: list[dict[str, Any]] = field(default_factory=list)  # History of evaluations
+    default_temperature: float = 0.1
+    default_seed: int | None = None
 
     def add_option(self, name: str, description: str | None = None) -> None:
         """Add a new option to evaluate"""
@@ -161,7 +166,13 @@ class DecisionSession:
             self.options[name] = Option(name=name, description=description)
 
     def add_criterion(self, criterion: Criterion) -> None:
-        """Add a new evaluation criterion"""
+        """Add a new evaluation criterion with parameter inheritance from session defaults"""
+        # Apply session defaults if criterion doesn't specify its own values
+        if criterion.temperature == 0.1:  # Using default value
+            criterion.temperature = self.default_temperature
+        if criterion.seed is None and self.default_seed is not None:
+            criterion.seed = self.default_seed
+        
         self.criteria[criterion.name] = criterion
 
         # Create thread for this criterion

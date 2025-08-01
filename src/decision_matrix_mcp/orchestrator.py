@@ -350,11 +350,15 @@ JUSTIFICATION: [your reasoning]"""
             # Call Bedrock
             request_body = {
                 "anthropic_version": "bedrock-2023-05-31",
-                "max_tokens": 1024,
-                "temperature": 0.1,  # Low temperature for consistent scoring
+                "max_tokens": thread.criterion.max_tokens,
+                "temperature": thread.criterion.temperature,
                 "system": thread.criterion.system_prompt,
                 "messages": messages,
             }
+            
+            # Add seed if specified
+            if thread.criterion.seed is not None:
+                request_body["seed"] = thread.criterion.seed
 
             response = bedrock.invoke_model(modelId=model_id, body=json.dumps(request_body))
 
@@ -421,7 +425,11 @@ JUSTIFICATION: [your reasoning]"""
 
             # Call LiteLLM
             response = await litellm.acompletion(
-                model=model, messages=messages, temperature=0.1, max_tokens=1024
+                model=model, 
+                messages=messages, 
+                temperature=thread.criterion.temperature, 
+                max_tokens=thread.criterion.max_tokens,
+                seed=thread.criterion.seed
             )
 
             return response.choices[0].message.content
@@ -474,13 +482,23 @@ JUSTIFICATION: [your reasoning]"""
             async with httpx.AsyncClient(timeout=60.0) as client:
                 # Get Ollama host from environment or default
                 ollama_host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+                # Build options with criterion parameters
+                options = {
+                    "temperature": thread.criterion.temperature, 
+                    "num_ctx": 4096
+                }
+                
+                # Add seed if specified
+                if thread.criterion.seed is not None:
+                    options["seed"] = thread.criterion.seed
+                
                 response = await client.post(
                     f"{ollama_host}/api/chat",
                     json={
                         "model": model,
                         "messages": messages,
                         "stream": False,
-                        "options": {"temperature": 0.1, "num_ctx": 4096},
+                        "options": options,
                     },
                 )
 

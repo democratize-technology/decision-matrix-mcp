@@ -64,7 +64,8 @@ class SessionManager:
             "max_concurrent": 0,
         }
 
-    def create_session(self, topic: str, initial_options: list[str] | None = None) -> DecisionSession:
+    def create_session(self, topic: str, initial_options: list[str] | None = None, 
+                       temperature: float = 0.1, seed: int | None = None) -> DecisionSession:
         """Create a new decision analysis session"""
         self._cleanup_if_needed()
 
@@ -79,7 +80,8 @@ class SessionManager:
 
         session_id = str(uuid4())
         session = DecisionSession(
-            session_id=session_id, created_at=datetime.now(timezone.utc), topic=topic
+            session_id=session_id, created_at=datetime.now(timezone.utc), topic=topic,
+            default_temperature=temperature, default_seed=seed
         )
 
         if initial_options:

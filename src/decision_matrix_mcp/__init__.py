@@ -151,6 +151,8 @@ class StartDecisionAnalysisRequest(BaseModel):
         default=ModelBackend.BEDROCK, description="LLM backend to use for evaluations"
     )
     model_name: str | None = Field(default=None, description="Specific model to use")
+    temperature: float = Field(default=0.1, description="LLM temperature for response generation")
+    seed: int | None = Field(default=None, description="Random seed for deterministic generation")
 
 
 def get_session_or_error(session_id: str, components: ServerComponents) -> tuple[DecisionSession | None, dict[str, Any] | None]:
@@ -190,7 +192,8 @@ async def start_decision_analysis(request: StartDecisionAnalysisRequest) -> dict
 
     try:
         session = components.session_manager.create_session(
-            topic=request.topic, initial_options=request.options
+            topic=request.topic, initial_options=request.options,
+            temperature=request.temperature, seed=request.seed
         )
 
         criteria_added = []
@@ -212,6 +215,8 @@ async def start_decision_analysis(request: StartDecisionAnalysisRequest) -> dict
                     weight=weight,
                     model_backend=request.model_backend,
                     model_name=request.model_name,
+                    temperature=criterion_spec.get("temperature", request.temperature),
+                    seed=criterion_spec.get("seed", request.seed),
                 )
 
                 session.add_criterion(criterion)
@@ -269,6 +274,8 @@ class AddCriterionRequest(BaseModel):
         default=ModelBackend.BEDROCK, description="LLM backend to use for this criterion"
     )
     model_name: str | None = Field(default=None, description="Specific model to use")
+    temperature: float | None = Field(default=None, description="LLM temperature (None to use session default)")
+    seed: int | None = Field(default=None, description="Random seed for deterministic generation")
 
 
 @mcp.tool(
@@ -308,6 +315,8 @@ async def add_criterion(request: AddCriterionRequest) -> dict[str, Any]:
             weight=request.weight,
             model_backend=request.model_backend,
             model_name=request.model_name,
+            temperature=request.temperature if request.temperature is not None else session.default_temperature,
+            seed=request.seed if request.seed is not None else session.default_seed,
         )
 
         # Override system prompt if provided
