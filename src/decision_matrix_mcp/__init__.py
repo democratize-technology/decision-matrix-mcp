@@ -50,6 +50,7 @@ from .exceptions import (
     SessionError,
     ValidationError,
 )
+from .formatting import DecisionFormatter
 from .models import Criterion, DecisionSession, ModelBackend, Option, Score
 from .orchestrator import DecisionOrchestrator
 from .session_manager import SessionManager, SessionValidator
@@ -91,15 +92,18 @@ class ServerComponents:
     """Container for server dependencies with proper lifecycle management."""
 
     def __init__(self, orchestrator: DecisionOrchestrator | None = None,
-                 session_manager: SessionManager | None = None):
+                 session_manager: SessionManager | None = None,
+                 formatter: DecisionFormatter | None = None):
         """Initialize server components.
 
         Args:
             orchestrator: Decision orchestrator instance
             session_manager: Session manager instance
+            formatter: Decision formatter instance
         """
         self.orchestrator = orchestrator or DecisionOrchestrator()
         self.session_manager = session_manager or SessionManager()
+        self.formatter = formatter or DecisionFormatter()
 
     def cleanup(self) -> None:
         """Clean up server resources."""
@@ -213,7 +217,7 @@ async def start_decision_analysis(request: StartDecisionAnalysisRequest) -> dict
                 session.add_criterion(criterion)
                 criteria_added.append(name)
 
-        return {
+        response_data = {
             "session_id": session.session_id,
             "topic": request.topic,
             "options": request.options,
@@ -229,15 +233,26 @@ async def start_decision_analysis(request: StartDecisionAnalysisRequest) -> dict
             ],
         }
 
+        # Format for LLM consumption
+        response_data["formatted_output"] = components.formatter.format_session_created(response_data)
+
+        return response_data
+
     except ValidationError as e:
         logger.warning(f"Invalid input for decision session: {e}")
-        return {"error": e.user_message}
+        error_response = {"error": e.user_message}
+        error_response["formatted_output"] = components.formatter.format_error(e.user_message, "Session creation")
+        return error_response
     except ResourceLimitError as e:
         logger.warning(f"Resource limit exceeded: {e}")
-        return {"error": e.user_message}
+        error_response = {"error": e.user_message}
+        error_response["formatted_output"] = components.formatter.format_error(e.user_message, "Resource limit")
+        return error_response
     except Exception:
         logger.exception("Unexpected error creating decision session")
-        return {"error": "Failed to create session due to an unexpected error"}
+        error_response = {"error": "Failed to create session due to an unexpected error"}
+        error_response["formatted_output"] = components.formatter.format_error("Failed to create session due to an unexpected error", "Unexpected error")
+        return error_response
 
 
 class AddCriterionRequest(BaseModel):
@@ -273,6 +288,7 @@ async def add_criterion(request: AddCriterionRequest) -> dict[str, Any]:
     # Get session
     session, error = get_session_or_error(request.session_id, components)
     if error:
+        error["formatted_output"] = components.formatter.format_error(error["error"])
         return error
 
     # Session validation guard
@@ -280,7 +296,9 @@ async def add_criterion(request: AddCriterionRequest) -> dict[str, Any]:
 
     # Check if criterion already exists
     if request.name in session.criteria:
-        return {"error": f"Criterion '{request.name}' already exists"}
+        error_response = {"error": f"Criterion '{request.name}' already exists"}
+        error_response["formatted_output"] = components.formatter.format_error(error_response["error"], "Duplicate criterion")
+        return error_response
 
     try:
         # Create criterion
@@ -299,7 +317,7 @@ async def add_criterion(request: AddCriterionRequest) -> dict[str, Any]:
         # Add to session
         session.add_criterion(criterion)
 
-        return {
+        response_data = {
             "session_id": request.session_id,
             "criterion_added": request.name,
             "description": request.description,
@@ -308,6 +326,11 @@ async def add_criterion(request: AddCriterionRequest) -> dict[str, Any]:
             "all_criteria": list(session.criteria.keys()),
             "message": f"Added criterion '{request.name}' with weight {request.weight}x",
         }
+
+        # Format for LLM consumption
+        response_data["formatted_output"] = components.formatter.format_criterion_added(response_data)
+
+        return response_data
 
     except SessionError as e:
         logger.warning(f"Session error when adding criterion: {e}")
@@ -338,6 +361,7 @@ async def evaluate_options(request: EvaluateOptionsRequest) -> dict[str, Any]:
     # Get session
     session, error = get_session_or_error(request.session_id, components)
     if error:
+        error["formatted_output"] = components.formatter.format_error(error["error"])
         return error
 
     # Session validation guard
@@ -345,10 +369,14 @@ async def evaluate_options(request: EvaluateOptionsRequest) -> dict[str, Any]:
 
     # Check prerequisites
     if not session.options:
-        return {"error": "No options to evaluate. Add options first."}
+        error_response = {"error": "No options to evaluate. Add options first."}
+        error_response["formatted_output"] = components.formatter.format_error(error_response["error"])
+        return error_response
 
     if not session.criteria:
-        return {"error": "No criteria defined. Add criteria first."}
+        error_response = {"error": "No criteria defined. Add criteria first."}
+        error_response["formatted_output"] = components.formatter.format_error(error_response["error"])
+        return error_response
 
     try:
         logger.info(
@@ -396,7 +424,7 @@ async def evaluate_options(request: EvaluateOptionsRequest) -> dict[str, Any]:
             }
         )
 
-        return {
+        response_data = {
             "session_id": request.session_id,
             "evaluation_complete": True,
             "summary": {
@@ -412,9 +440,16 @@ async def evaluate_options(request: EvaluateOptionsRequest) -> dict[str, Any]:
             "next_steps": ["get_decision_matrix - See the complete results"],
         }
 
+        # Format for LLM consumption
+        response_data["formatted_output"] = components.formatter.format_evaluation_complete(response_data)
+
+        return response_data
+
     except Exception as e:
         logger.error(f"Error during evaluation: {e}")
-        return {"error": f"Evaluation failed: {str(e)}"}
+        error_response = {"error": f"Evaluation failed: {str(e)}"}
+        error_response["formatted_output"] = components.formatter.format_error(error_response["error"], "Evaluation error")
+        return error_response
 
 
 class GetDecisionMatrixRequest(BaseModel):
@@ -435,6 +470,7 @@ async def get_decision_matrix(request: GetDecisionMatrixRequest) -> dict[str, An
     # Get session
     session, error = get_session_or_error(request.session_id, components)
     if error:
+        error["formatted_output"] = components.formatter.format_error(error["error"])
         return error
 
     # Session validation guard
@@ -445,6 +481,7 @@ async def get_decision_matrix(request: GetDecisionMatrixRequest) -> dict[str, An
         matrix_result = session.get_decision_matrix()
 
         if "error" in matrix_result:
+            matrix_result["formatted_output"] = components.formatter.format_error(matrix_result["error"])
             return matrix_result
 
         # Add session metadata
@@ -459,11 +496,16 @@ async def get_decision_matrix(request: GetDecisionMatrixRequest) -> dict[str, An
             }
         )
 
+        # Format for LLM consumption
+        matrix_result["formatted_output"] = components.formatter.format_decision_matrix(matrix_result)
+
         return matrix_result
 
     except Exception as e:
         logger.error(f"Error generating decision matrix: {e}")
-        return {"error": f"Failed to generate matrix: {str(e)}"}
+        error_response = {"error": f"Failed to generate matrix: {str(e)}"}
+        error_response["formatted_output"] = components.formatter.format_error(error_response["error"], "Matrix generation")
+        return error_response
 
 
 class AddOptionRequest(BaseModel):
@@ -489,6 +531,7 @@ async def add_option(request: AddOptionRequest) -> dict[str, Any]:
     # Get session
     session, error = get_session_or_error(request.session_id, components)
     if error:
+        error["formatted_output"] = components.formatter.format_error(error["error"])
         return error
 
     # Session validation guard
@@ -496,13 +539,15 @@ async def add_option(request: AddOptionRequest) -> dict[str, Any]:
 
     # Check if option already exists
     if request.option_name in session.options:
-        return {"error": f"Option '{request.option_name}' already exists"}
+        error_response = {"error": f"Option '{request.option_name}' already exists"}
+        error_response["formatted_output"] = components.formatter.format_error(error_response["error"], "Duplicate option")
+        return error_response
 
     try:
         # Add option
         session.add_option(request.option_name, request.description)
 
-        return {
+        response_data = {
             "session_id": request.session_id,
             "option_added": request.option_name,
             "description": request.description,
@@ -512,9 +557,16 @@ async def add_option(request: AddOptionRequest) -> dict[str, Any]:
             "next_steps": ["evaluate_options - Re-run evaluation to include new option"],
         }
 
+        # Format for LLM consumption
+        response_data["formatted_output"] = components.formatter.format_option_added(response_data)
+
+        return response_data
+
     except Exception as e:
         logger.error(f"Error adding option: {e}")
-        return {"error": f"Failed to add option: {str(e)}"}
+        error_response = {"error": f"Failed to add option: {str(e)}"}
+        error_response["formatted_output"] = components.formatter.format_error(error_response["error"], "Add option error")
+        return error_response
 
 
 @mcp.tool(description="List all active decision analysis sessions")
@@ -542,11 +594,18 @@ async def list_sessions() -> dict[str, Any]:
         # Get session manager stats
         stats = components.session_manager.get_stats()
 
-        return {"sessions": session_list, "total_active": len(active_sessions), "stats": stats}
+        response_data = {"sessions": session_list, "total_active": len(active_sessions), "stats": stats}
+
+        # Format for LLM consumption
+        response_data["formatted_output"] = components.formatter.format_sessions_list(response_data)
+
+        return response_data
 
     except Exception as e:
         logger.error(f"Error listing sessions: {e}")
-        return {"error": f"Failed to list sessions: {str(e)}"}
+        error_response = {"error": f"Failed to list sessions: {str(e)}"}
+        error_response["formatted_output"] = components.formatter.format_error(error_response["error"], "List sessions error")
+        return error_response
 
 
 @mcp.tool(description="Clear all active decision analysis sessions")
