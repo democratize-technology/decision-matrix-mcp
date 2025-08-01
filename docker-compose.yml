@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  decision-matrix-mcp:
+    build: .
+    image: decision-matrix-mcp:latest
+    container_name: decision-matrix-mcp
+    environment:
+      # AWS Bedrock configuration (optional)
+      - AWS_PROFILE=${AWS_PROFILE:-}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      
+      # LiteLLM configuration (optional)
+      - LITELLM_API_KEY=${LITELLM_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      
+      # Ollama configuration (optional)
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
+      
+      # Logging level
+      - LOG_LEVEL=${LOG_LEVEL:-WARNING}
+    
+    # Mount AWS credentials if using Bedrock
+    volumes:
+      - ~/.aws:/home/mcp/.aws:ro
+    
+    # MCP uses stdio, so we need interactive mode
+    stdin_open: true
+    tty: true
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import decision_matrix_mcp; print('healthy')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  # Optional: Ollama service for local LLM
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    profiles:
+      - with-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+
+volumes:
+  ollama_data:
