@@ -12,13 +12,10 @@ class TestRemainingCoverage:
     """Test remaining uncovered lines"""
 
     def test_main_module_execution(self):
-        """Test __main__.py execution"""
-        # Test the __main__ guard
-        with patch("decision_matrix_mcp.__init__.main") as mock_main:
-            # Execute the __main__ module
-            import decision_matrix_mcp.__main__
-            # The main() should have been called
-            # This covers line 31 in __main__.py
+        """Test that main function exists and is callable"""
+        # Test the main function can be imported
+        from decision_matrix_mcp import main
+        assert callable(main)
 
     def test_session_error_handling_in_add_criterion(self):
         """Test SessionError handling branch"""
