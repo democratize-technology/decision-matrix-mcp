@@ -172,12 +172,16 @@ class TestDecisionSessionExtended:
 
         # No options or criteria
         result = session.get_decision_matrix()
-        assert result == {"error": "Need both options and criteria to generate matrix"}
+        assert "error" in result
+        assert result["error"] == "Need both options and criteria to generate matrix"
+        assert "formatted_output" in result
 
         # Add option but no criteria
         session.add_option("Option A")
         result = session.get_decision_matrix()
-        assert result == {"error": "Need both options and criteria to generate matrix"}
+        assert "error" in result
+        assert result["error"] == "Need both options and criteria to generate matrix"
+        assert "formatted_output" in result
 
         # Add criteria
         criterion = Criterion(name="Performance", description="Speed", weight=2.0)

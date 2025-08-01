@@ -140,12 +140,16 @@ class TestStartDecisionAnalysis:
         # Empty topic
         request = StartDecisionAnalysisRequest(topic="", options=["A", "B"])
         result = await start_decision_analysis(request)
-        assert result == {"error": "Invalid topic: must be a non-empty string under 500 characters"}
+        assert "error" in result
+        assert result["error"] == "Invalid topic: must be a non-empty string under 500 characters"
+        assert "formatted_output" in result
 
         # Too long topic
         request = StartDecisionAnalysisRequest(topic="x" * 501, options=["A", "B"])
         result = await start_decision_analysis(request)
-        assert result == {"error": "Invalid topic: must be a non-empty string under 500 characters"}
+        assert "error" in result
+        assert result["error"] == "Invalid topic: must be a non-empty string under 500 characters"
+        assert "formatted_output" in result
 
     @pytest.mark.asyncio
     async def test_start_decision_analysis_invalid_options(self):
@@ -153,7 +157,9 @@ class TestStartDecisionAnalysis:
         # Too few options
         request = StartDecisionAnalysisRequest(topic="Test", options=["Only one"])
         result = await start_decision_analysis(request)
-        assert result == {"error": "Need at least 2 options to create a meaningful decision matrix"}
+        assert "error" in result
+        assert result["error"] == "Need at least 2 options to create a meaningful decision matrix"
+        assert "formatted_output" in result
 
         # Too many options
         request = StartDecisionAnalysisRequest(
@@ -161,7 +167,9 @@ class TestStartDecisionAnalysis:
             options=[f"Option{i}" for i in range(21)],
         )
         result = await start_decision_analysis(request)
-        assert result == {"error": "Too many options (max 20). Consider grouping similar options."}
+        assert "error" in result
+        assert result["error"] == "Too many options (max 20). Consider grouping similar options."
+        assert "formatted_output" in result
 
         # Invalid option name
         request = StartDecisionAnalysisRequest(topic="Test", options=["Valid", ""])
@@ -208,7 +216,9 @@ class TestStartDecisionAnalysis:
         ):
             request = StartDecisionAnalysisRequest(topic="Test", options=["A", "B"])
             result = await start_decision_analysis(request)
-            assert result == {"error": "Please check your input"}
+            assert "error" in result
+        assert result["error"] == "Please check your input"
+        assert "formatted_output" in result
 
     @pytest.mark.asyncio
     async def test_start_decision_analysis_resource_limit(self):
@@ -220,7 +230,9 @@ class TestStartDecisionAnalysis:
         ):
             request = StartDecisionAnalysisRequest(topic="Test", options=["A", "B"])
             result = await start_decision_analysis(request)
-            assert result == {"error": "Session limit reached"}
+            assert "error" in result
+        assert result["error"] == "Session limit reached"
+        assert "formatted_output" in result
 
     @pytest.mark.asyncio
     async def test_start_decision_analysis_unexpected_error(self):
@@ -232,7 +244,9 @@ class TestStartDecisionAnalysis:
         ):
             request = StartDecisionAnalysisRequest(topic="Test", options=["A", "B"])
             result = await start_decision_analysis(request)
-            assert result == {"error": "Failed to create session due to an unexpected error"}
+            assert "error" in result
+        assert result["error"] == "Failed to create session due to an unexpected error"
+        assert "formatted_output" in result
 
 
 class TestAddCriterion:
@@ -334,7 +348,9 @@ class TestAddCriterion:
         )
 
         result = await add_criterion(request)
-        assert result == {"error": "Invalid session ID"}
+        assert "error" in result
+        assert result["error"] == "Invalid session ID"
+        assert "formatted_output" in result
 
     @pytest.mark.asyncio
     async def test_add_criterion_session_not_found(self):
@@ -367,7 +383,9 @@ class TestAddCriterion:
         )
         result = await add_criterion(request2)
 
-        assert result == {"error": "Criterion 'Cost' already exists"}
+        assert "error" in result
+        assert result["error"] == "Criterion 'Cost' already exists"
+        assert "formatted_output" in result
 
     @pytest.mark.asyncio
     async def test_add_criterion_validation_errors(self, test_session):
@@ -416,7 +434,9 @@ class TestAddCriterion:
 
             with patch.object(session_manager, "get_session", return_value=test_session):
                 result = await add_criterion(request)
-                assert result == {"error": "Cannot add criterion"}
+                assert "error" in result
+        assert result["error"] == "Cannot add criterion"
+        assert "formatted_output" in result
 
     @pytest.mark.asyncio
     async def test_add_criterion_unexpected_error(self, test_session):
@@ -430,7 +450,9 @@ class TestAddCriterion:
 
             with patch.object(session_manager, "get_session", return_value=test_session):
                 result = await add_criterion(request)
-                assert result == {"error": "Failed to add criterion due to an unexpected error"}
+                assert "error" in result
+        assert result["error"] == "Failed to add criterion due to an unexpected error"
+        assert "formatted_output" in result
 
 
 class TestEvaluateOptions:
@@ -535,7 +557,9 @@ class TestEvaluateOptions:
         """Test evaluation with invalid session ID"""
         request = EvaluateOptionsRequest(session_id="")
         result = await evaluate_options(request)
-        assert result == {"error": "Invalid session ID"}
+        assert "error" in result
+        assert result["error"] == "Invalid session ID"
+        assert "formatted_output" in result
 
     @pytest.mark.asyncio
     async def test_evaluate_options_no_options(self):
@@ -544,7 +568,9 @@ class TestEvaluateOptions:
 
         request = EvaluateOptionsRequest(session_id=session.session_id)
         result = await evaluate_options(request)
-        assert result == {"error": "No options to evaluate. Add options first."}
+        assert "error" in result
+        assert result["error"] == "No options to evaluate. Add options first."
+        assert "formatted_output" in result
 
         session_manager.remove_session(session.session_id)
 
@@ -555,7 +581,9 @@ class TestEvaluateOptions:
 
         request = EvaluateOptionsRequest(session_id=session.session_id)
         result = await evaluate_options(request)
-        assert result == {"error": "No criteria defined. Add criteria first."}
+        assert "error" in result
+        assert result["error"] == "No criteria defined. Add criteria first."
+        assert "formatted_output" in result
 
         session_manager.remove_session(session.session_id)
 
@@ -569,7 +597,9 @@ class TestEvaluateOptions:
         ):
             request = EvaluateOptionsRequest(session_id=test_session_with_criteria.session_id)
             result = await evaluate_options(request)
-            assert result == {"error": "Evaluation failed: Orchestrator failed"}
+            assert "error" in result
+        assert result["error"] == "Evaluation failed: Orchestrator failed"
+        assert "formatted_output" in result
 
 
 class TestGetDecisionMatrix:
@@ -620,7 +650,9 @@ class TestGetDecisionMatrix:
         """Test matrix retrieval with invalid session"""
         request = GetDecisionMatrixRequest(session_id="")
         result = await get_decision_matrix(request)
-        assert result == {"error": "Invalid session ID"}
+        assert "error" in result
+        assert result["error"] == "Invalid session ID"
+        assert "formatted_output" in result
 
     @pytest.mark.asyncio
     async def test_get_decision_matrix_error_in_generation(self, evaluated_session):
@@ -634,7 +666,9 @@ class TestGetDecisionMatrix:
 
             with patch.object(session_manager, "get_session", return_value=evaluated_session):
                 result = await get_decision_matrix(request)
-                assert result == {"error": "No evaluations run yet"}
+                assert "error" in result
+        assert result["error"] == "No evaluations run yet"
+        assert "formatted_output" in result
 
     @pytest.mark.asyncio
     async def test_get_decision_matrix_unexpected_error(self, evaluated_session):
@@ -648,7 +682,9 @@ class TestGetDecisionMatrix:
 
             with patch.object(session_manager, "get_session", return_value=evaluated_session):
                 result = await get_decision_matrix(request)
-                assert result == {"error": "Failed to generate matrix: Matrix generation failed"}
+                assert "error" in result
+        assert result["error"] == "Failed to generate matrix: Matrix generation failed"
+        assert "formatted_output" in result
 
 
 class TestAddOption:
@@ -685,7 +721,9 @@ class TestAddOption:
         )
 
         result = await add_option(request)
-        assert result == {"error": "Invalid session ID"}
+        assert "error" in result
+        assert result["error"] == "Invalid session ID"
+        assert "formatted_output" in result
 
     @pytest.mark.asyncio
     async def test_add_option_invalid_name(self, test_session):
@@ -707,7 +745,9 @@ class TestAddOption:
         )
 
         result = await add_option(request)
-        assert result == {"error": "Option 'Option A' already exists"}
+        assert "error" in result
+        assert result["error"] == "Option 'Option A' already exists"
+        assert "formatted_output" in result
 
     @pytest.mark.asyncio
     async def test_add_option_error_handling(self, test_session):
@@ -720,7 +760,9 @@ class TestAddOption:
 
             with patch.object(session_manager, "get_session", return_value=test_session):
                 result = await add_option(request)
-                assert result == {"error": "Failed to add option: Add failed"}
+                assert "error" in result
+        assert result["error"] == "Failed to add option: Add failed"
+        assert "formatted_output" in result
 
 
 class TestListSessions:
@@ -778,7 +820,9 @@ class TestListSessions:
             session_manager, "list_active_sessions", side_effect=Exception("List failed")
         ):
             result = await list_sessions()
-            assert result == {"error": "Failed to list sessions: List failed"}
+            assert "error" in result
+        assert result["error"] == "Failed to list sessions: List failed"
+        assert "formatted_output" in result
 
 
 class TestClearAllSessions:
@@ -820,7 +864,9 @@ class TestClearAllSessions:
             session_manager, "list_active_sessions", side_effect=Exception("Clear failed")
         ):
             result = await clear_all_sessions()
-            assert result == {"error": "Failed to clear sessions: Clear failed"}
+            assert "error" in result
+        assert result["error"] == "Failed to clear sessions: Clear failed"
+        assert "formatted_output" in result
 
 
 class TestCurrentSession:

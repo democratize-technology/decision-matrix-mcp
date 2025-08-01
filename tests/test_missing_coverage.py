@@ -188,7 +188,9 @@ class TestSessionErrorHandling:
             
             result = await add_criterion(request)
             
-            assert result == {"error": "Session is locked"}
+            assert "error" in result
+        assert result["error"] == "Session is locked"
+        assert "formatted_output" in result
 
 
 class TestValidationDecorator:

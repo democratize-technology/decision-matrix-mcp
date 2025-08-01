@@ -85,21 +85,46 @@ def validate_request(**validators: Callable[[Any], bool]) -> Callable[[Any], Any
                 if field == "options" and isinstance(value, list):
                     # Check list length constraints
                     if not value or len(value) < ValidationLimits.MIN_OPTIONS_REQUIRED:
-                        return {
-                            "error": "Need at least 2 options to create a meaningful decision matrix"
-                        }
+                        # Get components for formatting if function starts with the pattern we expect
+                        from . import get_server_components
+                        components = get_server_components()
+                        error_msg = "Need at least 2 options to create a meaningful decision matrix"
+                        error_response = {"error": error_msg}
+                        error_response["formatted_output"] = components.formatter.format_error(
+                            error_msg, "Validation error"
+                        )
+                        return error_response
                     if len(value) > ValidationLimits.MAX_OPTIONS_ALLOWED:
-                        return {
-                            "error": f"Too many options (max {ValidationLimits.MAX_OPTIONS_ALLOWED}). Consider grouping similar options."
-                        }
+                        from . import get_server_components
+                        components = get_server_components()
+                        error_msg = f"Too many options (max {ValidationLimits.MAX_OPTIONS_ALLOWED}). Consider grouping similar options."
+                        error_response = {"error": error_msg}
+                        error_response["formatted_output"] = components.formatter.format_error(
+                            error_msg, "Validation error"
+                        )
+                        return error_response
                     # Validate each option
                     for option_name in value:
                         if not SessionValidator.validate_option_name(option_name):
-                            return {"error": get_error_message("option_name", option_name)}
+                            from . import get_server_components
+                            components = get_server_components()
+                            error_msg = get_error_message("option_name", option_name)
+                            error_response = {"error": error_msg}
+                            error_response["formatted_output"] = components.formatter.format_error(
+                                error_msg, "Validation error"
+                            )
+                            return error_response
                 else:
                     # Standard validation
                     if not validator(value):
-                        return {"error": get_error_message(field, value)}
+                        from . import get_server_components
+                        components = get_server_components()
+                        error_msg = get_error_message(field, value)
+                        error_response = {"error": error_msg}
+                        error_response["formatted_output"] = components.formatter.format_error(
+                            error_msg, "Validation error"
+                        )
+                        return error_response
 
             # All validations passed, call the original function
             return await func(request, *args, **kwargs)
@@ -125,12 +150,33 @@ def validate_criteria_spec(criteria_list: list[dict[str, Any]]) -> dict[str, Any
         weight = criterion_spec.get("weight", 1.0)
 
         if not SessionValidator.validate_criterion_name(name):
-            return {"error": f"Invalid criterion name: '{name}'"}
+            from . import get_server_components
+            components = get_server_components()
+            error_msg = f"Invalid criterion name: '{name}'"
+            error_response = {"error": error_msg}
+            error_response["formatted_output"] = components.formatter.format_error(
+                error_msg, "Validation error"
+            )
+            return error_response
 
         if not SessionValidator.validate_description(description):
-            return {"error": f"Invalid criterion description for '{name}'"}
+            from . import get_server_components
+            components = get_server_components()
+            error_msg = f"Invalid criterion description for '{name}'"
+            error_response = {"error": error_msg}
+            error_response["formatted_output"] = components.formatter.format_error(
+                error_msg, "Validation error"
+            )
+            return error_response
 
         if not SessionValidator.validate_weight(weight):
-            return {"error": get_error_message("weight") + f" for '{name}'"}
+            from . import get_server_components
+            components = get_server_components()
+            error_msg = get_error_message("weight") + f" for '{name}'"
+            error_response = {"error": error_msg}
+            error_response["formatted_output"] = components.formatter.format_error(
+                error_msg, "Validation error"
+            )
+            return error_response
 
     return None

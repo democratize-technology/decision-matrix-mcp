@@ -359,13 +359,25 @@ async def add_criterion(request: AddCriterionRequest) -> dict[str, Any]:
 
     except SessionError as e:
         logger.warning(f"Session error when adding criterion: {e}")
-        return {"error": e.user_message}
+        error_response = {"error": e.user_message}
+        error_response["formatted_output"] = components.formatter.format_error(
+            e.user_message, "Session error"
+        )
+        return error_response
     except ValidationError as e:
         logger.warning(f"Invalid criterion input: {e}")
-        return {"error": e.user_message}
+        error_response = {"error": e.user_message}
+        error_response["formatted_output"] = components.formatter.format_error(
+            e.user_message, "Validation error"
+        )
+        return error_response
     except Exception:
         logger.exception("Unexpected error adding criterion")
-        return {"error": "Failed to add criterion due to an unexpected error"}
+        error_response = {"error": "Failed to add criterion due to an unexpected error"}
+        error_response["formatted_output"] = components.formatter.format_error(
+            error_response["error"], "Unexpected error"
+        )
+        return error_response
 
 
 class EvaluateOptionsRequest(BaseModel):
@@ -670,7 +682,11 @@ async def clear_all_sessions() -> dict[str, Any]:
 
     except Exception as e:
         logger.error(f"Error clearing sessions: {e}")
-        return {"error": f"Failed to clear sessions: {str(e)}"}
+        error_response = {"error": f"Failed to clear sessions: {str(e)}"}
+        error_response["formatted_output"] = components.formatter.format_error(
+            error_response["error"], "Clear sessions error"
+        )
+        return error_response
 
 
 @mcp.tool(
