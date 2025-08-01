@@ -327,7 +327,7 @@ class DecisionFormatter:
             f"**Status**: {'✅ Evaluated' if len(session.evaluations) > 0 else '⏳ Pending evaluation'}",
             "",
         ]
-        
+
         if session.options:
             lines.extend([
                 f"## 📋 Options ({len(session.options)})",
@@ -340,7 +340,7 @@ class DecisionFormatter:
                 "*(No options defined yet)*",
                 "",
             ])
-            
+
         if session.criteria:
             lines.extend([
                 f"## ⚖️ Criteria ({len(session.criteria)})",
@@ -353,7 +353,7 @@ class DecisionFormatter:
                 "*(No criteria defined yet)*",
                 "",
             ])
-            
+
         if len(session.evaluations) > 0:
             lines.extend([
                 "## 📊 Analysis Summary",
@@ -370,13 +370,13 @@ class DecisionFormatter:
                 next_steps.append("`add_criterion` - Add evaluation criteria")
             if session.options and session.criteria:
                 next_steps.append("`evaluate_options` - Run the analysis")
-                
+
             if next_steps:
                 lines.extend([
                     "## 🎬 Next Steps",
                     *[f"- {step}" for step in next_steps],
                 ])
-                
+
         return "\n".join(lines)
 
     def _create_score_bar(self, score: float, max_score: float, width: int = 20) -> str:

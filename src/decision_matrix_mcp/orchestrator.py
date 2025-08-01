@@ -355,7 +355,7 @@ JUSTIFICATION: [your reasoning]"""
                 "system": thread.criterion.system_prompt,
                 "messages": messages,
             }
-            
+
             # Add seed if specified
             if thread.criterion.seed is not None:
                 request_body["seed"] = thread.criterion.seed
@@ -425,9 +425,9 @@ JUSTIFICATION: [your reasoning]"""
 
             # Call LiteLLM
             response = await litellm.acompletion(
-                model=model, 
-                messages=messages, 
-                temperature=thread.criterion.temperature, 
+                model=model,
+                messages=messages,
+                temperature=thread.criterion.temperature,
                 max_tokens=thread.criterion.max_tokens,
                 seed=thread.criterion.seed
             )
@@ -484,14 +484,14 @@ JUSTIFICATION: [your reasoning]"""
                 ollama_host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
                 # Build options with criterion parameters
                 options = {
-                    "temperature": thread.criterion.temperature, 
+                    "temperature": thread.criterion.temperature,
                     "num_ctx": 4096
                 }
-                
+
                 # Add seed if specified
                 if thread.criterion.seed is not None:
                     options["seed"] = thread.criterion.seed
-                
+
                 response = await client.post(
                     f"{ollama_host}/api/chat",
                     json={

@@ -172,7 +172,7 @@ class DecisionSession:
             criterion.temperature = self.default_temperature
         if criterion.seed is None and self.default_seed is not None:
             criterion.seed = self.default_seed
-        
+
         self.criteria[criterion.name] = criterion
 
         # Create thread for this criterion
