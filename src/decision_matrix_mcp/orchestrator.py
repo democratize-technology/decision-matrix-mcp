@@ -26,15 +26,19 @@ import asyncio
 import logging
 import os
 import re
+import threading
 from typing import Any
 
 from .exceptions import (
+    ChainOfThoughtError,
     ConfigurationError,
+    CoTTimeoutError,
     LLMAPIError,
     LLMBackendError,
     LLMConfigurationError,
 )
 from .models import CriterionThread, ModelBackend, Option
+from .reasoning_orchestrator import DecisionReasoningOrchestrator
 
 # Optional dependency imports with availability flags
 try:
@@ -68,12 +72,20 @@ NO_RESPONSE = "[NO_RESPONSE]"
 class DecisionOrchestrator:
     """Orchestrates parallel criterion evaluation with different LLM backends"""
 
-    def __init__(self, max_retries: int = 3, retry_delay: float = 1.0):
+    def __init__(
+        self,
+        max_retries: int = 3,
+        retry_delay: float = 1.0,
+        use_cot: bool = True,
+        cot_timeout: float = 30.0,
+    ):
         """Initialize orchestrator
 
         Args:
             max_retries: Maximum number of retries for failed calls
             retry_delay: Initial delay between retries (exponential backoff)
+            use_cot: Whether to use Chain of Thought reasoning when available
+            cot_timeout: Maximum time in seconds for CoT processing (default: 30s)
         """
         self.backends = {
             ModelBackend.BEDROCK: self._call_bedrock,
@@ -82,6 +94,23 @@ class DecisionOrchestrator:
         }
         self.max_retries = max_retries
         self.retry_delay = retry_delay
+        self.use_cot = use_cot
+        self.reasoning_orchestrator = DecisionReasoningOrchestrator(cot_timeout=cot_timeout)
+        self._bedrock_client = None
+        self._client_lock = threading.Lock()
+
+    def _get_bedrock_client(self):
+        """Get or create a Bedrock client instance (thread-safe)"""
+        if self._bedrock_client is None:
+            with self._client_lock:
+                # Double-check pattern to avoid race conditions
+                if self._bedrock_client is None:
+                    session = boto3.Session()
+                    region = os.environ.get(
+                        "AWS_REGION", os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+                    )
+                    self._bedrock_client = session.client("bedrock-runtime", region_name=region)
+        return self._bedrock_client
 
     async def test_bedrock_connection(self) -> dict[str, Any]:
         """Test Bedrock connectivity and model access permissions"""
@@ -228,10 +257,56 @@ JUSTIFICATION: [your reasoning]"""
         thread.add_message("user", prompt)
 
         try:
-            response = await self._get_thread_response(thread)
-            thread.add_message("assistant", response)
+            # Use Chain of Thought for Bedrock if enabled
+            if (
+                self.use_cot
+                and thread.criterion.model_backend == ModelBackend.BEDROCK
+                and self.reasoning_orchestrator.is_available
+            ):
+                # Get shared Bedrock client for CoT evaluation
+                bedrock_client = self._get_bedrock_client()
 
-            return self._parse_evaluation_response(response)
+                # Evaluate with structured reasoning
+                try:
+                    (
+                        score,
+                        justification,
+                        reasoning_summary,
+                    ) = await self.reasoning_orchestrator.evaluate_with_reasoning(
+                        thread, option, bedrock_client
+                    )
+                except CoTTimeoutError:
+                    # Fallback to standard evaluation on timeout
+                    logger.warning(
+                        f"CoT timeout for {option.name} on {thread.criterion.name}, falling back to standard evaluation"
+                    )
+                    response = await self._get_thread_response(thread)
+                    thread.add_message("assistant", response)
+                    return self._parse_evaluation_response(response)
+                except ChainOfThoughtError as e:
+                    # Log CoT-specific errors and fallback
+                    logger.error(f"CoT error for {option.name}: {e}")
+                    response = await self._get_thread_response(thread)
+                    thread.add_message("assistant", response)
+                    return self._parse_evaluation_response(response)
+
+                # Add reasoning summary to thread if available
+                if reasoning_summary and "total_steps" in reasoning_summary:
+                    thread.add_message(
+                        "assistant",
+                        f"[Reasoned through {reasoning_summary['total_steps']} steps across stages: {', '.join(reasoning_summary.get('stages_covered', []))}]",
+                    )
+
+                # Add the final response to thread
+                response = f"SCORE: {score if score is not None else 'NO_RESPONSE'}\nJUSTIFICATION: {justification}"
+                thread.add_message("assistant", response)
+
+                return (score, justification)
+            else:
+                # Standard evaluation without CoT
+                response = await self._get_thread_response(thread)
+                thread.add_message("assistant", response)
+                return self._parse_evaluation_response(response)
 
         except LLMBackendError as e:
             logger.error(

@@ -96,3 +96,36 @@ class ResourceLimitError(DecisionMatrixError):
     """Resource limit exceeded errors"""
 
     pass
+
+
+class ChainOfThoughtError(DecisionMatrixError):
+    """Errors specific to Chain of Thought reasoning"""
+
+    pass
+
+
+class CoTTimeoutError(ChainOfThoughtError):
+    """Chain of Thought processing timeout"""
+
+    def __init__(self, timeout: float, message: str | None = None):
+        message = message or f"Chain of Thought evaluation timed out after {timeout} seconds"
+        super().__init__(message, "Reasoning process took too long and was terminated")
+        self.timeout = timeout
+
+
+class CoTProcessingError(ChainOfThoughtError):
+    """Error during Chain of Thought processing"""
+
+    def __init__(self, message: str, stage: str | None = None):
+        super().__init__(message, "Error occurred during structured reasoning")
+        self.stage = stage
+
+
+class InputSanitizationError(ValidationError):
+    """Input was rejected during sanitization"""
+
+    def __init__(self, field: str, reason: str):
+        message = f"Input sanitization failed for {field}: {reason}"
+        super().__init__(message, f"Invalid input detected in {field}")
+        self.field = field
+        self.reason = reason
