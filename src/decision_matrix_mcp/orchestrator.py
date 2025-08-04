@@ -99,7 +99,7 @@ class DecisionOrchestrator:
         self._bedrock_client = None
         self._client_lock = threading.Lock()
 
-    def _get_bedrock_client(self):
+    def _get_bedrock_client(self) -> Any:
         """Get or create a Bedrock client instance (thread-safe)"""
         if self._bedrock_client is None:
             with self._client_lock:
