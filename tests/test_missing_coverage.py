@@ -1,12 +1,16 @@
 """Tests for 100% coverage of remaining modules"""
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 from decision_matrix_mcp import __main__, SessionError, clear_all_sessions
+from mcp.server.fastmcp import Context
 from decision_matrix_mcp.models import Option, DecisionSession, Score
 from decision_matrix_mcp.session_manager import SessionManager
 
+
+# Mock context for all tests
+mock_ctx = Mock(spec=Context)
 
 class TestMainModule:
     """Test __main__.py module"""
@@ -113,7 +117,7 @@ class TestClearAllSessions:
             mock_session_manager.get_stats.return_value = {"active_sessions": 1}
             mock_components.session_manager = mock_session_manager
             
-            result = await clear_all_sessions()
+            result = await clear_all_sessions(mock_ctx)
             
             assert result["cleared"] == 2  # Only 2 succeeded
             assert "Cleared 2 active sessions" in result["message"]
@@ -135,7 +139,7 @@ class TestClearAllSessions:
             mock_formatter.format_error.return_value = "## ❌ Error"
             mock_components.formatter = mock_formatter
             
-            result = await clear_all_sessions()
+            result = await clear_all_sessions(mock_ctx)
             
             assert "error" in result
             assert "Failed to clear sessions" in result["error"]
@@ -173,7 +177,7 @@ class TestSessionErrorHandling:
                 weight=1.0
             )
             
-            result = await add_criterion(request)
+            result = await add_criterion(request, mock_ctx)
             
             assert "error" in result
         assert result["error"] == "Session is locked"

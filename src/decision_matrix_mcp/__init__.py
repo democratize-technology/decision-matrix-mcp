@@ -38,7 +38,7 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import Context, FastMCP
 from pydantic import BaseModel, Field
 
 from .constants import ValidationLimits
@@ -128,20 +128,28 @@ def create_server_components() -> ServerComponents:
 # Create FastMCP instance with component factory
 mcp = FastMCP("decision-matrix")
 
-# Server components - injected per request context
+# Server components - created once at startup
 _server_components: ServerComponents | None = None
 
 
 def get_server_components() -> ServerComponents:
-    """Get or create server components.
+    """Get server components (created at startup).
 
     Returns:
         ServerComponents: Server component container
+
+    Raises:
+        RuntimeError: If components not initialized
     """
-    global _server_components
     if _server_components is None:
-        _server_components = create_server_components()
+        raise RuntimeError("Server components not initialized")
     return _server_components
+
+
+def initialize_server_components() -> None:
+    """Initialize server components at startup."""
+    global _server_components
+    _server_components = create_server_components()
 
 
 class StartDecisionAnalysisRequest(BaseModel):
@@ -190,7 +198,9 @@ def get_session_or_error(
     topic=SessionValidator.validate_topic,
     options=SessionValidator.validate_option_name,  # Special handling in decorator for lists
 )
-async def start_decision_analysis(request: StartDecisionAnalysisRequest) -> dict[str, Any]:
+async def start_decision_analysis(
+    request: StartDecisionAnalysisRequest, ctx: Context
+) -> dict[str, Any]:
     """Initialize a new decision analysis session with options and optional criteria"""
 
     components = get_server_components()
@@ -299,7 +309,7 @@ class AddCriterionRequest(BaseModel):
     description=SessionValidator.validate_description,
     weight=SessionValidator.validate_weight,
 )
-async def add_criterion(request: AddCriterionRequest) -> dict[str, Any]:
+async def add_criterion(request: AddCriterionRequest, ctx: Context) -> dict[str, Any]:
     """Add a new evaluation criterion to an existing decision session"""
 
     components = get_server_components()
@@ -390,7 +400,7 @@ class EvaluateOptionsRequest(BaseModel):
     description="When ready to score your options systematically - run parallel evaluation where each criterion scores every option independently"
 )
 @validate_request(session_id=SessionValidator.validate_session_id)
-async def evaluate_options(request: EvaluateOptionsRequest) -> dict[str, Any]:
+async def evaluate_options(request: EvaluateOptionsRequest, ctx: Context) -> dict[str, Any]:
     """Evaluate all options across all criteria using parallel thread orchestration"""
 
     components = get_server_components()
@@ -504,7 +514,7 @@ class GetDecisionMatrixRequest(BaseModel):
     description="When you need the complete picture - see the scored matrix with weighted totals, rankings, and clear recommendations"
 )
 @validate_request(session_id=SessionValidator.validate_session_id)
-async def get_decision_matrix(request: GetDecisionMatrixRequest) -> dict[str, Any]:
+async def get_decision_matrix(request: GetDecisionMatrixRequest, ctx: Context) -> dict[str, Any]:
     """Get the complete decision matrix with scores, rankings, and recommendations"""
 
     components = get_server_components()
@@ -569,7 +579,7 @@ class AddOptionRequest(BaseModel):
     session_id=SessionValidator.validate_session_id,
     option_name=SessionValidator.validate_option_name,
 )
-async def add_option(request: AddOptionRequest) -> dict[str, Any]:
+async def add_option(request: AddOptionRequest, ctx: Context) -> dict[str, Any]:
     """Add a new option to an existing decision analysis"""
 
     components = get_server_components()
@@ -618,7 +628,7 @@ async def add_option(request: AddOptionRequest) -> dict[str, Any]:
 
 
 @mcp.tool(description="List all active decision analysis sessions")
-async def list_sessions() -> dict[str, Any]:
+async def list_sessions(ctx: Context) -> dict[str, Any]:
     """List all active decision analysis sessions"""
     components = get_server_components()
 
@@ -662,7 +672,7 @@ async def list_sessions() -> dict[str, Any]:
 
 
 @mcp.tool(description="Clear all active decision analysis sessions")
-async def clear_all_sessions() -> dict[str, Any]:
+async def clear_all_sessions(ctx: Context) -> dict[str, Any]:
     """Clear all active sessions from the session manager"""
     components = get_server_components()
 
@@ -692,7 +702,7 @@ async def clear_all_sessions() -> dict[str, Any]:
 @mcp.tool(
     description="Quick check of your most recent analysis session - see topic and status without remembering session ID"
 )
-async def current_session() -> dict[str, Any]:
+async def current_session(ctx: Context) -> dict[str, Any]:
     """Get the most recently created active session without needing the session ID"""
     components = get_server_components()
 
@@ -740,7 +750,7 @@ async def current_session() -> dict[str, Any]:
 @mcp.tool(
     description="Test AWS Bedrock connectivity and configuration for debugging connection issues"
 )
-async def test_aws_bedrock_connection() -> dict[str, Any]:
+async def test_aws_bedrock_connection(ctx: Context) -> dict[str, Any]:
     """Test Bedrock connectivity and return detailed diagnostics"""
     components = get_server_components()
 
@@ -785,6 +795,10 @@ def main() -> None:
     try:
         logger.info("Starting Decision Matrix MCP server...")
         logger.debug("Initializing FastMCP...")
+
+        # Initialize server components at startup
+        initialize_server_components()
+        logger.debug("Server components initialized")
 
         # Test server creation
         logger.debug(f"MCP server created: {mcp}")

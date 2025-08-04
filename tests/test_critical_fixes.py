@@ -13,12 +13,16 @@ from unittest.mock import Mock, patch, AsyncMock
 from datetime import datetime, timezone
 
 from decision_matrix_mcp import create_server_components, ServerComponents
+from mcp.server.fastmcp import Context
 from decision_matrix_mcp.models import (
     Criterion, Option, Score, DecisionSession, ModelBackend
 )
 from decision_matrix_mcp.session_manager import SessionManager
 from decision_matrix_mcp.orchestrator import DecisionOrchestrator
 
+
+# Mock context for all tests
+mock_ctx = Mock(spec=Context)
 
 class TestDependencyInjection:
     """Test dependency injection implementation (TD-2024-001)"""
@@ -210,7 +214,7 @@ class TestSessionValidationGuards:
             description="Test Description"
         )
         
-        result = await add_criterion(request)
+        result = await add_criterion(request, mock_ctx)
         
         # Should return error, not crash
         assert "error" in result
@@ -259,26 +263,26 @@ class TestSessionValidationGuards:
             session_id=invalid_session_id,
             name="Test",
             description="Test"
-        ))
+        ), mock_ctx)
         assert "error" in result
         
         # Test evaluate_options
         result = await evaluate_options(EvaluateOptionsRequest(
             session_id=invalid_session_id
-        ))
+        ), mock_ctx)
         assert "error" in result
         
         # Test get_decision_matrix
         result = await get_decision_matrix(GetDecisionMatrixRequest(
             session_id=invalid_session_id
-        ))
+        ), mock_ctx)
         assert "error" in result
         
         # Test add_option
         result = await add_option(AddOptionRequest(
             session_id=invalid_session_id,
             option_name="Test Option"
-        ))
+        ), mock_ctx)
         assert "error" in result
 
 
@@ -303,7 +307,7 @@ class TestIntegration:
             topic="Choose Framework",
             options=["React", "Vue", "Angular"],
             model_backend=ModelBackend.BEDROCK
-        ))
+        ), mock_ctx)
         
         assert "session_id" in start_result
         session_id = start_result["session_id"]
@@ -314,7 +318,7 @@ class TestIntegration:
             name="Performance",
             description="Runtime performance",
             weight=3.0
-        ))
+        ), mock_ctx)
         
         assert "error" not in criterion_result
         assert criterion_result["criterion_added"] == "Performance"
@@ -333,7 +337,7 @@ class TestIntegration:
             # Evaluate
             eval_result = await evaluate_options(EvaluateOptionsRequest(
                 session_id=session_id
-            ))
+            ), mock_ctx)
             
             assert "error" not in eval_result
             assert eval_result["summary"]["successful_scores"] == 2  # Two non-None scores
@@ -342,7 +346,7 @@ class TestIntegration:
         # Get matrix
         matrix_result = await get_decision_matrix(GetDecisionMatrixRequest(
             session_id=session_id
-        ))
+        ), mock_ctx)
         
         assert "error" not in matrix_result
         assert "rankings" in matrix_result

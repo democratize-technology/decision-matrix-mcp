@@ -1,8 +1,9 @@
 """Tests for server handlers with formatted output"""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
+from mcp.server.fastmcp import Context
 from decision_matrix_mcp import (
     start_decision_analysis,
     add_criterion,
@@ -19,6 +20,9 @@ from decision_matrix_mcp import (
 from decision_matrix_mcp.exceptions import ValidationError, ResourceLimitError
 
 
+# Mock context for all tests
+mock_ctx = Mock(spec=Context)
+
 class TestFormattedResponses:
     """Test that all handlers return formatted_output field"""
 
@@ -34,7 +38,7 @@ class TestFormattedResponses:
             ],
         )
 
-        result = await start_decision_analysis(request)
+        result = await start_decision_analysis(request, mock_ctx)
 
         # Check basic response structure
         assert "session_id" in result
@@ -61,7 +65,7 @@ class TestFormattedResponses:
         start_request = StartDecisionAnalysisRequest(
             topic="Test", options=["A", "B"]
         )
-        start_result = await start_decision_analysis(start_request)
+        start_result = await start_decision_analysis(start_request, mock_ctx)
         session_id = start_result["session_id"]
 
         # Add criterion
@@ -72,7 +76,7 @@ class TestFormattedResponses:
             weight=2.5,
         )
 
-        result = await add_criterion(request)
+        result = await add_criterion(request, mock_ctx)
 
         # Check formatted output
         assert "formatted_output" in result
@@ -90,7 +94,7 @@ class TestFormattedResponses:
             options=["Option A", "Option B"],
             initial_criteria=[{"name": "Test", "description": "Test criterion", "weight": 1.0}],
         )
-        start_result = await start_decision_analysis(start_request)
+        start_result = await start_decision_analysis(start_request, mock_ctx)
         session_id = start_result["session_id"]
 
         # Mock orchestrator
@@ -124,7 +128,7 @@ class TestFormattedResponses:
             mock_components.formatter = mock_formatter
 
             request = EvaluateOptionsRequest(session_id=session_id)
-            result = await evaluate_options(request)
+            result = await evaluate_options(request, mock_ctx)
 
             # Check formatted output
             assert "formatted_output" in result
@@ -139,7 +143,7 @@ class TestFormattedResponses:
             options=["Python", "JavaScript"],
             initial_criteria=[{"name": "Ease", "description": "Ease of use", "weight": 2.0}],
         )
-        start_result = await start_decision_analysis(start_request)
+        start_result = await start_decision_analysis(start_request, mock_ctx)
         session_id = start_result["session_id"]
 
         # Mock the matrix generation
@@ -177,7 +181,7 @@ class TestFormattedResponses:
             mock_components.formatter = mock_formatter
 
             request = GetDecisionMatrixRequest(session_id=session_id)
-            result = await get_decision_matrix(request)
+            result = await get_decision_matrix(request, mock_ctx)
 
             # Check formatted output
             assert "formatted_output" in result
@@ -187,7 +191,7 @@ class TestFormattedResponses:
     @pytest.mark.asyncio
     async def test_list_sessions_with_formatted_output(self):
         """Test list_sessions includes formatted output"""
-        result = await list_sessions()
+        result = await list_sessions(mock_ctx)
 
         # Check formatted output exists
         assert "formatted_output" in result
@@ -217,7 +221,7 @@ class TestFormattedResponses:
             mock_components.formatter = mock_formatter
 
             request = StartDecisionAnalysisRequest(topic="Test", options=["A"])
-            result = await start_decision_analysis(request)
+            result = await start_decision_analysis(request, mock_ctx)
 
             assert "error" in result
             assert "formatted_output" in result
@@ -230,7 +234,7 @@ class TestFormattedResponses:
         start_request = StartDecisionAnalysisRequest(
             topic="Test", options=["A", "B"]
         )
-        start_result = await start_decision_analysis(start_request)
+        start_result = await start_decision_analysis(start_request, mock_ctx)
         session_id = start_result["session_id"]
 
         # Add new option
@@ -240,7 +244,7 @@ class TestFormattedResponses:
             description="Third option",
         )
 
-        result = await add_option(request)
+        result = await add_option(request, mock_ctx)
 
         # Check formatted output
         assert "formatted_output" in result
@@ -258,7 +262,7 @@ class TestFormattedResponses:
             description="Test",
         )
 
-        result = await add_criterion(request)
+        result = await add_criterion(request, mock_ctx)
 
         assert "error" in result
         assert "formatted_output" in result
@@ -294,7 +298,7 @@ class TestFormattedResponses:
             mock_components.formatter = mock_formatter
 
             request = EvaluateOptionsRequest(session_id="test")
-            result = await evaluate_options(request)
+            result = await evaluate_options(request, mock_ctx)
 
             assert "error" in result
             assert "formatted_output" in result
@@ -307,11 +311,11 @@ class TestFormattedResponses:
         start_request = StartDecisionAnalysisRequest(
             topic="Test", options=["A", "B"]
         )
-        start_result = await start_decision_analysis(start_request)
+        start_result = await start_decision_analysis(start_request, mock_ctx)
         session_id = start_result["session_id"]
 
         request = EvaluateOptionsRequest(session_id=session_id)
-        result = await evaluate_options(request)
+        result = await evaluate_options(request, mock_ctx)
 
         assert "error" in result
         assert "formatted_output" in result
