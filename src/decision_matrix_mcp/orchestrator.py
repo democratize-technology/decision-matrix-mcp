@@ -29,6 +29,13 @@ import re
 import threading
 from typing import Any
 
+from .bedrock_helpers import (
+    build_converse_request,
+    diagnose_bedrock_error,
+    extract_response_text,
+    format_messages_for_converse,
+    get_aws_region,
+)
 from .exceptions import (
     ChainOfThoughtError,
     ConfigurationError,
@@ -493,50 +500,21 @@ JUSTIFICATION: [your reasoning]"""
                 message="boto3 is not installed. Please install with: pip install boto3",
             )
 
+        model_id = thread.criterion.model_name or "anthropic.claude-3-sonnet-20240229-v1:0"
+        
         try:
-            session = boto3.Session()
-            # Get region from environment or default to us-east-1
-            region = os.environ.get("AWS_REGION", os.environ.get("AWS_DEFAULT_REGION", "us-east-1"))
-            bedrock = session.client("bedrock-runtime", region_name=region)
-
-            # Prepare messages for converse API format
-            messages = []
-            for msg in thread.conversation_history:
-                # Converse API uses a simpler format
-                messages.append({"role": msg["role"], "content": [{"text": msg["content"]}]})
-
-            # Choose model
-            model_id = thread.criterion.model_name or "anthropic.claude-3-sonnet-20240229-v1:0"
-
-            # Prepare inference configuration
-            inference_config = {
-                "maxTokens": thread.criterion.max_tokens,
-                "temperature": thread.criterion.temperature,
-            }
-
-            # Prepare system prompts
-            system_prompts = [{"text": thread.criterion.system_prompt}]
-
-            # Prepare kwargs for converse API
-            converse_kwargs = {
-                "modelId": model_id,
-                "messages": messages,
-                "system": system_prompts,
-                "inferenceConfig": inference_config,
-            }
-
-            response = bedrock.converse(**converse_kwargs)
-
-            if "output" in response and "message" in response["output"]:
-                message_content = response["output"]["message"]["content"]
-                if message_content and len(message_content) > 0:
-                    return message_content[0]["text"]
-
-            raise LLMAPIError(
-                backend="bedrock",
-                message=f"Invalid response format from Bedrock converse API: {response}",
-                user_message="Unexpected response format from LLM",
-            ) from None
+            # Setup AWS client and prepare request
+            bedrock_client = self._get_bedrock_client()
+            
+            # Format messages and build request
+            messages = format_messages_for_converse(thread)
+            converse_kwargs = build_converse_request(thread, messages, model_id)
+            
+            # Make API call
+            response = bedrock_client.converse(**converse_kwargs)
+            
+            # Extract and return response text
+            return extract_response_text(response)
 
         except ImportError as e:
             raise LLMConfigurationError(
@@ -545,31 +523,12 @@ JUSTIFICATION: [your reasoning]"""
                 original_error=e,
             ) from e
         except (BotoCoreError, ClientError) as e:
-            # Enhanced error logging for diagnostics
-            error_message = str(e)
-            error_code = getattr(e, "response", {}).get("Error", {}).get("Code", "Unknown")
-
-            logger.error("Bedrock API error details:")
-            logger.error(f"  - Error Code: {error_code}")
-            logger.error(f"  - Error Message: {error_message}")
-            logger.error(f"  - Model ID: {model_id}")
-            logger.error(f"  - Region: {region}")
-            logger.error("  - Using converse API with inference config")
-
-            # Check for specific error types
-            if "rate limit" in error_message.lower() or "throttling" in error_message.lower():
-                user_message = "Request rate limit exceeded, please try again later"
-            elif "invalid" in error_message.lower() and "model" in error_message.lower():
-                user_message = f"Invalid model ID: {model_id}"
-            elif "access" in error_message.lower() or "permission" in error_message.lower():
-                user_message = f"No access to model {model_id} in region {region}. Check Bedrock model access in AWS Console."
-            elif "region" in error_message.lower():
-                user_message = (
-                    f"Bedrock not available in region {region}. Try us-east-1 or us-west-2."
-                )
-            else:
-                user_message = "LLM service temporarily unavailable"
-
+            # Diagnose error and get user-friendly message
+            region = get_aws_region()
+            user_message, log_details = diagnose_bedrock_error(e, model_id, region)
+            
+            logger.error(f"Bedrock API error: {log_details}")
+            
             raise LLMAPIError(
                 backend="bedrock",
                 message=f"Bedrock API call failed: {e}",
@@ -648,60 +607,31 @@ JUSTIFICATION: [your reasoning]"""
                 message="httpx is not installed. Please install with: pip install httpx",
             )
 
+        # Import helpers here to avoid circular imports when httpx not available
+        from .ollama_helpers import (
+            build_ollama_request,
+            format_messages_for_ollama,
+            get_ollama_host,
+            parse_ollama_response,
+        )
+
+        model = thread.criterion.model_name or "llama2"
+        
         try:
-            # Prepare messages
-            messages = [{"role": "system", "content": thread.criterion.system_prompt}]
-            for msg in thread.conversation_history:
-                messages.append({"role": msg["role"], "content": msg["content"]})
-
-            # Choose model
-            model = thread.criterion.model_name or "llama2"
-
+            # Format messages and build request
+            messages = format_messages_for_ollama(thread)
+            request_body = build_ollama_request(thread, messages, model)
+            
+            # Make API call
             async with httpx.AsyncClient(timeout=60.0) as client:
-                ollama_host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
-                # Build options with criterion parameters
-                options = {"temperature": thread.criterion.temperature, "num_ctx": 4096}
-
+                ollama_host = get_ollama_host()
                 response = await client.post(
                     f"{ollama_host}/api/chat",
-                    json={
-                        "model": model,
-                        "messages": messages,
-                        "stream": False,
-                        "options": options,
-                    },
+                    json=request_body,
                 )
-
-                if response.status_code != 200:
-                    error_msg = f"Ollama API error: {response.status_code}"
-                    try:
-                        error_data = response.json()
-                        if "error" in error_data:
-                            error_msg = f"Ollama API error: {error_data['error']}"
-                    except Exception:
-                        pass
-
-                    if response.status_code == 404:
-                        raise LLMAPIError(
-                            backend="ollama",
-                            message=error_msg,
-                            user_message=f"Model not available in Ollama: {model}",
-                        )
-                    elif response.status_code == 503:
-                        raise LLMAPIError(
-                            backend="ollama",
-                            message=error_msg,
-                            user_message="Ollama service is not running",
-                        )
-                    else:
-                        raise LLMAPIError(
-                            backend="ollama",
-                            message=error_msg,
-                            user_message="Ollama service temporarily unavailable",
-                        )
-
-                result = response.json()
-                return result["message"]["content"]
+                
+                # Parse response and handle errors
+                return parse_ollama_response(response, response.status_code, model)
 
         except ImportError as e:
             raise LLMConfigurationError(
@@ -712,14 +642,12 @@ JUSTIFICATION: [your reasoning]"""
         except Exception as e:
             if isinstance(e, (LLMBackendError, ConfigurationError)):
                 raise  # Re-raise our custom exceptions
-
-            # Check for connection errors
-            error_message = str(e)
-            if "connection" in error_message.lower() or "refused" in error_message.lower():
-                user_message = "Cannot connect to Ollama service. Is it running?"
-            else:
-                user_message = "Ollama service error"
-
+            
+            # Import diagnose function here to avoid circular imports
+            from .ollama_helpers import diagnose_ollama_error
+            
+            user_message = diagnose_ollama_error(e)
+            
             raise LLMAPIError(
                 backend="ollama",
                 message=f"Ollama call failed: {e}",

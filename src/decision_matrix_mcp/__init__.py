@@ -51,6 +51,16 @@ from .exceptions import (
     ValidationError,
 )
 from .formatting import DecisionFormatter
+from .helpers import (
+    create_criterion_from_request,
+    create_criterion_response,
+    create_error_response,
+    create_evaluation_response,
+    create_session_response,
+    process_evaluation_results,
+    process_initial_criteria,
+    validate_evaluation_prerequisites,
+)
 from .models import Criterion, DecisionSession, ModelBackend, Option, Score
 from .orchestrator import DecisionOrchestrator
 from .session_manager import SessionManager, SessionValidator
@@ -191,6 +201,27 @@ def get_session_or_error(
     return session, None
 
 
+async def _execute_parallel_evaluation(
+    session: DecisionSession, components: ServerComponents
+) -> dict[str, dict[str, tuple[float | None, str]]]:
+    """Execute parallel evaluation of options across criteria
+    
+    Args:
+        session: Decision session with options and criteria
+        components: Server components containing orchestrator
+        
+    Returns:
+        Evaluation results dict
+    """
+    logger.info(
+        f"Starting evaluation: {len(session.options)} options × {len(session.criteria)} criteria"
+    )
+    
+    return await components.orchestrator.evaluate_options_across_criteria(
+        session.threads, list(session.options.values())
+    )
+
+
 @mcp.tool(
     description="When facing multiple options and need structured evaluation - create a decision matrix to systematically compare choices across weighted criteria"
 )
@@ -206,51 +237,23 @@ async def start_decision_analysis(
     components = get_server_components()
 
     try:
+        # Create the session
         session = components.session_manager.create_session(
             topic=request.topic, initial_options=request.options, temperature=request.temperature
         )
 
-        criteria_added = []
+        # Validate and process initial criteria if provided
         if request.initial_criteria:
-            # Validate all criteria specs
             validation_error = validate_criteria_spec(request.initial_criteria)
             if validation_error:
                 return validation_error
-
-            # Add validated criteria
-            for criterion_spec in request.initial_criteria:
-                name = criterion_spec.get("name", "")
-                description = criterion_spec.get("description", "")
-                weight = criterion_spec.get("weight", 1.0)
-
-                criterion = Criterion(
-                    name=name,
-                    description=description,
-                    weight=weight,
-                    model_backend=request.model_backend,
-                    model_name=request.model_name,
-                    temperature=criterion_spec.get("temperature", request.temperature),
-                )
-
-                session.add_criterion(criterion)
-                criteria_added.append(name)
-
-        response_data = {
-            "session_id": session.session_id,
-            "topic": request.topic,
-            "options": request.options,
-            "criteria_added": criteria_added,
-            "model_backend": request.model_backend.value,
-            "model_name": request.model_name,
-            "message": f"Decision analysis initialized with {len(request.options)} options"
-            + (f" and {len(criteria_added)} criteria" if criteria_added else ""),
-            "next_steps": [
-                "add_criterion - Add evaluation criteria",
-                "evaluate_options - Run the analysis",
-                "get_decision_matrix - See results",
-            ],
-        }
-
+        
+        # Add criteria to session
+        criteria_added = process_initial_criteria(request, session)
+        
+        # Create standardized response
+        response_data = create_session_response(session, request, criteria_added)
+        
         # Format for LLM consumption
         response_data["formatted_output"] = components.formatter.format_session_created(
             response_data
@@ -260,25 +263,17 @@ async def start_decision_analysis(
 
     except ValidationError as e:
         logger.warning(f"Invalid input for decision session: {e}")
-        error_response = {"error": e.user_message}
-        error_response["formatted_output"] = components.formatter.format_error(
-            e.user_message, "Session creation"
-        )
-        return error_response
+        return create_error_response(e.user_message, "Session creation", components.formatter)
     except ResourceLimitError as e:
         logger.warning(f"Resource limit exceeded: {e}")
-        error_response = {"error": e.user_message}
-        error_response["formatted_output"] = components.formatter.format_error(
-            e.user_message, "Resource limit"
-        )
-        return error_response
+        return create_error_response(e.user_message, "Resource limit", components.formatter)
     except Exception:
         logger.exception("Unexpected error creating decision session")
-        error_response = {"error": "Failed to create session due to an unexpected error"}
-        error_response["formatted_output"] = components.formatter.format_error(
-            "Failed to create session due to an unexpected error", "Unexpected error"
+        return create_error_response(
+            "Failed to create session due to an unexpected error",
+            "Unexpected error",
+            components.formatter
         )
-        return error_response
 
 
 class AddCriterionRequest(BaseModel):
@@ -314,80 +309,50 @@ async def add_criterion(request: AddCriterionRequest, ctx: Context) -> dict[str,
 
     components = get_server_components()
 
+    # Get session and handle errors
     session, error = get_session_or_error(request.session_id, components)
     if error:
-        error["formatted_output"] = components.formatter.format_error(error["error"])
-        return error
+        return create_error_response(error["error"], "Session retrieval", components.formatter)
 
     # Session validation guard
     assert session is not None, "Session should not be None after successful get_session_or_error"
 
     # Check if criterion already exists
     if request.name in session.criteria:
-        error_response = {"error": f"Criterion '{request.name}' already exists"}
-        error_response["formatted_output"] = components.formatter.format_error(
-            error_response["error"], "Duplicate criterion"
+        return create_error_response(
+            f"Criterion '{request.name}' already exists",
+            "Duplicate criterion",
+            components.formatter
         )
-        return error_response
 
     try:
-        criterion = Criterion(
-            name=request.name,
-            description=request.description,
-            weight=request.weight,
-            model_backend=request.model_backend,
-            model_name=request.model_name,
-            temperature=(
-                request.temperature
-                if request.temperature is not None
-                else session.default_temperature
-            ),
-        )
-
-        # Override system prompt if provided
-        if request.custom_prompt:
-            criterion.system_prompt = request.custom_prompt
-
+        # Create and add criterion
+        criterion = create_criterion_from_request(request, session)
         session.add_criterion(criterion)
-
-        response_data = {
-            "session_id": request.session_id,
-            "criterion_added": request.name,
-            "description": request.description,
-            "weight": request.weight,
-            "total_criteria": len(session.criteria),
-            "all_criteria": list(session.criteria.keys()),
-            "message": f"Added criterion '{request.name}' with weight {request.weight}x",
-        }
-
+        
+        # Create standardized response
+        response_data = create_criterion_response(request, session)
+        
         # Format for LLM consumption
         response_data["formatted_output"] = components.formatter.format_criterion_added(
             response_data
         )
-
+        
         return response_data
 
     except SessionError as e:
         logger.warning(f"Session error when adding criterion: {e}")
-        error_response = {"error": e.user_message}
-        error_response["formatted_output"] = components.formatter.format_error(
-            e.user_message, "Session error"
-        )
-        return error_response
+        return create_error_response(e.user_message, "Session error", components.formatter)
     except ValidationError as e:
         logger.warning(f"Invalid criterion input: {e}")
-        error_response = {"error": e.user_message}
-        error_response["formatted_output"] = components.formatter.format_error(
-            e.user_message, "Validation error"
-        )
-        return error_response
+        return create_error_response(e.user_message, "Validation error", components.formatter)
     except Exception:
         logger.exception("Unexpected error adding criterion")
-        error_response = {"error": "Failed to add criterion due to an unexpected error"}
-        error_response["formatted_output"] = components.formatter.format_error(
-            error_response["error"], "Unexpected error"
+        return create_error_response(
+            "Failed to add criterion due to an unexpected error",
+            "Unexpected error",
+            components.formatter
         )
-        return error_response
 
 
 class EvaluateOptionsRequest(BaseModel):
@@ -405,103 +370,57 @@ async def evaluate_options(request: EvaluateOptionsRequest, ctx: Context) -> dic
 
     components = get_server_components()
 
+    # Get session and handle errors
     session, error = get_session_or_error(request.session_id, components)
     if error:
-        error["formatted_output"] = components.formatter.format_error(error["error"])
-        return error
+        return create_error_response(error["error"], "Session retrieval", components.formatter)
 
     # Session validation guard
     assert session is not None, "Session should not be None after successful get_session_or_error"
 
-    # Check prerequisites
-    if not session.options:
-        error_response = {"error": "No options to evaluate. Add options first."}
-        error_response["formatted_output"] = components.formatter.format_error(
-            error_response["error"]
+    # Validate prerequisites
+    validation_error = validate_evaluation_prerequisites(session)
+    if validation_error:
+        return create_error_response(
+            validation_error["error"], 
+            validation_error.get("validation_context", "Prerequisites"),
+            components.formatter
         )
-        return error_response
-
-    if not session.criteria:
-        error_response = {"error": "No criteria defined. Add criteria first."}
-        error_response["formatted_output"] = components.formatter.format_error(
-            error_response["error"]
-        )
-        return error_response
 
     try:
-        logger.info(
-            f"Starting evaluation: {len(session.options)} options × {len(session.criteria)} criteria"
-        )
-
-        # Run parallel evaluation using orchestrator
-        evaluation_results = await components.orchestrator.evaluate_options_across_criteria(
-            session.threads, list(session.options.values())
-        )
-
-        # Process results and update session
-        total_scores = 0
-        abstentions = 0
-        errors = []
-
-        for criterion_name, option_results in evaluation_results.items():
-            for option_name, (score, justification) in option_results.items():
-                score_obj = Score(
-                    criterion_name=criterion_name,
-                    option_name=option_name,
-                    score=score,
-                    justification=justification,
-                )
-
-                if option_name in session.options:
-                    session.options[option_name].add_score(score_obj)
-
-                    if "Error:" in justification:
-                        errors.append(f"{criterion_name}→{option_name}: {justification}")
-                    elif score is None:
-                        abstentions += 1
-                    else:
-                        total_scores += 1
-
+        # Execute parallel evaluation
+        evaluation_results = await _execute_parallel_evaluation(session, components)
+        
+        # Process results and create response
+        total_scores, abstentions, errors = process_evaluation_results(evaluation_results, session)
+        
         # Record evaluation in session history
-        session.record_evaluation(
-            {
-                "evaluation_results": evaluation_results,
-                "total_scores": total_scores,
-                "abstentions": abstentions,
-                "errors": len(errors),
-            }
+        session.record_evaluation({
+            "evaluation_results": evaluation_results,
+            "total_scores": total_scores,
+            "abstentions": abstentions,
+            "errors": len(errors),
+        })
+        
+        # Create standardized response
+        response_data = create_evaluation_response(
+            request.session_id, session, total_scores, abstentions, errors
         )
-
-        response_data = {
-            "session_id": request.session_id,
-            "evaluation_complete": True,
-            "summary": {
-                "options_evaluated": len(session.options),
-                "criteria_used": len(session.criteria),
-                "total_evaluations": len(session.options) * len(session.criteria),
-                "successful_scores": total_scores,
-                "abstentions": abstentions,
-                "errors": len(errors),
-            },
-            "errors": errors if errors else None,
-            "message": f"Evaluated {len(session.options)} options across {len(session.criteria)} criteria",
-            "next_steps": ["get_decision_matrix - See the complete results"],
-        }
-
+        
         # Format for LLM consumption
         response_data["formatted_output"] = components.formatter.format_evaluation_complete(
             response_data
         )
-
+        
         return response_data
 
     except Exception as e:
         logger.error(f"Error during evaluation: {e}")
-        error_response = {"error": f"Evaluation failed: {str(e)}"}
-        error_response["formatted_output"] = components.formatter.format_error(
-            error_response["error"], "Evaluation error"
+        return create_error_response(
+            f"Evaluation failed: {str(e)}", 
+            "Evaluation error", 
+            components.formatter
         )
-        return error_response
 
 
 class GetDecisionMatrixRequest(BaseModel):
