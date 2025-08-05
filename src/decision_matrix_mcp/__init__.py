@@ -34,6 +34,7 @@ CRITICAL: This server uses stdio transport for MCP protocol communication.
 import asyncio
 import logging
 import sys
+import threading
 from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
@@ -109,7 +110,9 @@ class ServerComponents:
         self.formatter = formatter or DecisionFormatter()
 
     def cleanup(self) -> None:
+        """Clean up all server resources."""
         self.session_manager.clear_all_sessions()
+        self.orchestrator.cleanup()
 
 
 def create_server_components() -> ServerComponents:
@@ -119,19 +122,31 @@ def create_server_components() -> ServerComponents:
 # Create FastMCP instance with component factory
 mcp = FastMCP("decision-matrix")
 
-# Server components - created once at startup
+# Server components - created once at startup with thread-safe initialization
 _server_components: ServerComponents | None = None
+_server_components_lock = threading.Lock()
 
 
 def get_server_components() -> ServerComponents:
-    if _server_components is None:
-        raise RuntimeError("Server components not initialized")
-    return _server_components
+    """Get server components with thread-safe lazy initialization."""
+    global _server_components
+    
+    # Fast path: if already initialized, return immediately
+    if _server_components is not None:
+        return _server_components
+    
+    # Slow path: initialize with double-checked locking pattern
+    with _server_components_lock:
+        # Check again inside the lock in case another thread initialized it
+        if _server_components is None:
+            _server_components = create_server_components()
+            logger.info("Server components initialized")
+        return _server_components
 
 
 def initialize_server_components() -> None:
-    global _server_components
-    _server_components = create_server_components()
+    """Explicitly initialize server components (optional, for eager initialization)."""
+    get_server_components()  # This will initialize if needed
 
 
 class StartDecisionAnalysisRequest(BaseModel):
@@ -713,6 +728,14 @@ def main() -> None:
 
             traceback.print_exc(file=sys.stderr)
             raise
+    finally:
+        # Always clean up resources on exit
+        try:
+            components = get_server_components()
+            components.cleanup()
+            logger.info("Server resources cleaned up")
+        except Exception as cleanup_error:
+            logger.error(f"Error during cleanup: {cleanup_error}")
 
 
 if __name__ == "__main__":

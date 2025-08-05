@@ -613,3 +613,14 @@ JUSTIFICATION: [your reasoning]"""
                 user_message=user_message,
                 original_error=e,
             ) from e
+
+    def cleanup(self) -> None:
+        """Clean up resources on shutdown."""
+        if self._bedrock_client:
+            with self._client_lock:
+                if self._bedrock_client:
+                    # Close any open connections in the client
+                    # boto3 clients don't have an explicit close method,
+                    # but we can help the garbage collector by clearing the reference
+                    self._bedrock_client = None
+                    logger.info("Bedrock client cleaned up")

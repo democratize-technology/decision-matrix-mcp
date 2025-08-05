@@ -147,7 +147,17 @@ class SessionManager:
             logger.info(f"Cleaned up {len(expired_sessions)} expired sessions")
 
     def _is_session_expired(self, session: DecisionSession) -> bool:
-        return datetime.now(timezone.utc) - session.created_at > self.session_ttl
+        """Check if session has expired, handling both timezone-aware and naive datetimes."""
+        now = datetime.now(timezone.utc)
+        session_time = session.created_at
+        
+        # Ensure session time is timezone-aware
+        if session_time.tzinfo is None:
+            # Assume UTC for naive datetime (legacy sessions)
+            session_time = session_time.replace(tzinfo=timezone.utc)
+            logger.debug(f"Session {session.session_id[:8]} has naive datetime, assuming UTC")
+        
+        return now - session_time > self.session_ttl
 
     def _remove_session(self, session_id: str) -> bool:
         if session_id in self.sessions:
