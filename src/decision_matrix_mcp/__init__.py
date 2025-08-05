@@ -73,13 +73,11 @@ __all__ = [
     "ServerComponents",
     "get_session_or_error",
     "get_server_components",
-    # Request models
     "StartDecisionAnalysisRequest",
     "AddCriterionRequest",
     "EvaluateOptionsRequest",
     "GetDecisionMatrixRequest",
     "AddOptionRequest",
-    # Tool functions
     "start_decision_analysis",
     "add_criterion",
     "evaluate_options",
@@ -91,9 +89,8 @@ __all__ = [
     "test_aws_bedrock_connection",
 ]
 
-# Configure logging to stderr only - NEVER stdout in MCP servers
 logging.basicConfig(
-    level=logging.WARNING,  # Reduce log noise
+    level=logging.WARNING,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     stream=sys.stderr,
 )
@@ -101,37 +98,21 @@ logger = logging.getLogger(__name__)
 
 
 class ServerComponents:
-    """Container for server dependencies with proper lifecycle management."""
-
     def __init__(
         self,
         orchestrator: DecisionOrchestrator | None = None,
         session_manager: SessionManager | None = None,
         formatter: DecisionFormatter | None = None,
     ):
-        """Initialize server components.
-
-        Args:
-            orchestrator: Decision orchestrator instance
-            session_manager: Session manager instance
-            formatter: Decision formatter instance
-        """
         self.orchestrator = orchestrator or DecisionOrchestrator()
         self.session_manager = session_manager or SessionManager()
         self.formatter = formatter or DecisionFormatter()
 
     def cleanup(self) -> None:
-        """Clean up server resources."""
-        # Clear all sessions to prevent memory leaks
         self.session_manager.clear_all_sessions()
 
 
 def create_server_components() -> ServerComponents:
-    """Create server components for dependency injection.
-
-    Returns:
-        ServerComponents: Container with orchestrator and session_manager
-    """
     return ServerComponents()
 
 
@@ -143,21 +124,12 @@ _server_components: ServerComponents | None = None
 
 
 def get_server_components() -> ServerComponents:
-    """Get server components (created at startup).
-
-    Returns:
-        ServerComponents: Server component container
-
-    Raises:
-        RuntimeError: If components not initialized
-    """
     if _server_components is None:
         raise RuntimeError("Server components not initialized")
     return _server_components
 
 
 def initialize_server_components() -> None:
-    """Initialize server components at startup."""
     global _server_components
     _server_components = create_server_components()
 
@@ -205,18 +177,18 @@ async def _execute_parallel_evaluation(
     session: DecisionSession, components: ServerComponents
 ) -> dict[str, dict[str, tuple[float | None, str]]]:
     """Execute parallel evaluation of options across criteria
-    
+
     Args:
         session: Decision session with options and criteria
         components: Server components containing orchestrator
-        
+
     Returns:
         Evaluation results dict
     """
     logger.info(
         f"Starting evaluation: {len(session.options)} options × {len(session.criteria)} criteria"
     )
-    
+
     return await components.orchestrator.evaluate_options_across_criteria(
         session.threads, list(session.options.values())
     )
@@ -247,13 +219,13 @@ async def start_decision_analysis(
             validation_error = validate_criteria_spec(request.initial_criteria)
             if validation_error:
                 return validation_error
-        
+
         # Add criteria to session
         criteria_added = process_initial_criteria(request, session)
-        
+
         # Create standardized response
         response_data = create_session_response(session, request, criteria_added)
-        
+
         # Format for LLM consumption
         response_data["formatted_output"] = components.formatter.format_session_created(
             response_data
@@ -272,7 +244,7 @@ async def start_decision_analysis(
         return create_error_response(
             "Failed to create session due to an unexpected error",
             "Unexpected error",
-            components.formatter
+            components.formatter,
         )
 
 
@@ -322,22 +294,22 @@ async def add_criterion(request: AddCriterionRequest, ctx: Context) -> dict[str,
         return create_error_response(
             f"Criterion '{request.name}' already exists",
             "Duplicate criterion",
-            components.formatter
+            components.formatter,
         )
 
     try:
         # Create and add criterion
         criterion = create_criterion_from_request(request, session)
         session.add_criterion(criterion)
-        
+
         # Create standardized response
         response_data = create_criterion_response(request, session)
-        
+
         # Format for LLM consumption
         response_data["formatted_output"] = components.formatter.format_criterion_added(
             response_data
         )
-        
+
         return response_data
 
     except SessionError as e:
@@ -351,7 +323,7 @@ async def add_criterion(request: AddCriterionRequest, ctx: Context) -> dict[str,
         return create_error_response(
             "Failed to add criterion due to an unexpected error",
             "Unexpected error",
-            components.formatter
+            components.formatter,
         )
 
 
@@ -382,44 +354,44 @@ async def evaluate_options(request: EvaluateOptionsRequest, ctx: Context) -> dic
     validation_error = validate_evaluation_prerequisites(session)
     if validation_error:
         return create_error_response(
-            validation_error["error"], 
+            validation_error["error"],
             validation_error.get("validation_context", "Prerequisites"),
-            components.formatter
+            components.formatter,
         )
 
     try:
         # Execute parallel evaluation
         evaluation_results = await _execute_parallel_evaluation(session, components)
-        
+
         # Process results and create response
         total_scores, abstentions, errors = process_evaluation_results(evaluation_results, session)
-        
+
         # Record evaluation in session history
-        session.record_evaluation({
-            "evaluation_results": evaluation_results,
-            "total_scores": total_scores,
-            "abstentions": abstentions,
-            "errors": len(errors),
-        })
-        
+        session.record_evaluation(
+            {
+                "evaluation_results": evaluation_results,
+                "total_scores": total_scores,
+                "abstentions": abstentions,
+                "errors": len(errors),
+            }
+        )
+
         # Create standardized response
         response_data = create_evaluation_response(
             request.session_id, session, total_scores, abstentions, errors
         )
-        
+
         # Format for LLM consumption
         response_data["formatted_output"] = components.formatter.format_evaluation_complete(
             response_data
         )
-        
+
         return response_data
 
     except Exception as e:
         logger.error(f"Error during evaluation: {e}")
         return create_error_response(
-            f"Evaluation failed: {str(e)}", 
-            "Evaluation error", 
-            components.formatter
+            f"Evaluation failed: {str(e)}", "Evaluation error", components.formatter
         )
 
 
@@ -681,12 +653,12 @@ async def test_aws_bedrock_connection(ctx: Context) -> dict[str, Any]:
         if test_result["status"] == "ok":
             formatted_output = f"""# ✅ Bedrock Connection Test: SUCCESS
 
-**Status**: {test_result['status'].upper()}
-**Region**: {test_result['region']}
-**Model Tested**: {test_result['model_tested']}
-**Response Length**: {test_result['response_length']} characters
+**Status**: {test_result["status"].upper()}
+**Region**: {test_result["region"]}
+**Model Tested**: {test_result["model_tested"]}
+**Response Length**: {test_result["response_length"]} characters
 
-{test_result['message']}"""
+{test_result["message"]}"""
         else:
             formatted_output = components.formatter.format_error(
                 f"❌ Bedrock connection failed: {test_result['error']}",

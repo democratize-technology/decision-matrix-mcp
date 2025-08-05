@@ -187,7 +187,7 @@ class DecisionFormatter:
         medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
 
         for i, rank in enumerate(rankings):
-            medal = medals[i] if i < len(medals) else f"{i+1}."
+            medal = medals[i] if i < len(medals) else f"{i + 1}."
             score_bar = self._create_score_bar(
                 rank["weighted_total"], max(r["weighted_total"] for r in rankings)
             )

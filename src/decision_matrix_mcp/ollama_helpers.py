@@ -31,7 +31,7 @@ from .models import CriterionThread
 
 def get_ollama_host() -> str:
     """Get Ollama host from environment with default
-    
+
     Returns:
         Ollama host URL
     """
@@ -40,10 +40,10 @@ def get_ollama_host() -> str:
 
 def format_messages_for_ollama(thread: CriterionThread) -> list[dict[str, str]]:
     """Format thread messages for Ollama API
-    
+
     Args:
         thread: CriterionThread containing conversation history
-        
+
     Returns:
         List of formatted messages for Ollama API
     """
@@ -54,25 +54,20 @@ def format_messages_for_ollama(thread: CriterionThread) -> list[dict[str, str]]:
 
 
 def build_ollama_request(
-    thread: CriterionThread,
-    messages: list[dict[str, str]],
-    model: str
+    thread: CriterionThread, messages: list[dict[str, str]], model: str
 ) -> dict[str, Any]:
     """Build the complete Ollama API request
-    
+
     Args:
         thread: CriterionThread with criterion config
         messages: Formatted messages
         model: Ollama model name
-        
+
     Returns:
         Complete request body for Ollama API
     """
-    options = {
-        "temperature": thread.criterion.temperature,
-        "num_ctx": 4096
-    }
-    
+    options = {"temperature": thread.criterion.temperature, "num_ctx": 4096}
+
     return {
         "model": model,
         "messages": messages,
@@ -81,27 +76,23 @@ def build_ollama_request(
     }
 
 
-def parse_ollama_response(
-    response: Any,
-    status_code: int,
-    model: str
-) -> str:
+def parse_ollama_response(response: Any, status_code: int, model: str) -> str:
     """Parse Ollama API response and handle errors
-    
+
     Args:
         response: HTTP response object
         status_code: HTTP status code
         model: Model name for error messages
-        
+
     Returns:
         Extracted response text
-        
+
     Raises:
         LLMAPIError: If response indicates an error
     """
     if status_code != 200:
         error_msg = f"Ollama API error: {status_code}"
-        
+
         # Try to extract error details from response
         try:
             error_data = response.json()
@@ -109,7 +100,7 @@ def parse_ollama_response(
                 error_msg = f"Ollama API error: {error_data['error']}"
         except Exception:
             pass
-        
+
         # Provide specific error messages based on status code
         if status_code == 404:
             raise LLMAPIError(
@@ -129,22 +120,22 @@ def parse_ollama_response(
                 message=error_msg,
                 user_message="Ollama service temporarily unavailable",
             )
-    
+
     result = response.json()
     return result["message"]["content"]
 
 
 def diagnose_ollama_error(error: Exception) -> str:
     """Diagnose Ollama connection errors and provide user-friendly messages
-    
+
     Args:
         error: The exception from Ollama API
-        
+
     Returns:
         User-friendly error message
     """
     error_message = str(error).lower()
-    
+
     if "connection" in error_message or "refused" in error_message:
         return "Cannot connect to Ollama service. Is it running?"
     else:

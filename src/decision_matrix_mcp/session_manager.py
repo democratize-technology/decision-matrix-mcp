@@ -35,21 +35,12 @@ logger = logging.getLogger(__name__)
 
 
 class SessionManager:
-    """Manages multiple decision analysis sessions with automatic cleanup"""
-
     def __init__(
         self,
         max_sessions: int = 50,
         session_ttl_hours: int = 24,
         cleanup_interval_minutes: int = 30,
     ):
-        """Initialize session manager
-
-        Args:
-            max_sessions: Maximum number of concurrent sessions
-            session_ttl_hours: Hours before sessions expire
-            cleanup_interval_minutes: Minutes between cleanup runs
-        """
         self.max_sessions = max_sessions
         self.session_ttl = timedelta(hours=session_ttl_hours)
         self.cleanup_interval = timedelta(minutes=cleanup_interval_minutes)
@@ -67,7 +58,6 @@ class SessionManager:
     def create_session(
         self, topic: str, initial_options: list[str] | None = None, temperature: float = 0.1
     ) -> DecisionSession:
-        """Create a new decision analysis session"""
         self._cleanup_if_needed()
 
         if len(self.sessions) >= self.max_sessions:
@@ -100,7 +90,6 @@ class SessionManager:
         return session
 
     def get_session(self, session_id: str) -> DecisionSession | None:
-        """Get a session by ID, None if not found or expired"""
         self._cleanup_if_needed()
 
         session = self.sessions.get(session_id)
@@ -111,20 +100,16 @@ class SessionManager:
         return session
 
     def remove_session(self, session_id: str) -> bool:
-        """Manually remove a session"""
         return self._remove_session(session_id)
 
     def list_active_sessions(self) -> dict[str, DecisionSession]:
-        """List all active (non-expired) sessions"""
         self._cleanup_if_needed()
         return self.sessions.copy()
 
     def clear_all_sessions(self) -> None:
-        """Clear all sessions from the manager"""
         self.sessions.clear()
 
     def get_stats(self) -> dict[str, Any]:
-        """Get session manager statistics"""
         return {
             **self.stats,
             "active_sessions": len(self.sessions),
@@ -132,11 +117,6 @@ class SessionManager:
         }
 
     def get_current_session(self) -> DecisionSession | None:
-        """Get the most recently created active session
-
-        Returns:
-            The most recent DecisionSession or None if no sessions exist
-        """
         self._cleanup_if_needed()
 
         if not self.sessions:
@@ -147,12 +127,10 @@ class SessionManager:
         return sorted_sessions[0][1]
 
     def _cleanup_if_needed(self) -> None:
-        """Run cleanup if enough time has passed"""
         if datetime.now(timezone.utc) - self.last_cleanup > self.cleanup_interval:
             self._cleanup_expired_sessions()
 
     def _cleanup_expired_sessions(self) -> None:
-        """Remove expired sessions"""
         now = datetime.now(timezone.utc)
         expired_sessions = []
 
@@ -169,11 +147,9 @@ class SessionManager:
             logger.info(f"Cleaned up {len(expired_sessions)} expired sessions")
 
     def _is_session_expired(self, session: DecisionSession) -> bool:
-        """Check if a session has expired"""
         return datetime.now(timezone.utc) - session.created_at > self.session_ttl
 
     def _remove_session(self, session_id: str) -> bool:
-        """Remove a session and update stats"""
         if session_id in self.sessions:
             del self.sessions[session_id]
             self.stats["sessions_cleaned"] += 1
@@ -183,11 +159,8 @@ class SessionManager:
 
 
 class SessionValidator:
-    """Validates session operations and data"""
-
     @staticmethod
     def validate_session_id(session_id: str) -> bool:
-        """Validate session ID format"""
         if not session_id or not isinstance(session_id, str):
             return False
         if len(session_id) > ValidationLimits.MAX_SESSION_ID_LENGTH:
@@ -196,7 +169,6 @@ class SessionValidator:
 
     @staticmethod
     def validate_topic(topic: str) -> bool:
-        """Validate topic string"""
         if not topic or not isinstance(topic, str):
             return False
         if len(topic.strip()) == 0 or len(topic) > ValidationLimits.MAX_TOPIC_LENGTH:
@@ -205,7 +177,6 @@ class SessionValidator:
 
     @staticmethod
     def validate_option_name(option_name: str) -> bool:
-        """Validate option name"""
         if not option_name or not isinstance(option_name, str):
             return False
         if (
@@ -217,7 +188,6 @@ class SessionValidator:
 
     @staticmethod
     def validate_criterion_name(criterion_name: str) -> bool:
-        """Validate criterion name"""
         if not criterion_name or not isinstance(criterion_name, str):
             return False
         if (
@@ -229,7 +199,6 @@ class SessionValidator:
 
     @staticmethod
     def validate_weight(weight: float) -> bool:
-        """Validate criterion weight"""
         if not isinstance(weight, (int, float)):
             return False
         return (
@@ -238,7 +207,6 @@ class SessionValidator:
 
     @staticmethod
     def validate_description(description: str) -> bool:
-        """Validate description text"""
         if not description or not isinstance(description, str):
             return False
         if (

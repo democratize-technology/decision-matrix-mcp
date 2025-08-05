@@ -30,8 +30,6 @@ from uuid import uuid4
 
 
 class ModelBackend(str, Enum):
-    """Supported model backends"""
-
     BEDROCK = "bedrock"
     LITELLM = "litellm"
     OLLAMA = "ollama"
@@ -39,8 +37,6 @@ class ModelBackend(str, Enum):
 
 @dataclass
 class Score:
-    """Represents a score given by a criterion to an option"""
-
     criterion_name: str
     option_name: str
     score: float | None  # 1-10 scale, None if abstained
@@ -49,14 +45,11 @@ class Score:
 
     @property
     def abstained(self) -> bool:
-        """True if this criterion abstained from scoring this option"""
         return self.score is None
 
 
 @dataclass
 class Criterion:
-    """Represents an evaluation criterion"""
-
     name: str
     description: str
     weight: float = 1.0
@@ -67,7 +60,6 @@ class Criterion:
     max_tokens: int = 1024
 
     def __post_init__(self) -> None:
-        """Generate system prompt if not provided"""
         if not self.system_prompt:
             self.system_prompt = f"""You are evaluating options based on the '{self.name}' criterion: {self.description}
 
@@ -86,18 +78,14 @@ Weight in decision: {self.weight}x importance"""
 
 @dataclass
 class Option:
-    """Represents a decision option"""
-
     name: str
     description: str | None = None
     scores: dict[str, Score] = field(default_factory=dict)  # criterion_name -> Score
 
     def add_score(self, score: Score) -> None:
-        """Add a score from a criterion"""
         self.scores[score.criterion_name] = score
 
     def get_weighted_total(self, criteria: dict[str, Criterion]) -> float:
-        """Calculate weighted total score for this option"""
         total = 0.0
         total_weight = 0.0
 
@@ -112,7 +100,6 @@ class Option:
         return total / total_weight if total_weight > 0 else 0.0
 
     def get_score_breakdown(self, criteria: dict[str, Criterion]) -> list[dict[str, Any]]:
-        """Get detailed breakdown of scores"""
         breakdown = []
         for criterion_name, criterion in criteria.items():
             score = self.scores.get(criterion_name)
@@ -134,14 +121,11 @@ class Option:
 
 @dataclass
 class CriterionThread:
-    """Represents a criterion evaluation thread"""
-
     id: str
     criterion: Criterion
     conversation_history: list[dict[str, str]] = field(default_factory=list)
 
     def add_message(self, role: str, content: str) -> None:
-        """Add a message to conversation history"""
         self.conversation_history.append(
             {"role": role, "content": content, "timestamp": datetime.now(timezone.utc).isoformat()}
         )
@@ -149,8 +133,6 @@ class CriterionThread:
 
 @dataclass
 class DecisionSession:
-    """Manages a complete decision analysis session"""
-
     session_id: str
     created_at: datetime
     topic: str
@@ -161,12 +143,10 @@ class DecisionSession:
     default_temperature: float = 0.1
 
     def add_option(self, name: str, description: str | None = None) -> None:
-        """Add a new option to evaluate"""
         if name not in self.options:
             self.options[name] = Option(name=name, description=description)
 
     def add_criterion(self, criterion: Criterion) -> None:
-        """Add a new evaluation criterion with parameter inheritance from session defaults"""
         # Apply session defaults if criterion doesn't specify its own values
         if criterion.temperature == 0.0:  # Using default value
             criterion.temperature = self.default_temperature
@@ -177,7 +157,6 @@ class DecisionSession:
         self.threads[criterion.name] = thread
 
     def get_decision_matrix(self) -> dict[str, Any]:
-        """Generate complete decision matrix with scores and recommendations"""
         if not self.options or not self.criteria:
             return {"error": "Need both options and criteria to generate matrix"}
 
@@ -240,7 +219,6 @@ class DecisionSession:
         }
 
     def record_evaluation(self, evaluation_results: dict[str, Any]) -> None:
-        """Record an evaluation for history"""
         self.evaluations.append(
             {"timestamp": datetime.now(timezone.utc).isoformat(), "results": evaluation_results}
         )

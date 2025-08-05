@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 def get_aws_region() -> str:
     """Get AWS region from environment variables with fallback
-    
+
     Returns:
         AWS region string
     """
@@ -43,34 +43,29 @@ def get_aws_region() -> str:
 
 def format_messages_for_converse(thread: CriterionThread) -> list[dict[str, Any]]:
     """Format thread messages for Bedrock converse API
-    
+
     Args:
         thread: CriterionThread containing conversation history
-        
+
     Returns:
         List of formatted messages for converse API
     """
     messages = []
     for msg in thread.conversation_history:
-        messages.append({
-            "role": msg["role"], 
-            "content": [{"text": msg["content"]}]
-        })
+        messages.append({"role": msg["role"], "content": [{"text": msg["content"]}]})
     return messages
 
 
 def build_converse_request(
-    thread: CriterionThread,
-    messages: list[dict[str, Any]],
-    model_id: str
+    thread: CriterionThread, messages: list[dict[str, Any]], model_id: str
 ) -> dict[str, Any]:
     """Build the complete converse API request
-    
+
     Args:
         thread: CriterionThread with criterion config
         messages: Formatted messages
         model_id: Bedrock model ID
-        
+
     Returns:
         Complete request kwargs for converse API
     """
@@ -81,19 +76,19 @@ def build_converse_request(
         "inferenceConfig": {
             "maxTokens": thread.criterion.max_tokens,
             "temperature": thread.criterion.temperature,
-        }
+        },
     }
 
 
 def extract_response_text(response: dict[str, Any]) -> str:
     """Extract text from Bedrock converse API response
-    
+
     Args:
         response: Response from Bedrock converse API
-        
+
     Returns:
         Extracted text content
-        
+
     Raises:
         LLMAPIError: If response format is invalid
     """
@@ -101,7 +96,7 @@ def extract_response_text(response: dict[str, Any]) -> str:
         message_content = response["output"]["message"]["content"]
         if message_content and len(message_content) > 0:
             return message_content[0]["text"]
-    
+
     raise LLMAPIError(
         backend="bedrock",
         message=f"Invalid response format from Bedrock converse API: {response}",
@@ -109,33 +104,29 @@ def extract_response_text(response: dict[str, Any]) -> str:
     )
 
 
-def diagnose_bedrock_error(
-    error: Exception, 
-    model_id: str, 
-    region: str
-) -> tuple[str, str]:
+def diagnose_bedrock_error(error: Exception, model_id: str, region: str) -> tuple[str, str]:
     """Diagnose Bedrock API errors and provide user-friendly messages
-    
+
     Args:
         error: The exception from Bedrock API
         model_id: Model ID being used
         region: AWS region
-        
+
     Returns:
         Tuple of (user_message, log_details)
     """
     error_message = str(error)
     error_code = getattr(error, "response", {}).get("Error", {}).get("Code", "Unknown")
-    
+
     # Log details for diagnostics
     log_details = (
         f"Bedrock API error - Code: {error_code}, "
         f"Message: {error_message}, Model: {model_id}, Region: {region}"
     )
-    
+
     # Determine user-friendly message
     error_lower = error_message.lower()
-    
+
     if "rate limit" in error_lower or "throttling" in error_lower:
         user_message = "Request rate limit exceeded, please try again later"
     elif "invalid" in error_lower and "model" in error_lower:
@@ -146,11 +137,8 @@ def diagnose_bedrock_error(
             "Check Bedrock model access in AWS Console."
         )
     elif "region" in error_lower:
-        user_message = (
-            f"Bedrock not available in region {region}. "
-            "Try us-east-1 or us-west-2."
-        )
+        user_message = f"Bedrock not available in region {region}. Try us-east-1 or us-west-2."
     else:
         user_message = "LLM service temporarily unavailable"
-    
+
     return user_message, log_details

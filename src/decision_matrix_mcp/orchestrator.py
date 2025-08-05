@@ -72,13 +72,10 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-# Constants
 NO_RESPONSE = "[NO_RESPONSE]"
 
 
 class DecisionOrchestrator:
-    """Orchestrates parallel criterion evaluation with different LLM backends"""
-
     def __init__(
         self,
         max_retries: int = 3,
@@ -86,14 +83,6 @@ class DecisionOrchestrator:
         use_cot: bool = True,
         cot_timeout: float = 30.0,
     ):
-        """Initialize orchestrator
-
-        Args:
-            max_retries: Maximum number of retries for failed calls
-            retry_delay: Initial delay between retries (exponential backoff)
-            use_cot: Whether to use Chain of Thought reasoning when available
-            cot_timeout: Maximum time in seconds for CoT processing (default: 30s)
-        """
         self.backends = {
             ModelBackend.BEDROCK: self._call_bedrock,
             ModelBackend.LITELLM: self._call_litellm,
@@ -107,7 +96,6 @@ class DecisionOrchestrator:
         self._client_lock = threading.Lock()
 
     def _get_bedrock_client(self) -> Any:
-        """Get or create a Bedrock client instance (thread-safe)"""
         if self._bedrock_client is None:
             with self._client_lock:
                 # Double-check pattern to avoid race conditions
@@ -120,7 +108,6 @@ class DecisionOrchestrator:
         return self._bedrock_client
 
     async def test_bedrock_connection(self) -> dict[str, Any]:
-        """Test Bedrock connectivity and model access permissions"""
         if not BOTO3_AVAILABLE:
             return {
                 "status": "error",
@@ -184,7 +171,6 @@ class DecisionOrchestrator:
             }
 
     def _get_bedrock_error_suggestion(self, error_code: str, error_message: str) -> str:
-        """Get user-friendly suggestions for common Bedrock errors"""
         if "access" in error_message.lower() or "permission" in error_message.lower():
             return (
                 "Enable model access in AWS Console: Bedrock > Model access > Manage model access"
@@ -203,11 +189,6 @@ class DecisionOrchestrator:
     async def evaluate_options_across_criteria(
         self, threads: dict[str, CriterionThread], options: list[Option]
     ) -> dict[str, dict[str, tuple[float | None, str]]]:
-        """Evaluate all options across all criteria in parallel
-
-        Returns:
-            {criterion_name: {option_name: (score, justification)}}
-        """
         all_tasks = []
         task_metadata = []
 
@@ -248,11 +229,6 @@ class DecisionOrchestrator:
     async def _evaluate_single_option(
         self, thread: CriterionThread, option: Option
     ) -> tuple[float | None, str]:
-        """Evaluate a single option with a single criterion
-
-        Returns:
-            (score, justification) where score is None if abstained
-        """
         prompt = f"""Evaluate this option: {option.name}
 
 Option Description: {option.description or "No additional description provided"}
@@ -327,17 +303,6 @@ JUSTIFICATION: [your reasoning]"""
             return (None, "Evaluation failed due to an unexpected error")
 
     def _parse_evaluation_response(self, response: str) -> tuple[float | None, str]:
-        """Parse the structured evaluation response with multiple fallback patterns
-
-        Expected format:
-        SCORE: [number or NO_RESPONSE]
-        JUSTIFICATION: [text]
-
-        Fallback patterns:
-        - Score: X/10
-        - Rating: X
-        - [NO_RESPONSE] anywhere in response
-        """
         try:
             # Normalize response for consistent parsing
             normalized_response = response.strip()
@@ -384,7 +349,6 @@ JUSTIFICATION: [your reasoning]"""
                 return (None, "Parse error: Unable to extract evaluation")
 
     def _extract_score(self, response: str) -> float | None:
-        """Extract numeric score using multiple patterns"""
         # Pattern 1: SCORE: X
         score_patterns = [
             (r"SCORE:\s*([0-9]+(?:\.[0-9]+)?)", 1),
@@ -411,7 +375,6 @@ JUSTIFICATION: [your reasoning]"""
         return None
 
     def _extract_justification(self, response: str) -> str:
-        """Extract justification using multiple patterns"""
         # Pattern 1: JUSTIFICATION: text
         patterns = [
             r"JUSTIFICATION:\s*(.+)",
@@ -446,7 +409,6 @@ JUSTIFICATION: [your reasoning]"""
         return "No justification provided"
 
     async def _get_thread_response(self, thread: CriterionThread) -> str:
-        """Get response from a single thread with retry logic"""
         backend_fn = self.backends.get(thread.criterion.model_backend)
         if not backend_fn:
             raise ConfigurationError(
@@ -493,7 +455,6 @@ JUSTIFICATION: [your reasoning]"""
         raise last_error or Exception("Unknown error in thread response")
 
     async def _call_bedrock(self, thread: CriterionThread) -> str:
-        """Call AWS Bedrock for criterion evaluation"""
         if not BOTO3_AVAILABLE:
             raise LLMConfigurationError(
                 backend="bedrock",
@@ -501,18 +462,18 @@ JUSTIFICATION: [your reasoning]"""
             )
 
         model_id = thread.criterion.model_name or "anthropic.claude-3-sonnet-20240229-v1:0"
-        
+
         try:
             # Setup AWS client and prepare request
             bedrock_client = self._get_bedrock_client()
-            
+
             # Format messages and build request
             messages = format_messages_for_converse(thread)
             converse_kwargs = build_converse_request(thread, messages, model_id)
-            
+
             # Make API call
             response = bedrock_client.converse(**converse_kwargs)
-            
+
             # Extract and return response text
             return extract_response_text(response)
 
@@ -526,9 +487,9 @@ JUSTIFICATION: [your reasoning]"""
             # Diagnose error and get user-friendly message
             region = get_aws_region()
             user_message, log_details = diagnose_bedrock_error(e, model_id, region)
-            
+
             logger.error(f"Bedrock API error: {log_details}")
-            
+
             raise LLMAPIError(
                 backend="bedrock",
                 message=f"Bedrock API call failed: {e}",
@@ -547,7 +508,6 @@ JUSTIFICATION: [your reasoning]"""
             ) from e
 
     async def _call_litellm(self, thread: CriterionThread) -> str:
-        """Call LiteLLM for criterion evaluation"""
         if not LITELLM_AVAILABLE:
             raise LLMConfigurationError(
                 backend="litellm",
@@ -600,7 +560,6 @@ JUSTIFICATION: [your reasoning]"""
             ) from e
 
     async def _call_ollama(self, thread: CriterionThread) -> str:
-        """Call Ollama for criterion evaluation"""
         if not HTTPX_AVAILABLE:
             raise LLMConfigurationError(
                 backend="ollama",
@@ -616,12 +575,12 @@ JUSTIFICATION: [your reasoning]"""
         )
 
         model = thread.criterion.model_name or "llama2"
-        
+
         try:
             # Format messages and build request
             messages = format_messages_for_ollama(thread)
             request_body = build_ollama_request(thread, messages, model)
-            
+
             # Make API call
             async with httpx.AsyncClient(timeout=60.0) as client:
                 ollama_host = get_ollama_host()
@@ -629,7 +588,7 @@ JUSTIFICATION: [your reasoning]"""
                     f"{ollama_host}/api/chat",
                     json=request_body,
                 )
-                
+
                 # Parse response and handle errors
                 return parse_ollama_response(response, response.status_code, model)
 
@@ -642,12 +601,12 @@ JUSTIFICATION: [your reasoning]"""
         except Exception as e:
             if isinstance(e, (LLMBackendError, ConfigurationError)):
                 raise  # Re-raise our custom exceptions
-            
+
             # Import diagnose function here to avoid circular imports
             from .ollama_helpers import diagnose_ollama_error
-            
+
             user_message = diagnose_ollama_error(e)
-            
+
             raise LLMAPIError(
                 backend="ollama",
                 message=f"Ollama call failed: {e}",
