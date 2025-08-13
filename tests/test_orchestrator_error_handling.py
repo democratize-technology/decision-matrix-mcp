@@ -4,12 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from decision_matrix_mcp.exceptions import (
-    ConfigurationError,
-    LLMAPIError,
-    LLMBackendError,
-    LLMConfigurationError,
-)
+from decision_matrix_mcp.exceptions import LLMAPIError, LLMBackendError, LLMConfigurationError
 from decision_matrix_mcp.models import Criterion, CriterionThread, ModelBackend
 from decision_matrix_mcp.orchestrator import DecisionOrchestrator
 
@@ -17,12 +12,12 @@ from decision_matrix_mcp.orchestrator import DecisionOrchestrator
 class TestOrchestratorErrorHandling:
     """Test enhanced error handling in the DecisionOrchestrator"""
 
-    @pytest.fixture
+    @pytest.fixture()
     def orchestrator(self):
         """Create an orchestrator instance"""
         return DecisionOrchestrator(max_retries=2, retry_delay=0.1)
 
-    @pytest.fixture
+    @pytest.fixture()
     def bedrock_thread(self):
         """Create a thread with Bedrock backend"""
         criterion = Criterion(
@@ -33,7 +28,7 @@ class TestOrchestratorErrorHandling:
         )
         return CriterionThread(id="test-thread", criterion=criterion)
 
-    @pytest.fixture
+    @pytest.fixture()
     def litellm_thread(self):
         """Create a thread with LiteLLM backend"""
         criterion = Criterion(
@@ -44,7 +39,7 @@ class TestOrchestratorErrorHandling:
         )
         return CriterionThread(id="test-thread", criterion=criterion)
 
-    @pytest.fixture
+    @pytest.fixture()
     def ollama_thread(self):
         """Create a thread with Ollama backend"""
         criterion = Criterion(
@@ -55,7 +50,7 @@ class TestOrchestratorErrorHandling:
         )
         return CriterionThread(id="test-thread", criterion=criterion)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_bedrock_configuration_error(self, bedrock_thread):
         """Test Bedrock configuration error handling"""
         # Temporarily set BOTO3_AVAILABLE to False to test the error path
@@ -72,7 +67,7 @@ class TestOrchestratorErrorHandling:
             assert "boto3 is not installed" in str(error)
             assert error.user_message == "bedrock backend not properly configured"
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_bedrock_rate_limit_error(self, orchestrator, bedrock_thread):
         """Test Bedrock rate limit error handling"""
         from botocore.exceptions import ClientError
@@ -84,7 +79,7 @@ class TestOrchestratorErrorHandling:
                     "Error": {
                         "Code": "ThrottlingException",
                         "Message": "Rate limit exceeded",
-                    }
+                    },
                 },
                 "converse",
             )
@@ -98,7 +93,7 @@ class TestOrchestratorErrorHandling:
             assert "rate limit" in error.user_message.lower()
             assert isinstance(error.original_error, ClientError)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_bedrock_invalid_model_error(self, orchestrator, bedrock_thread):
         """Test Bedrock invalid model error handling"""
         from botocore.exceptions import ClientError
@@ -110,7 +105,7 @@ class TestOrchestratorErrorHandling:
                     "Error": {
                         "Code": "ValidationException",
                         "Message": "Invalid model ID specified",
-                    }
+                    },
                 },
                 "converse",
             )
@@ -123,7 +118,7 @@ class TestOrchestratorErrorHandling:
             assert error.backend == "bedrock"
             assert "Invalid model ID" in error.user_message
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_bedrock_unexpected_error(self, orchestrator, bedrock_thread):
         """Test Bedrock unexpected error handling"""
         with patch("boto3.Session") as mock_session:
@@ -140,7 +135,7 @@ class TestOrchestratorErrorHandling:
             assert error.user_message == "An unexpected error occurred"
             assert isinstance(error.original_error, RuntimeError)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_bedrock_invalid_response_format(self, orchestrator, bedrock_thread):
         """Test Bedrock invalid response format error"""
         # For converse API, an invalid response is one without proper output structure
@@ -159,7 +154,7 @@ class TestOrchestratorErrorHandling:
             assert "Invalid response format" in str(error)
             assert error.user_message == "Unexpected response format from LLM"
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_litellm_configuration_error(self, orchestrator, litellm_thread):
         """Test LiteLLM configuration error handling"""
         with patch.dict("sys.modules", {"litellm": None}):
@@ -170,7 +165,7 @@ class TestOrchestratorErrorHandling:
             assert error.backend == "litellm"
             assert "litellm dependency missing" in str(error)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_litellm_api_key_error(self, orchestrator, litellm_thread):
         """Test LiteLLM API key error handling"""
         with patch("litellm.acompletion", side_effect=Exception("Invalid API key")):
@@ -181,7 +176,7 @@ class TestOrchestratorErrorHandling:
             assert error.backend == "litellm"
             assert "API authentication failed" in error.user_message
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_litellm_rate_limit_error(self, orchestrator, litellm_thread):
         """Test LiteLLM rate limit error handling"""
         with patch("litellm.acompletion", side_effect=Exception("Rate limit exceeded")):
@@ -192,7 +187,7 @@ class TestOrchestratorErrorHandling:
             assert error.backend == "litellm"
             assert "API rate limit exceeded" in error.user_message
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_litellm_model_not_found(self, orchestrator, litellm_thread):
         """Test LiteLLM model not found error"""
         with patch("litellm.acompletion", side_effect=Exception("Model 'gpt-5' not found")):
@@ -203,7 +198,7 @@ class TestOrchestratorErrorHandling:
             assert error.backend == "litellm"
             assert "Model not available" in error.user_message
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_ollama_configuration_error(self, ollama_thread):
         """Test Ollama configuration error handling"""
         # Temporarily set HTTPX_AVAILABLE to False to test the error path
@@ -219,7 +214,7 @@ class TestOrchestratorErrorHandling:
             assert error.backend == "ollama"
             assert "httpx is not installed" in str(error)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_ollama_connection_error(self, orchestrator, ollama_thread):
         """Test Ollama connection error handling"""
         with patch("httpx.AsyncClient") as mock_client_class:
@@ -235,7 +230,7 @@ class TestOrchestratorErrorHandling:
             assert error.backend == "ollama"
             assert "Cannot connect to Ollama service" in error.user_message
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_ollama_model_not_found(self, orchestrator, ollama_thread):
         """Test Ollama model not found error"""
         mock_response = MagicMock()
@@ -255,7 +250,7 @@ class TestOrchestratorErrorHandling:
             assert error.backend == "ollama"
             assert "Model not available in Ollama" in error.user_message
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_ollama_service_unavailable(self, orchestrator, ollama_thread):
         """Test Ollama service unavailable error"""
         mock_response = MagicMock()
@@ -274,7 +269,7 @@ class TestOrchestratorErrorHandling:
             assert error.backend == "ollama"
             assert "Ollama service is not running" in error.user_message
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_error_propagation_hierarchy(self, orchestrator, bedrock_thread):
         """Test that custom exceptions are properly propagated"""
         # Create a custom LLMBackendError
@@ -295,7 +290,7 @@ class TestOrchestratorErrorHandling:
 
             assert exc_info.value is custom_error
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_retry_logic_with_specific_errors(self, orchestrator, bedrock_thread):
         """Test that retry logic handles specific error types correctly"""
         orchestrator.max_retries = 3

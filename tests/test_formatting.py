@@ -209,7 +209,7 @@ class TestDecisionFormatter:
                 "weighted_score": None,
                 "justification": "Not applicable",
                 "abstained": True,
-            }
+            },
         )
         output = formatter.format_decision_matrix(matrix_data)
         assert "Very beginner friendly" in output  # Justifications shown in detailed

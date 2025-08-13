@@ -21,7 +21,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""Decision Matrix MCP Server
+"""Decision Matrix MCP Server.
+
 Structured decision analysis using thread orchestration for parallel criterion evaluation.
 
 CRITICAL: This server uses stdio transport for MCP protocol communication.
@@ -116,6 +117,11 @@ class ServerComponents:
 
 
 def create_server_components() -> ServerComponents:
+    """Create and return a new ServerComponents instance.
+
+    Returns:
+        ServerComponents: Configured server components container
+    """
     return ServerComponents()
 
 
@@ -129,7 +135,7 @@ _server_components_lock = threading.Lock()
 
 def get_server_components() -> ServerComponents:
     """Get server components with thread-safe lazy initialization."""
-    global _server_components
+    global _server_components  # noqa: PLW0603 - Intentional singleton pattern for thread safety
 
     # Fast path: if already initialized, return immediately
     if _server_components is not None:
@@ -184,7 +190,6 @@ def get_session_or_error(
             session_id,
             components.session_manager,
         )
-        return session, None
     except (ValidationError, SessionError) as e:
         error_dict = components.response_service.create_error_response(
             message=e.user_message,
@@ -195,6 +200,8 @@ def get_session_or_error(
             diagnostic_context=e.context,
         )
         return None, error_dict
+    else:
+        return session, None
 
 
 async def _execute_parallel_evaluation(
@@ -222,7 +229,7 @@ async def _execute_parallel_evaluation(
 )
 async def start_decision_analysis(
     request: StartDecisionAnalysisRequest,
-    ctx: Context,
+    ctx: Context,  # noqa: ARG001
 ) -> dict[str, Any]:
     """Initialize a new decision analysis session with options and optional criteria."""
     components = get_server_components()
@@ -254,10 +261,10 @@ async def start_decision_analysis(
         )
 
     except ValidationError as e:
-        logger.warning(f"Invalid input for decision session: {e}")
+        logger.warning("Invalid input for decision session: %s", e)
         return components.response_service.create_error_response(e.user_message, "Session creation")
     except ResourceLimitError as e:
-        logger.warning(f"Resource limit exceeded: {e}")
+        logger.warning("Resource limit exceeded: %s", e)
         return components.response_service.create_error_response(e.user_message, "Resource limit")
     except Exception:
         logger.exception("Unexpected error creating decision session")
@@ -298,7 +305,10 @@ class AddCriterionRequest(BaseModel):
     description=SessionValidator.validate_description,
     weight=SessionValidator.validate_weight,
 )
-async def add_criterion(request: AddCriterionRequest, ctx: Context) -> dict[str, Any]:
+async def add_criterion(
+    request: AddCriterionRequest,
+    ctx: Context,  # noqa: ARG001
+) -> dict[str, Any]:
     """Add a new evaluation criterion to an existing decision session."""
     components = get_server_components()
 
@@ -329,10 +339,10 @@ async def add_criterion(request: AddCriterionRequest, ctx: Context) -> dict[str,
         return components.response_service.create_criterion_response(request, session)
 
     except SessionError as e:
-        logger.warning(f"Session error when adding criterion: {e}")
+        logger.warning("Session error when adding criterion: %s", e)
         return components.response_service.create_error_response(e.user_message, "Session error")
     except ValidationError as e:
-        logger.warning(f"Invalid criterion input: {e}")
+        logger.warning("Invalid criterion input: %s", e)
         return components.response_service.create_error_response(e.user_message, "Validation error")
     except Exception:
         logger.exception("Unexpected error adding criterion")
@@ -352,7 +362,10 @@ class EvaluateOptionsRequest(BaseModel):
     description="When ready to score your options systematically - run parallel evaluation where each criterion scores every option independently",
 )
 @validate_request(session_id=SessionValidator.validate_session_id)
-async def evaluate_options(request: EvaluateOptionsRequest, ctx: Context) -> dict[str, Any]:
+async def evaluate_options(
+    request: EvaluateOptionsRequest,
+    ctx: Context,  # noqa: ARG001
+) -> dict[str, Any]:
     """Evaluate all options across all criteria using parallel thread orchestration."""
     components = get_server_components()
 
@@ -411,7 +424,7 @@ async def evaluate_options(request: EvaluateOptionsRequest, ctx: Context) -> dic
         )
 
     except Exception as e:
-        logger.exception(f"Error during evaluation: {e}")
+        logger.exception("Error during evaluation")
         return components.response_service.create_error_response(
             f"Evaluation failed: {e!s}",
             "Evaluation error",
@@ -428,7 +441,10 @@ class GetDecisionMatrixRequest(BaseModel):
     description="When you need the complete picture - see the scored matrix with weighted totals, rankings, and clear recommendations",
 )
 @validate_request(session_id=SessionValidator.validate_session_id)
-async def get_decision_matrix(request: GetDecisionMatrixRequest, ctx: Context) -> dict[str, Any]:
+async def get_decision_matrix(
+    request: GetDecisionMatrixRequest,
+    ctx: Context,  # noqa: ARG001
+) -> dict[str, Any]:
     """Get the complete decision matrix with scores, rankings, and recommendations."""
     components = get_server_components()
 
@@ -445,7 +461,7 @@ async def get_decision_matrix(request: GetDecisionMatrixRequest, ctx: Context) -
         # Create standardized response
         return components.response_service.create_matrix_response(matrix_result, session)
 
-    except Exception as e:
+    except (ValidationError, SessionError, ValueError, RuntimeError) as e:
         return components.error_handler.handle_exception(e, "Matrix generation")
 
 
@@ -464,7 +480,7 @@ class AddOptionRequest(BaseModel):
     session_id=SessionValidator.validate_session_id,
     option_name=SessionValidator.validate_option_name,
 )
-async def add_option(request: AddOptionRequest, ctx: Context) -> dict[str, Any]:
+async def add_option(request: AddOptionRequest, ctx: Context) -> dict[str, Any]:  # noqa: ARG001
     """Add a new option to an existing decision analysis."""
     components = get_server_components()
 
@@ -493,7 +509,7 @@ async def add_option(request: AddOptionRequest, ctx: Context) -> dict[str, Any]:
         return components.response_service.create_option_added_response(request, session)
 
     except Exception as e:
-        logger.exception(f"Error adding option: {e}")
+        logger.exception("Error adding option")
         return components.response_service.create_error_response(
             f"Failed to add option: {e!s}",
             "Add option error",
@@ -501,7 +517,7 @@ async def add_option(request: AddOptionRequest, ctx: Context) -> dict[str, Any]:
 
 
 @mcp.tool(description="List all active decision analysis sessions")
-async def list_sessions(ctx: Context) -> dict[str, Any]:
+async def list_sessions(ctx: Context) -> dict[str, Any]:  # noqa: ARG001
     """List all active decision analysis sessions."""
     components = get_server_components()
 
@@ -513,7 +529,7 @@ async def list_sessions(ctx: Context) -> dict[str, Any]:
         return components.response_service.create_sessions_list_response(active_sessions, stats)
 
     except Exception as e:
-        logger.exception(f"Error listing sessions: {e}")
+        logger.exception("Error listing sessions")
         return components.response_service.create_error_response(
             f"Failed to list sessions: {e!s}",
             "List sessions error",
@@ -521,7 +537,7 @@ async def list_sessions(ctx: Context) -> dict[str, Any]:
 
 
 @mcp.tool(description="Clear all active decision analysis sessions")
-async def clear_all_sessions(ctx: Context) -> dict[str, Any]:
+async def clear_all_sessions(ctx: Context) -> dict[str, Any]:  # noqa: ARG001
     """Clear all active sessions from the session manager."""
     components = get_server_components()
 
@@ -540,7 +556,7 @@ async def clear_all_sessions(ctx: Context) -> dict[str, Any]:
         }
 
     except Exception as e:
-        logger.exception(f"Error clearing sessions: {e}")
+        logger.exception("Error clearing sessions")
         return components.response_service.create_error_response(
             f"Failed to clear sessions: {e!s}",
             "Clear sessions error",
@@ -550,7 +566,7 @@ async def clear_all_sessions(ctx: Context) -> dict[str, Any]:
 @mcp.tool(
     description="Quick check of your most recent analysis session - see topic and status without remembering session ID",
 )
-async def current_session(ctx: Context) -> dict[str, Any]:
+async def current_session(ctx: Context) -> dict[str, Any]:  # noqa: ARG001
     """Get the most recently created active session without needing the session ID."""
     components = get_server_components()
 
@@ -561,7 +577,7 @@ async def current_session(ctx: Context) -> dict[str, Any]:
         return components.response_service.create_current_session_response(session)
 
     except Exception as e:
-        logger.exception(f"Error getting current session: {e}")
+        logger.exception("Error getting current session")
         return components.response_service.create_error_response(
             f"Failed to get current session: {e!s}",
             "Current session error",
@@ -571,7 +587,7 @@ async def current_session(ctx: Context) -> dict[str, Any]:
 @mcp.tool(
     description="Test AWS Bedrock connectivity and configuration for debugging connection issues",
 )
-async def test_aws_bedrock_connection(ctx: Context) -> dict[str, Any]:
+async def test_aws_bedrock_connection(ctx: Context) -> dict[str, Any]:  # noqa: ARG001
     """Test Bedrock connectivity and return detailed diagnostics."""
     components = get_server_components()
 
@@ -583,7 +599,7 @@ async def test_aws_bedrock_connection(ctx: Context) -> dict[str, Any]:
         return components.response_service.create_bedrock_test_response(test_result)
 
     except Exception as e:
-        logger.exception(f"Error testing Bedrock connection: {e}")
+        logger.exception("Error testing Bedrock connection")
         return components.response_service.create_error_response(
             f"Test failed: {e!s}",
             "Bedrock test error",
@@ -601,7 +617,7 @@ def main() -> None:
         logger.debug("Server components initialized")
 
         # Test server creation
-        logger.debug(f"MCP server created: {mcp}")
+        logger.debug("MCP server created: %s", mcp)
         logger.info("Starting MCP server run...")
 
         mcp.run()
@@ -617,7 +633,7 @@ def main() -> None:
         if "brokenresourceerror" in error_str or "broken pipe" in error_str:
             logger.debug("Client disconnected (stdio closed)")
         else:
-            logger.exception(f"Server error: {e}")
+            logger.exception("Server error")
             import traceback
 
             traceback.print_exc(file=sys.stderr)
@@ -628,8 +644,8 @@ def main() -> None:
             components = get_server_components()
             components.cleanup()
             logger.info("Server resources cleaned up")
-        except Exception as cleanup_error:
-            logger.exception(f"Error during cleanup: {cleanup_error}")
+        except Exception:
+            logger.exception("Error during cleanup")
 
 
 if __name__ == "__main__":

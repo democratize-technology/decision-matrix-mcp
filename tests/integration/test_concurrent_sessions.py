@@ -10,12 +10,10 @@ These tests verify:
 """
 
 import asyncio
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import gc
-import threading
 import time
 import tracemalloc
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List
 from unittest.mock import Mock
 
 import pytest
@@ -28,7 +26,7 @@ from decision_matrix_mcp.session_manager import SessionManager
 class TestConcurrentSessionCreation:
     """Test concurrent session creation and management."""
 
-    @pytest.fixture
+    @pytest.fixture()
     def session_manager(self):
         """Create a session manager for testing."""
         manager = SessionManager(max_sessions=20, session_ttl_hours=1)
@@ -37,7 +35,7 @@ class TestConcurrentSessionCreation:
         for session_id in list(manager.list_active_sessions().keys()):
             manager.remove_session(session_id)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_concurrent_session_creation(self, session_manager):
         """Test creating multiple sessions concurrently."""
         num_sessions = 10
@@ -69,7 +67,7 @@ class TestConcurrentSessionCreation:
             assert len(session.options) == 3
             assert f"Option {i}A" in session.options
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_concurrent_session_access(self, session_manager):
         """Test concurrent access to the same session."""
         # Create a base session
@@ -113,7 +111,7 @@ class TestConcurrentSessionCreation:
         actual_names = list(final_session.criteria.keys())
         assert set(actual_names) == set(expected_names)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_session_limit_under_concurrency(self, session_manager):
         """Test session limit enforcement under concurrent load."""
         # Reconfigure with lower limit for testing
@@ -125,7 +123,8 @@ class TestConcurrentSessionCreation:
             """Attempt to create a session, handling potential limit errors."""
             try:
                 return limited_manager.create_session(
-                    f"Limited Session {index}", [f"Option {index}A", f"Option {index}B"]
+                    f"Limited Session {index}",
+                    [f"Option {index}A", f"Option {index}B"],
                 )
             except ResourceLimitError:
                 return None
@@ -223,11 +222,11 @@ class TestConcurrentSessionCreation:
 class TestConcurrentSessionEvaluation:
     """Test concurrent evaluation across multiple sessions."""
 
-    @pytest.fixture
+    @pytest.fixture()
     def orchestrator_mock(self):
         """Create a mock orchestrator for testing."""
+
         from decision_matrix_mcp.orchestrator import EvaluationOrchestrator
-        from unittest.mock import Mock, patch
 
         # Create mock orchestrator
         mock_orchestrator = Mock(spec=EvaluationOrchestrator)
@@ -252,7 +251,7 @@ class TestConcurrentSessionEvaluation:
         mock_orchestrator.evaluate_options_across_criteria.side_effect = mock_evaluate
         return mock_orchestrator
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_concurrent_session_evaluation(self, orchestrator_mock):
         """Test evaluating multiple sessions concurrently."""
         session_manager = SessionManager(max_sessions=20, session_ttl_hours=1)
@@ -261,7 +260,8 @@ class TestConcurrentSessionEvaluation:
         sessions = []
         for i in range(5):
             session = session_manager.create_session(
-                f"Evaluation Test {i}", [f"Option {i}A", f"Option {i}B", f"Option {i}C"]
+                f"Evaluation Test {i}",
+                [f"Option {i}A", f"Option {i}B", f"Option {i}C"],
             )
 
             # Add criteria to each session
@@ -306,7 +306,7 @@ class TestConcurrentSessionEvaluation:
 class TestMemoryLeakDetection:
     """Test memory leak detection under concurrent load."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_memory_usage_under_load(self):
         """Test memory usage patterns under high session load."""
         # Start memory tracing
@@ -396,7 +396,7 @@ class TestMemoryLeakDetection:
 
         tracemalloc.stop()
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_session_cleanup_under_concurrent_access(self):
         """Test session cleanup behavior under concurrent access."""
         session_manager = SessionManager(max_sessions=30, session_ttl_hours=1)
@@ -407,7 +407,8 @@ class TestMemoryLeakDetection:
         # Create some long-lived sessions
         for i in range(5):
             session = session_manager.create_session(
-                f"Long-lived Session {i}", [f"Long Option {i}A", f"Long Option {i}B"]
+                f"Long-lived Session {i}",
+                [f"Long Option {i}A", f"Long Option {i}B"],
             )
             long_lived_sessions.append(session)
 
@@ -463,7 +464,7 @@ class TestMemoryLeakDetection:
 class TestSessionIsolationUnderLoad:
     """Test session isolation under high concurrent load."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_session_data_isolation(self):
         """Test that session data remains isolated under concurrent modifications."""
         session_manager = SessionManager(max_sessions=20, session_ttl_hours=1)
@@ -474,7 +475,8 @@ class TestSessionIsolationUnderLoad:
 
         for i in range(num_sessions):
             session = session_manager.create_session(
-                f"Isolation Test Session {i}", [f"Option {i}-A", f"Option {i}-B", f"Option {i}-C"]
+                f"Isolation Test Session {i}",
+                [f"Option {i}-A", f"Option {i}-B", f"Option {i}-C"],
             )
             sessions.append(session)
 
@@ -499,7 +501,7 @@ class TestSessionIsolationUnderLoad:
                     f"Option {session.session_id[-2:]}-{opt}": f"Data-{modifier_id}-{j}-{opt}"
                     for j in range(3)
                     for opt in ["A", "B", "C"]
-                }
+                },
             }
             session.record_evaluation(eval_data)
             modifications.append(("record_evaluation", len(eval_data)))
@@ -542,7 +544,7 @@ class TestSessionIsolationUnderLoad:
         for session in sessions:
             session_manager.remove_session(session.session_id)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_concurrent_session_retrieval(self):
         """Test concurrent retrieval of sessions doesn't cause data corruption."""
         session_manager = SessionManager(max_sessions=15, session_ttl_hours=1)
@@ -551,7 +553,8 @@ class TestSessionIsolationUnderLoad:
         test_sessions = []
         for i in range(5):
             session = session_manager.create_session(
-                f"Retrieval Test {i}", [f"Opt{i}A", f"Opt{i}B"]
+                f"Retrieval Test {i}",
+                [f"Opt{i}A", f"Opt{i}B"],
             )
 
             # Add unique criterion

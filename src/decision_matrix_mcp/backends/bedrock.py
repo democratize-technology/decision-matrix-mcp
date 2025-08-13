@@ -296,7 +296,7 @@ class BedrockBackend(LLMBackend):
             region = get_aws_region()
             user_message, log_details = diagnose_bedrock_error(e, model_id, region)
 
-            logger.exception(f"Bedrock API error: {log_details}")
+            logger.exception("Bedrock API error: %s", log_details)
 
             raise LLMAPIError(
                 backend="bedrock",

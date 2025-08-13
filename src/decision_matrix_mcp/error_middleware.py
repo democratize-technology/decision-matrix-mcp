@@ -22,8 +22,9 @@
 
 """Error handling middleware for MCP tools."""
 
+from collections.abc import Callable
 import logging
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from .exceptions import DecisionMatrixError, ValidationError
 from .services.response_service import ResponseService
@@ -43,27 +44,32 @@ class MCPErrorHandler:
 
     def handle_exception(self, exc: Exception, operation: str) -> dict[str, Any]:
         """Handle any exception and return standardized MCP error response.
-        
+
         Args:
             exc: The exception that occurred
             operation: Name of the operation that failed
-            
+
         Returns:
             Standardized error response dictionary
         """
         if isinstance(exc, DecisionMatrixError):
             return self._handle_decision_matrix_error(exc, operation)
-        elif isinstance(exc, ValueError):
+        if isinstance(exc, ValueError):
             return self._handle_value_error(exc, operation)
-        elif isinstance(exc, KeyError):
+        if isinstance(exc, KeyError):
             return self._handle_key_error(exc, operation)
-        else:
-            return self._handle_unexpected_error(exc, operation)
+        return self._handle_unexpected_error(exc, operation)
 
-    def _handle_decision_matrix_error(self, exc: DecisionMatrixError, operation: str) -> dict[str, Any]:
+    def _handle_decision_matrix_error(
+        self,
+        exc: DecisionMatrixError,
+        operation: str,
+    ) -> dict[str, Any]:
         """Handle custom DecisionMatrixError exceptions."""
         self.logger.warning(
-            f"{operation} failed: {exc}",
+            "%s failed: %s",
+            operation,
+            exc,
             extra={
                 "error_code": exc.error_code,
                 "error_category": exc.error_category,
@@ -83,8 +89,8 @@ class MCPErrorHandler:
 
     def _handle_validation_error(self, exc: ValidationError, operation: str) -> dict[str, Any]:
         """Handle validation errors specifically."""
-        self.logger.warning(f"Validation error in {operation}: {exc}")
-        
+        self.logger.warning("Validation error in %s: %s", operation, exc)
+
         return self.response_service.create_error_response(
             message=exc.user_message,
             context=operation,
@@ -95,8 +101,8 @@ class MCPErrorHandler:
 
     def _handle_value_error(self, exc: ValueError, operation: str) -> dict[str, Any]:
         """Handle ValueError exceptions."""
-        self.logger.warning(f"Value error in {operation}: {exc}")
-        
+        self.logger.warning("Value error in %s: %s", operation, exc)
+
         return self.response_service.create_error_response(
             message="Invalid input provided",
             context=operation,
@@ -108,8 +114,8 @@ class MCPErrorHandler:
 
     def _handle_key_error(self, exc: KeyError, operation: str) -> dict[str, Any]:
         """Handle KeyError exceptions."""
-        self.logger.warning(f"Key error in {operation}: {exc}")
-        
+        self.logger.warning("Key error in %s: %s", operation, exc)
+
         return self.response_service.create_error_response(
             message="Required data missing",
             context=operation,
@@ -121,8 +127,8 @@ class MCPErrorHandler:
 
     def _handle_unexpected_error(self, exc: Exception, operation: str) -> dict[str, Any]:
         """Handle unexpected exceptions."""
-        self.logger.exception(f"Unexpected error in {operation}: {exc}")
-        
+        self.logger.exception("Unexpected error in %s", operation)
+
         return self.response_service.create_error_response(
             message="An unexpected error occurred",
             context=operation,
@@ -134,18 +140,21 @@ class MCPErrorHandler:
 
     def with_error_handling(self, operation: str) -> Callable[[F], F]:
         """Decorator to add standardized error handling to MCP tool functions.
-        
+
         Args:
             operation: Name of the operation for error context
-            
+
         Returns:
             Decorator function
         """
+
         def decorator(func: F) -> F:
             def wrapper(*args, **kwargs) -> Any:
                 try:
                     return func(*args, **kwargs)
                 except Exception as e:
                     return self.handle_exception(e, operation)
+
             return wrapper
+
         return decorator

@@ -20,12 +20,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""Response Service - Standardized response formatting
+"""Response Service - Standardized response formatting.
+
 Handles creation of consistent response structures for all MCP tool outputs.
 """
 
-import logging
 from datetime import datetime, timezone
+import logging
 from typing import Any
 
 from ..formatting import DecisionFormatter
@@ -72,7 +73,7 @@ class ResponseService:
             "context": context,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
-        
+
         if error_code:
             error_response["error_code"] = error_code
         if error_category:
@@ -81,7 +82,7 @@ class ResponseService:
             error_response["recovery_suggestion"] = recovery_suggestion
         if diagnostic_context:
             error_response["diagnostic_context"] = diagnostic_context
-            
+
         error_response["formatted_output"] = self.formatter.format_error(message, context)
         return error_response
 

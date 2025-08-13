@@ -6,18 +6,17 @@ Test suite for critical technical debt fixes:
 - TD-2024-003: Session validation guards
 """
 
-import asyncio
-import pytest
-from uuid import uuid4
-from unittest.mock import Mock, patch, AsyncMock
 from datetime import datetime, timezone
+from unittest.mock import Mock, patch
+from uuid import uuid4
 
-from decision_matrix_mcp import create_server_components, ServerComponents
 from mcp.server.fastmcp import Context
-from decision_matrix_mcp.models import Criterion, Option, Score, DecisionSession, ModelBackend
-from decision_matrix_mcp.session_manager import SessionManager
-from decision_matrix_mcp.orchestrator import DecisionOrchestrator
+import pytest
 
+from decision_matrix_mcp import ServerComponents, create_server_components
+from decision_matrix_mcp.models import Criterion, DecisionSession, ModelBackend, Option, Score
+from decision_matrix_mcp.orchestrator import DecisionOrchestrator
+from decision_matrix_mcp.session_manager import SessionManager
 
 # Mock context for all tests
 mock_ctx = Mock(spec=Context)
@@ -40,7 +39,8 @@ class TestDependencyInjection:
         custom_session_manager = SessionManager()
 
         components = ServerComponents(
-            orchestrator=custom_orchestrator, session_manager=custom_session_manager
+            orchestrator=custom_orchestrator,
+            session_manager=custom_session_manager,
         )
 
         assert components.orchestrator is custom_orchestrator
@@ -52,7 +52,8 @@ class TestDependencyInjection:
 
         # Create a session
         session = components.session_manager.create_session(
-            topic="Test Topic", initial_options=["Option 1", "Option 2"]
+            topic="Test Topic",
+            initial_options=["Option 1", "Option 2"],
         )
 
         # Verify session exists
@@ -71,12 +72,14 @@ class TestDependencyInjection:
 
         # Create session in first instance
         session1 = components1.session_manager.create_session(
-            topic="Topic 1", initial_options=["A", "B"]
+            topic="Topic 1",
+            initial_options=["A", "B"],
         )
 
         # Create session in second instance
         session2 = components2.session_manager.create_session(
-            topic="Topic 2", initial_options=["X", "Y"]
+            topic="Topic 2",
+            initial_options=["X", "Y"],
         )
 
         # Verify isolation
@@ -100,7 +103,10 @@ class TestTypeSafety:
 
         # Add scores with one None value
         option.scores["criterion1"] = Score(
-            criterion_name="criterion1", option_name="Test Option", score=8.0, justification="Good"
+            criterion_name="criterion1",
+            option_name="Test Option",
+            score=8.0,
+            justification="Good",
         )
         option.scores["criterion2"] = Score(
             criterion_name="criterion2",
@@ -120,7 +126,10 @@ class TestTypeSafety:
 
         # Add abstained score
         option.scores["criterion1"] = Score(
-            criterion_name="criterion1", option_name="Test Option", score=None, justification="N/A"
+            criterion_name="criterion1",
+            option_name="Test Option",
+            score=None,
+            justification="N/A",
         )
 
         # Should return 0.0 when no valid scores
@@ -148,7 +157,9 @@ class TestTypeSafety:
     def test_decision_matrix_with_none_scores(self):
         """Test decision matrix generation with None scores"""
         session = DecisionSession(
-            session_id=str(uuid4()), created_at=datetime.now(timezone.utc), topic="Test Decision"
+            session_id=str(uuid4()),
+            created_at=datetime.now(timezone.utc),
+            topic="Test Decision",
         )
 
         # Add options and criteria
@@ -174,17 +185,18 @@ class TestTypeSafety:
 class TestSessionValidationGuards:
     """Test session validation guards (TD-2024-003)"""
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_add_criterion_with_invalid_session(self):
         """Test that add_criterion properly handles invalid session"""
-        from decision_matrix_mcp import get_session_or_error, get_server_components
-        from decision_matrix_mcp import AddCriterionRequest, add_criterion
+        from decision_matrix_mcp import AddCriterionRequest, add_criterion, get_server_components
 
         components = get_server_components()
 
         # Test with non-existent session
         request = AddCriterionRequest(
-            session_id="invalid-session-id", name="Test Criterion", description="Test Description"
+            session_id="invalid-session-id",
+            name="Test Criterion",
+            description="Test Description",
         )
 
         result = await add_criterion(request, mock_ctx)
@@ -193,16 +205,17 @@ class TestSessionValidationGuards:
         assert "error" in result
         assert "not found" in result["error"].lower()
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_session_validation_guard_assertion(self):
         """Test that session validation guards are in place"""
-        from decision_matrix_mcp import get_session_or_error, get_server_components
+        from decision_matrix_mcp import get_server_components, get_session_or_error
 
         components = get_server_components()
 
         # Create a valid session
         session = components.session_manager.create_session(
-            topic="Test", initial_options=["A", "B"]
+            topic="Test",
+            initial_options=["A", "B"],
         )
 
         # Test valid session retrieval
@@ -217,18 +230,18 @@ class TestSessionValidationGuards:
         assert error is not None
         assert "error" in error
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_all_handlers_have_session_guards(self):
         """Test that all session-dependent handlers have proper guards"""
         from decision_matrix_mcp import (
-            add_criterion,
-            evaluate_options,
-            get_decision_matrix,
-            add_option,
             AddCriterionRequest,
+            AddOptionRequest,
             EvaluateOptionsRequest,
             GetDecisionMatrixRequest,
-            AddOptionRequest,
+            add_criterion,
+            add_option,
+            evaluate_options,
+            get_decision_matrix,
             get_server_components,
         )
 
@@ -244,19 +257,22 @@ class TestSessionValidationGuards:
 
         # Test evaluate_options
         result = await evaluate_options(
-            EvaluateOptionsRequest(session_id=invalid_session_id), mock_ctx
+            EvaluateOptionsRequest(session_id=invalid_session_id),
+            mock_ctx,
         )
         assert "error" in result
 
         # Test get_decision_matrix
         result = await get_decision_matrix(
-            GetDecisionMatrixRequest(session_id=invalid_session_id), mock_ctx
+            GetDecisionMatrixRequest(session_id=invalid_session_id),
+            mock_ctx,
         )
         assert "error" in result
 
         # Test add_option
         result = await add_option(
-            AddOptionRequest(session_id=invalid_session_id, option_name="Test Option"), mock_ctx
+            AddOptionRequest(session_id=invalid_session_id, option_name="Test Option"),
+            mock_ctx,
         )
         assert "error" in result
 
@@ -264,19 +280,19 @@ class TestSessionValidationGuards:
 class TestIntegration:
     """Integration tests to ensure fixes work together"""
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_full_workflow_with_fixes(self):
         """Test complete decision analysis workflow with all fixes"""
         from decision_matrix_mcp import (
-            start_decision_analysis,
-            add_criterion,
-            evaluate_options,
-            get_decision_matrix,
-            StartDecisionAnalysisRequest,
             AddCriterionRequest,
             EvaluateOptionsRequest,
             GetDecisionMatrixRequest,
+            StartDecisionAnalysisRequest,
+            add_criterion,
+            evaluate_options,
+            get_decision_matrix,
             get_server_components,
+            start_decision_analysis,
         )
 
         # Use dependency injection
@@ -317,12 +333,13 @@ class TestIntegration:
                     "React": (8.5, "Good performance"),
                     "Vue": (None, "Cannot evaluate"),
                     "Angular": (7.0, "Decent performance"),
-                }
+                },
             }
 
             # Evaluate
             eval_result = await evaluate_options(
-                EvaluateOptionsRequest(session_id=session_id), mock_ctx
+                EvaluateOptionsRequest(session_id=session_id),
+                mock_ctx,
             )
 
             assert "error" not in eval_result
@@ -331,7 +348,8 @@ class TestIntegration:
 
         # Get matrix
         matrix_result = await get_decision_matrix(
-            GetDecisionMatrixRequest(session_id=session_id), mock_ctx
+            GetDecisionMatrixRequest(session_id=session_id),
+            mock_ctx,
         )
 
         assert "error" not in matrix_result
@@ -354,7 +372,8 @@ class TestIntegration:
                 components = create_server_components()
                 for i in range(5):
                     session = components.session_manager.create_session(
-                        topic=f"Topic {thread_id}-{i}", initial_options=["A", "B"]
+                        topic=f"Topic {thread_id}-{i}",
+                        initial_options=["A", "B"],
                     )
                     results["sessions"].append(session.session_id)
                     time.sleep(0.01)  # Small delay to increase chance of race conditions

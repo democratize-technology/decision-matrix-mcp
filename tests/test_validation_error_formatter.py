@@ -1,10 +1,9 @@
 """Tests for ValidationErrorFormatter service in validation_decorators.py"""
 
-import pytest
 from unittest.mock import Mock
 
-from decision_matrix_mcp.validation_decorators import ValidationErrorFormatter
 from decision_matrix_mcp.formatting import DecisionFormatter
+from decision_matrix_mcp.validation_decorators import ValidationErrorFormatter
 
 
 class TestValidationErrorFormatter:

@@ -9,9 +9,8 @@ This file contains:
 """
 
 import os
-import sys
 from pathlib import Path
-from typing import Iterator
+import sys
 from unittest.mock import Mock
 
 import pytest
@@ -21,11 +20,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 # Import test dependencies with fallbacks for CI environments
 try:
-    from decision_matrix_mcp.session_manager import SessionManager
     from decision_matrix_mcp import create_server_components
+    from decision_matrix_mcp.session_manager import SessionManager
 
     DEPENDENCIES_AVAILABLE = True
-except ImportError as e:
+except ImportError:
     # Dependencies not available - tests will be skipped
     SessionManager = None
     create_server_components = None
@@ -40,7 +39,8 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "performance: Performance and benchmark tests")
     config.addinivalue_line("markers", "slow: Tests that take longer than 30 seconds")
     config.addinivalue_line(
-        "markers", "real_backends: Tests that require real LLM backend credentials"
+        "markers",
+        "real_backends: Tests that require real LLM backend credentials",
     )
     config.addinivalue_line("markers", "concurrent: Tests that use concurrency/parallelism")
     config.addinivalue_line("markers", "memory: Tests that check memory usage patterns")
@@ -86,7 +86,7 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.real_backends)
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_context():
     """Provide a mock MCP context for testing."""
     from mcp.server.fastmcp import Context
@@ -94,7 +94,7 @@ def mock_context():
     return Mock(spec=Context)
 
 
-@pytest.fixture
+@pytest.fixture()
 def clean_session_manager():
     """Provide a clean session manager for testing."""
     if not DEPENDENCIES_AVAILABLE:
@@ -107,7 +107,7 @@ def clean_session_manager():
         manager.remove_session(session_id)
 
 
-@pytest.fixture
+@pytest.fixture()
 def server_components():
     """Provide server components for testing."""
     if not DEPENDENCIES_AVAILABLE:
@@ -121,7 +121,7 @@ def server_components():
         session_manager.remove_session(session_id)
 
 
-@pytest.fixture
+@pytest.fixture()
 def sample_decision_data():
     """Provide sample decision analysis data for testing."""
     return {
@@ -152,7 +152,7 @@ def sample_decision_data():
     }
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_evaluation_results():
     """Provide mock evaluation results for testing."""
     return {
@@ -190,7 +190,7 @@ def aws_credentials_available():
     """Check if AWS credentials are available for real Bedrock testing."""
     return bool(
         os.environ.get("AWS_PROFILE")
-        or (os.environ.get("AWS_ACCESS_KEY_ID") and os.environ.get("AWS_SECRET_ACCESS_KEY"))
+        or (os.environ.get("AWS_ACCESS_KEY_ID") and os.environ.get("AWS_SECRET_ACCESS_KEY")),
     )
 
 
@@ -200,7 +200,7 @@ def litellm_credentials_available():
     return bool(
         os.environ.get("LITELLM_API_KEY")
         or os.environ.get("OPENAI_API_KEY")
-        or os.environ.get("ANTHROPIC_API_KEY")
+        or os.environ.get("ANTHROPIC_API_KEY"),
     )
 
 
@@ -208,8 +208,9 @@ def litellm_credentials_available():
 def ollama_available():
     """Check if Ollama is available locally for testing."""
     try:
-        import httpx
         import asyncio
+
+        import httpx
 
         async def check_ollama():
             try:
@@ -224,7 +225,7 @@ def ollama_available():
         return False
 
 
-@pytest.fixture
+@pytest.fixture()
 def performance_test_config():
     """Provide configuration for performance tests."""
     return {
@@ -239,7 +240,7 @@ def performance_test_config():
     }
 
 
-@pytest.fixture
+@pytest.fixture()
 def integration_test_config():
     """Provide configuration for integration tests."""
     return {
@@ -258,7 +259,7 @@ def pytest_runtest_setup(item):
     if item.get_closest_marker("real_backends"):
         aws_available = bool(os.environ.get("AWS_PROFILE"))
         litellm_available = bool(
-            os.environ.get("LITELLM_API_KEY") or os.environ.get("OPENAI_API_KEY")
+            os.environ.get("LITELLM_API_KEY") or os.environ.get("OPENAI_API_KEY"),
         )
 
         if not (aws_available or litellm_available):
@@ -274,7 +275,7 @@ def pytest_runtest_setup(item):
 
 
 # Performance test utilities
-@pytest.fixture
+@pytest.fixture()
 def benchmark_config():
     """Provide configuration for benchmark tests."""
     return {

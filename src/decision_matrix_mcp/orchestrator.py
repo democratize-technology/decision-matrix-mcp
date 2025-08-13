@@ -52,6 +52,12 @@ NO_RESPONSE = "[NO_RESPONSE]"
 
 
 class DecisionOrchestrator:
+    """Orchestrates parallel evaluation of decision options across multiple criteria.
+
+    Manages the execution of LLM-based evaluations using configurable backends
+    (Bedrock, LiteLLM, Ollama) with retry logic and graceful error handling.
+    """
+
     def __init__(
         self,
         max_retries: int | None = None,
@@ -190,6 +196,10 @@ class DecisionOrchestrator:
         threads: dict[str, CriterionThread],
         options: list[Option],
     ) -> dict[str, dict[str, tuple[float | None, str]]]:
+        """Evaluate all options against all criteria in parallel.
+
+        Returns dict mapping criterion_name -> option_name -> (score, reasoning).
+        """
         all_tasks = []
         task_metadata = []
 
@@ -200,7 +210,9 @@ class DecisionOrchestrator:
                 task_metadata.append((criterion_name, option.name))
 
         logger.info(
-            f"Starting parallel evaluation of {len(options)} options across {len(threads)} criteria",
+            "Starting parallel evaluation of %d options across %d criteria",
+            len(options),
+            len(threads),
         )
         results = await asyncio.gather(*all_tasks, return_exceptions=True)
 
@@ -212,13 +224,16 @@ class DecisionOrchestrator:
                 evaluation_results[criterion_name] = {}
 
             if isinstance(result, Exception):
-                logger.error(f"Error evaluating {option_name} for {criterion_name}: {result}")
+                logger.error("Error evaluating %s for %s: %s", option_name, criterion_name, result)
                 evaluation_results[criterion_name][option_name] = (None, f"Error: {result!s}")
             elif isinstance(result, tuple):
                 evaluation_results[criterion_name][option_name] = result
             else:
                 logger.error(
-                    f"Unexpected result type for {option_name}/{criterion_name}: {type(result)}",
+                    "Unexpected result type for %s/%s: %s",
+                    option_name,
+                    criterion_name,
+                    type(result),
                 )
                 evaluation_results[criterion_name][option_name] = (
                     None,
@@ -266,14 +281,16 @@ JUSTIFICATION: [your reasoning]"""
                 except CoTTimeoutError:
                     # Fallback to standard evaluation on timeout
                     logger.warning(
-                        f"CoT timeout for {option.name} on {thread.criterion.name}, falling back to standard evaluation",
+                        "CoT timeout for %s on %s, falling back to standard evaluation",
+                        option.name,
+                        thread.criterion.name,
                     )
                     response = await self._get_thread_response(thread)
                     thread.add_message("assistant", response)
                     return self._parse_evaluation_response(response)
-                except ChainOfThoughtError as e:
+                except ChainOfThoughtError:
                     # Log CoT-specific errors and fallback
-                    logger.exception(f"CoT error for {option.name}: {e}")
+                    logger.exception("CoT error for %s", option.name)
                     response = await self._get_thread_response(thread)
                     thread.add_message("assistant", response)
                     return self._parse_evaluation_response(response)
@@ -297,12 +314,16 @@ JUSTIFICATION: [your reasoning]"""
 
         except LLMBackendError as e:
             logger.exception(
-                f"LLM backend error evaluating {option.name} for {thread.criterion.name}: {e}",
+                "LLM backend error evaluating %s for %s",
+                option.name,
+                thread.criterion.name,
             )
             return (None, e.user_message)
         except Exception:
             logger.exception(
-                f"Unexpected error evaluating {option.name} for {thread.criterion.name}",
+                "Unexpected error evaluating %s for %s",
+                option.name,
+                thread.criterion.name,
             )
             return (None, "Evaluation failed due to an unexpected error")
 
@@ -324,7 +345,7 @@ JUSTIFICATION: [your reasoning]"""
             return structured_response.get_legacy_format()
 
         except Exception as e:
-            logger.warning(f"Structured parsing failed, using legacy fallback: {e}")
+            logger.warning("Structured parsing failed, using legacy fallback: %s", e)
             # Fall back to legacy regex parsing
             return self._parse_evaluation_response_legacy(response)
 
@@ -360,14 +381,15 @@ JUSTIFICATION: [your reasoning]"""
             # Validate that we have at least a score or justification
             if score is None and justification == "No justification provided":
                 logger.warning(
-                    f"Could not parse meaningful content from response: {response[:200]}...",
+                    "Could not parse meaningful content from response: %s...",
+                    response[:200],
                 )
                 return (None, "Could not parse evaluation from response")
 
             return (score, justification)
 
-        except Exception as e:
-            logger.exception(f"Error parsing evaluation response: {e}")
+        except Exception:
+            logger.exception("Error parsing evaluation response")
             # Return partial parse if possible
             try:
                 justification = self._extract_justification(response)
@@ -468,19 +490,22 @@ JUSTIFICATION: [your reasoning]"""
                         "model not found",
                     ]
                 ):
-                    logger.exception(f"Non-retryable error for {thread.criterion.name}: {e}")
+                    logger.exception("Non-retryable error for %s", thread.criterion.name)
                     raise
 
                 # Retry on transient errors
                 if attempt < self.max_retries - 1:
                     delay = self.retry_delay * (2**attempt)
                     logger.warning(
-                        f"Attempt {attempt + 1} failed for {thread.criterion.name}: {e}. "
-                        f"Retrying in {delay}s...",
+                        "Attempt %d failed for %s: %s. Retrying in %ss...",
+                        attempt + 1,
+                        thread.criterion.name,
+                        e,
+                        delay,
                     )
                     await asyncio.sleep(delay)
                 else:
-                    logger.exception(f"All retries failed for {thread.criterion.name}: {e}")
+                    logger.exception("All retries failed for %s", thread.criterion.name)
 
         raise last_error or Exception("Unknown error in thread response")
 

@@ -1,24 +1,24 @@
 """Tests for server handlers with formatted output"""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from mcp.server.fastmcp import Context
+import pytest
+
 from decision_matrix_mcp import (
-    start_decision_analysis,
-    add_criterion,
-    evaluate_options,
-    get_decision_matrix,
-    add_option,
-    list_sessions,
-    StartDecisionAnalysisRequest,
     AddCriterionRequest,
+    AddOptionRequest,
     EvaluateOptionsRequest,
     GetDecisionMatrixRequest,
-    AddOptionRequest,
+    StartDecisionAnalysisRequest,
+    add_criterion,
+    add_option,
+    evaluate_options,
+    get_decision_matrix,
+    list_sessions,
+    start_decision_analysis,
 )
-from decision_matrix_mcp.exceptions import ValidationError, ResourceLimitError
-
+from decision_matrix_mcp.exceptions import ValidationError
 
 # Mock context for all tests
 mock_ctx = Mock(spec=Context)
@@ -27,7 +27,7 @@ mock_ctx = Mock(spec=Context)
 class TestFormattedResponses:
     """Test that all handlers return formatted_output field"""
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_start_decision_analysis_with_formatted_output(self):
         """Test start_decision_analysis includes formatted output"""
         request = StartDecisionAnalysisRequest(
@@ -59,7 +59,7 @@ class TestFormattedResponses:
         assert "- Performance" in formatted
         assert "- Cost" in formatted
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_add_criterion_with_formatted_output(self):
         """Test add_criterion includes formatted output"""
         # First create a session
@@ -84,7 +84,7 @@ class TestFormattedResponses:
         assert "**Weight**: 2.5x importance" in formatted
         assert "💡 **Ready to evaluate**" in formatted
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_evaluate_options_with_formatted_output(self):
         """Test evaluate_options includes formatted output"""
         # Create session with criteria
@@ -107,7 +107,7 @@ class TestFormattedResponses:
                 "Test": {
                     "Option A": (8.0, "Good option"),
                     "Option B": (6.0, "Moderate option"),
-                }
+                },
             }
             mock_components.orchestrator = mock_orchestrator
 
@@ -133,7 +133,7 @@ class TestFormattedResponses:
             assert "formatted_output" in result
             assert result["formatted_output"] == "# ✨ Evaluation Complete!"
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_get_decision_matrix_with_formatted_output(self):
         """Test get_decision_matrix includes formatted output"""
         # Create and evaluate session
@@ -173,7 +173,7 @@ class TestFormattedResponses:
             # Mock formatter
             mock_formatter = MagicMock()
             mock_formatter.format_decision_matrix.return_value = (
-                "# 🎯 Decision Matrix: Choose a language\n" "### 🥇 **Winner: Python**"
+                "# 🎯 Decision Matrix: Choose a language\n### 🥇 **Winner: Python**"
             )
             mock_formatter.format_error.return_value = "## ❌ Error"
             mock_components.formatter = mock_formatter
@@ -186,7 +186,7 @@ class TestFormattedResponses:
             assert "# 🎯 Decision Matrix: Choose a language" in result["formatted_output"]
             assert "### 🥇 **Winner: Python**" in result["formatted_output"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_list_sessions_with_formatted_output(self):
         """Test list_sessions includes formatted output"""
         result = await list_sessions(mock_ctx)
@@ -198,7 +198,7 @@ class TestFormattedResponses:
         # Should show empty state or active sessions
         assert "Active Decision Sessions" in formatted or "No Active Sessions" in formatted
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_error_responses_with_formatted_output(self):
         """Test error responses include formatted output"""
         # Test validation error
@@ -208,7 +208,8 @@ class TestFormattedResponses:
 
             mock_session_manager = MagicMock()
             mock_session_manager.create_session.side_effect = ValidationError(
-                "Invalid", "Bad input"
+                "Invalid",
+                "Bad input",
             )
             mock_components.session_manager = mock_session_manager
 
@@ -225,7 +226,7 @@ class TestFormattedResponses:
             assert "formatted_output" in result
             assert "## ❌ Error Encountered" in result["formatted_output"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_add_option_with_formatted_output(self):
         """Test add_option includes formatted output"""
         # Create session first
@@ -249,7 +250,7 @@ class TestFormattedResponses:
         assert "*Third option*" in formatted
         assert "⚡ **Action Required**" in formatted
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_session_not_found_error_formatting(self):
         """Test session not found error has helpful formatting"""
         request = AddCriterionRequest(
@@ -268,7 +269,7 @@ class TestFormattedResponses:
         assert "- Check the session ID is correct" in formatted
         assert "- Session may have expired (30 min timeout)" in formatted
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_no_options_error_formatting(self):
         """Test no options error has helpful formatting"""
         # Create session without options
@@ -300,7 +301,7 @@ class TestFormattedResponses:
             assert "formatted_output" in result
             assert "💡 **Next step**: Add options to evaluate first" in result["formatted_output"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_no_criteria_error_formatting(self):
         """Test no criteria error has helpful formatting"""
         # Create session without criteria

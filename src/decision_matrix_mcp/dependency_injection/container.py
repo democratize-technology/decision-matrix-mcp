@@ -20,7 +20,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""Service Container - Dependency injection container for all services
+"""Service Container - Dependency injection container for all services.
+
 Provides centralized service creation and management.
 """
 
@@ -38,7 +39,8 @@ logger = logging.getLogger(__name__)
 
 
 class ServiceContainer:
-    """Dependency injection container for all services
+    """Dependency injection container for all services.
+
     Provides singleton service instances with proper dependency wiring.
     """
 

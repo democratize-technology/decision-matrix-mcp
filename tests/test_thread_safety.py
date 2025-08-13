@@ -20,7 +20,6 @@ class TestThreadSafetyInitialization:
     def test_concurrent_initialization(self):
         """Test that concurrent threads safely initialize server components."""
         # Reset global state for this test
-        import decision_matrix_mcp
 
         decision_matrix_mcp._server_components = None
 
@@ -75,7 +74,6 @@ class TestThreadSafetyInitialization:
     def test_lazy_initialization(self):
         """Test that components are initialized lazily on first access."""
         # Reset global state
-        import decision_matrix_mcp
 
         decision_matrix_mcp._server_components = None
 
@@ -91,7 +89,6 @@ class TestThreadSafetyInitialization:
     def test_explicit_initialization(self):
         """Test that explicit initialization works correctly."""
         # Reset global state
-        import decision_matrix_mcp
 
         decision_matrix_mcp._server_components = None
 
@@ -106,7 +103,6 @@ class TestThreadSafetyInitialization:
     def test_double_checked_locking(self):
         """Test that double-checked locking pattern works correctly."""
         # Reset global state
-        import decision_matrix_mcp
 
         decision_matrix_mcp._server_components = None
 
@@ -131,13 +127,13 @@ class TestThreadSafetyInitialization:
     def test_initialization_error_handling(self):
         """Test that initialization errors are properly handled."""
         # Reset global state
-        import decision_matrix_mcp
 
         decision_matrix_mcp._server_components = None
 
         # Make initialization fail
         with patch(
-            "decision_matrix_mcp.create_server_components", side_effect=RuntimeError("Init failed")
+            "decision_matrix_mcp.create_server_components",
+            side_effect=RuntimeError("Init failed"),
         ):
             with pytest.raises(RuntimeError, match="Init failed"):
                 get_server_components()

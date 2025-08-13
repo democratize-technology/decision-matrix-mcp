@@ -20,7 +20,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""Validation Service - Centralized validation logic
+"""Validation Service - Centralized validation logic.
+
 Handles session validation, input validation, and prerequisite checking.
 """
 
@@ -65,7 +66,7 @@ class ValidationService:
 
         Returns:
             The valid session
-            
+
         Raises:
             ValidationError: If session ID format is invalid
             SessionError: If session not found or expired
@@ -77,7 +78,7 @@ class ValidationService:
                 user_message="Session ID format is invalid",
                 error_code="DMX_1001",
                 context={"session_id": session_id},
-                recovery_suggestion="Provide a valid UUID session ID"
+                recovery_suggestion="Provide a valid UUID session ID",
             )
 
         session = session_manager.get_session(session_id)
@@ -87,7 +88,7 @@ class ValidationService:
                 user_message="Session not found or has expired",
                 error_code="DMX_2001",
                 context={"session_id": session_id},
-                recovery_suggestion="Create a new session or use a valid session ID"
+                recovery_suggestion="Create a new session or use a valid session ID",
             )
 
         return session
@@ -107,7 +108,7 @@ class ValidationService:
                 user_message="No options to evaluate. Add options first.",
                 error_code="DMX_1002",
                 context={"has_options": False, "has_criteria": bool(session.criteria)},
-                recovery_suggestion="Add options to the decision session before evaluation"
+                recovery_suggestion="Add options to the decision session before evaluation",
             )
 
         if not session.criteria:
@@ -116,7 +117,7 @@ class ValidationService:
                 user_message="No criteria defined. Add criteria first.",
                 error_code="DMX_1003",
                 context={"has_options": bool(session.options), "has_criteria": False},
-                recovery_suggestion="Add evaluation criteria before running evaluation"
+                recovery_suggestion="Add evaluation criteria before running evaluation",
             )
 
     def validate_criterion_name(self, name: str) -> bool:

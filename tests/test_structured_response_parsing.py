@@ -1,16 +1,15 @@
 """Tests for structured JSON response parsing with fallback to regex"""
 
 import json
+
 import pytest
 
 from decision_matrix_mcp.response_schemas import (
     EvaluationResponse,
-    parse_structured_response,
-    generate_json_prompt_suffix,
-    validate_response_schema,
-    _parse_json_response,
-    _parse_legacy_response,
     _extract_json_from_response,
+    generate_json_prompt_suffix,
+    parse_structured_response,
+    validate_response_schema,
 )
 
 
@@ -20,7 +19,10 @@ class TestEvaluationResponse:
     def test_basic_creation(self):
         """Test basic response creation"""
         response = EvaluationResponse(
-            score=7.5, reasoning="Good performance overall", confidence=0.8, status="success"
+            score=7.5,
+            reasoning="Good performance overall",
+            confidence=0.8,
+            status="success",
         )
 
         assert response.score == 7.5
@@ -32,7 +34,9 @@ class TestEvaluationResponse:
     def test_abstention_creation(self):
         """Test abstention response creation"""
         response = EvaluationResponse(
-            score=None, reasoning="Cannot evaluate this criterion", status="abstain"
+            score=None,
+            reasoning="Cannot evaluate this criterion",
+            status="abstain",
         )
 
         assert response.score is None
@@ -67,7 +71,9 @@ class TestEvaluationResponse:
     def test_legacy_format_conversion(self):
         """Test conversion to legacy (score, justification) format"""
         response = EvaluationResponse(
-            score=8.0, reasoning="Excellent performance", status="success"
+            score=8.0,
+            reasoning="Excellent performance",
+            status="success",
         )
 
         score, justification = response.get_legacy_format()
@@ -123,13 +129,13 @@ class TestStructuredResponseParsing:
         """Test JSON parsing when there's extra text around the JSON"""
         response_text = """
         Here's my evaluation:
-        
+
         {
             "score": 7.0,
             "reasoning": "Good option but has some limitations",
             "status": "success"
         }
-        
+
         That's my assessment.
         """
 

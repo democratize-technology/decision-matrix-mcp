@@ -1,16 +1,10 @@
 """Additional tests for __init__.py to achieve 100% coverage."""
 
-import pytest
 from unittest.mock import Mock, patch
-import sys
-import subprocess
-import os
+
+import pytest
 
 from decision_matrix_mcp import add_criterion, create_server_components
-from decision_matrix_mcp.exceptions import ValidationError
-from decision_matrix_mcp.models import DecisionSession, Option, Criterion
-from datetime import datetime, timezone
-from uuid import uuid4
 
 # Create server components for testing
 test_components = create_server_components()
@@ -25,11 +19,12 @@ def patch_server_components(monkeypatch):
 class TestInitAdditionalCoverage:
     """Additional test cases for __init__.py coverage"""
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_add_criterion_validation_error_path(self):
         """Test lines 218-219: ValidationError in add_criterion"""
-        from decision_matrix_mcp import AddCriterionRequest
         from mcp.server.fastmcp import Context
+
+        from decision_matrix_mcp import AddCriterionRequest
 
         # Get session manager from server components
         components = test_components

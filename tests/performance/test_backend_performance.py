@@ -10,20 +10,15 @@ These tests measure:
 """
 
 import asyncio
-import time
 from statistics import mean, median, stdev
-from typing import Dict, List, Tuple
-from unittest.mock import Mock, patch
+import time
 
 import pytest
 
-from decision_matrix_mcp.backends.base import LLMBackend
 from decision_matrix_mcp.backends.bedrock import BedrockBackend
-from decision_matrix_mcp.backends.factory import BackendFactory
 from decision_matrix_mcp.backends.litellm import LiteLLMBackend
 from decision_matrix_mcp.backends.ollama import OllamaBackend
 from decision_matrix_mcp.exceptions import LLMBackendError
-from decision_matrix_mcp.models import ModelBackend
 
 
 class BackendPerformanceProfiler:
@@ -57,7 +52,7 @@ class BackendPerformanceProfiler:
             self.retry_counts[backend_name] = []
         self.retry_counts[backend_name].append(attempt_count)
 
-    def get_stats(self, backend_name: str, operation: str) -> Dict:
+    def get_stats(self, backend_name: str, operation: str) -> dict:
         """Get statistics for a backend operation."""
         key = f"{backend_name}_{operation}"
         if key not in self.response_times or not self.response_times[key]:
@@ -75,14 +70,14 @@ class BackendPerformanceProfiler:
             "p99": sorted(times)[int(len(times) * 0.99)] if len(times) > 1 else times[0],
         }
 
-    def print_backend_comparison(self, backends: List[str]):
+    def print_backend_comparison(self, backends: list[str]):
         """Print performance comparison across backends."""
         print("\n" + "=" * 80)
         print("BACKEND PERFORMANCE COMPARISON")
         print("=" * 80)
 
         print(
-            f"\n{'Backend':<15} {'Count':<8} {'Mean':<10} {'Median':<10} {'P95':<10} {'P99':<10} {'Std':<10}"
+            f"\n{'Backend':<15} {'Count':<8} {'Mean':<10} {'Median':<10} {'P95':<10} {'P99':<10} {'Std':<10}",
         )
         print("-" * 80)
 
@@ -92,7 +87,7 @@ class BackendPerformanceProfiler:
                 print(
                     f"{backend:<15} {stats['count']:<8} {stats['mean']*1000:<10.1f} "
                     f"{stats['median']*1000:<10.1f} {stats['p95']*1000:<10.1f} "
-                    f"{stats['p99']*1000:<10.1f} {stats['std']*1000:<10.1f}"
+                    f"{stats['p99']*1000:<10.1f} {stats['std']*1000:<10.1f}",
                 )
 
 
@@ -101,7 +96,9 @@ class MockBackendFactory:
 
     @staticmethod
     def create_mock_bedrock(
-        base_latency: float = 0.1, latency_variance: float = 0.02, error_rate: float = 0.0
+        base_latency: float = 0.1,
+        latency_variance: float = 0.02,
+        error_rate: float = 0.0,
     ) -> BedrockBackend:
         """Create mock Bedrock backend with specified performance characteristics."""
         backend = BedrockBackend()
@@ -122,7 +119,9 @@ class MockBackendFactory:
 
     @staticmethod
     def create_mock_litellm(
-        base_latency: float = 0.05, latency_variance: float = 0.01, error_rate: float = 0.0
+        base_latency: float = 0.05,
+        latency_variance: float = 0.01,
+        error_rate: float = 0.0,
     ) -> LiteLLMBackend:
         """Create mock LiteLLM backend with specified performance characteristics."""
         backend = LiteLLMBackend()
@@ -143,7 +142,9 @@ class MockBackendFactory:
 
     @staticmethod
     def create_mock_ollama(
-        base_latency: float = 0.2, latency_variance: float = 0.05, error_rate: float = 0.0
+        base_latency: float = 0.2,
+        latency_variance: float = 0.05,
+        error_rate: float = 0.0,
     ) -> OllamaBackend:
         """Create mock Ollama backend with specified performance characteristics."""
         backend = OllamaBackend()
@@ -166,7 +167,7 @@ class MockBackendFactory:
 class TestBackendResponseTimes:
     """Test response time characteristics of different backends."""
 
-    @pytest.fixture
+    @pytest.fixture()
     def profiler(self):
         """Create performance profiler."""
         return BackendPerformanceProfiler()
@@ -179,9 +180,12 @@ class TestBackendResponseTimes:
             ("ollama", 0.30),  # Ollama can be slower (local model, mock)
         ],
     )
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_backend_response_time_characteristics(
-        self, profiler, backend_type, expected_max_latency
+        self,
+        profiler,
+        backend_type,
+        expected_max_latency,
     ):
         """Test response time characteristics for each backend type."""
         # Create mock backend with realistic performance characteristics
@@ -228,7 +232,7 @@ class TestBackendResponseTimes:
                 assert isinstance(response, str)
                 assert len(response) > 0
 
-            except LLMBackendError as e:
+            except LLMBackendError:
                 profiler.record_error(backend_type, "llm_error")
                 # Continue with other requests
 
@@ -262,7 +266,7 @@ class TestBackendResponseTimes:
         else:
             pytest.fail(f"No successful requests recorded for {backend_type}")
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_backend_performance_comparison(self, profiler):
         """Test and compare performance across all backend types."""
         backends = {
@@ -281,11 +285,15 @@ class TestBackendResponseTimes:
                 try:
                     if backend_name == "litellm":
                         response = await backend.generate(
-                            "System prompt", f"User prompt {i}", model="gpt-3.5-turbo"
+                            "System prompt",
+                            f"User prompt {i}",
+                            model="gpt-3.5-turbo",
                         )
                     elif backend_name == "ollama":
                         response = await backend.generate(
-                            "System prompt", f"User prompt {i}", model="llama3.2:3b"
+                            "System prompt",
+                            f"User prompt {i}",
+                            model="llama3.2:3b",
                         )
                     else:  # bedrock
                         response = await backend.generate("System prompt", f"User prompt {i}")
@@ -319,7 +327,7 @@ class TestBackendResponseTimes:
 class TestBackendThroughput:
     """Test backend throughput under concurrent load."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_concurrent_request_throughput(self):
         """Test throughput of concurrent requests to backends."""
         profiler = BackendPerformanceProfiler()
@@ -327,13 +335,16 @@ class TestBackendThroughput:
         # Create backends with different characteristics
         backends = {
             "bedrock": MockBackendFactory.create_mock_bedrock(
-                base_latency=0.05, latency_variance=0.01
+                base_latency=0.05,
+                latency_variance=0.01,
             ),
             "litellm": MockBackendFactory.create_mock_litellm(
-                base_latency=0.03, latency_variance=0.005
+                base_latency=0.03,
+                latency_variance=0.005,
             ),
             "ollama": MockBackendFactory.create_mock_ollama(
-                base_latency=0.08, latency_variance=0.02
+                base_latency=0.08,
+                latency_variance=0.02,
             ),
         }
 
@@ -341,7 +352,7 @@ class TestBackendThroughput:
 
         for backend_name, backend in backends.items():
             print(
-                f"\nTesting {backend_name} throughput with {concurrent_requests} concurrent requests..."
+                f"\nTesting {backend_name} throughput with {concurrent_requests} concurrent requests...",
             )
 
             async def make_request(request_id):
@@ -351,15 +362,20 @@ class TestBackendThroughput:
                 try:
                     if backend_name == "litellm":
                         response = await backend.generate(
-                            f"System {request_id}", f"User {request_id}", model="gpt-3.5-turbo"
+                            f"System {request_id}",
+                            f"User {request_id}",
+                            model="gpt-3.5-turbo",
                         )
                     elif backend_name == "ollama":
                         response = await backend.generate(
-                            f"System {request_id}", f"User {request_id}", model="llama3.2:3b"
+                            f"System {request_id}",
+                            f"User {request_id}",
+                            model="llama3.2:3b",
                         )
                     else:  # bedrock
                         response = await backend.generate(
-                            f"System {request_id}", f"User {request_id}"
+                            f"System {request_id}",
+                            f"User {request_id}",
                         )
 
                     end_time = time.perf_counter()
@@ -424,7 +440,7 @@ class TestBackendThroughput:
         print(f"{'Backend':<15} {'Throughput':<12} {'Success Rate':<12} {'Mean Time':<12}")
         print("-" * 55)
 
-        for backend_name in backends.keys():
+        for backend_name in backends:
             if backend_name in profiler.throughput_metrics:
                 metrics = profiler.throughput_metrics[backend_name]
                 success_rate = metrics["successful_requests"] / concurrent_requests
@@ -433,10 +449,10 @@ class TestBackendThroughput:
 
                 print(
                     f"{backend_name:<15} {metrics['throughput']:<12.1f} "
-                    f"{success_rate:<12.2f} {mean_time:<12.1f}"
+                    f"{success_rate:<12.2f} {mean_time:<12.1f}",
                 )
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_sustained_load_performance(self):
         """Test backend performance under sustained load."""
         profiler = BackendPerformanceProfiler()
@@ -475,7 +491,9 @@ class TestBackendThroughput:
                             )
                             req_end = time.perf_counter()
                             profiler.record_response_time(
-                                "sustained", "generate", req_end - req_start
+                                "sustained",
+                                "generate",
+                                req_end - req_start,
                             )
                             return True, req_end - req_start
                         except LLMBackendError:
@@ -544,7 +562,7 @@ class TestBackendThroughput:
 class TestBackendErrorHandling:
     """Test backend error handling and recovery performance."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_error_handling_performance(self):
         """Test performance impact of error handling and retries."""
         profiler = BackendPerformanceProfiler()
@@ -554,7 +572,8 @@ class TestBackendErrorHandling:
 
         for error_rate in error_rates:
             backend = MockBackendFactory.create_mock_bedrock(
-                base_latency=0.05, error_rate=error_rate
+                base_latency=0.05,
+                error_rate=error_rate,
             )
 
             num_requests = 20
@@ -568,13 +587,16 @@ class TestBackendErrorHandling:
 
                 try:
                     response = await backend.generate(
-                        f"Error test system {i}", f"Error test user {i}"
+                        f"Error test system {i}",
+                        f"Error test user {i}",
                     )
                     end_time = time.perf_counter()
 
                     successful_responses.append(end_time - start_time)
                     profiler.record_response_time(
-                        f"error_{error_rate}", "success", end_time - start_time
+                        f"error_{error_rate}",
+                        "success",
+                        end_time - start_time,
                     )
 
                 except LLMBackendError:
@@ -582,7 +604,9 @@ class TestBackendErrorHandling:
 
                     error_responses.append(end_time - start_time)
                     profiler.record_response_time(
-                        f"error_{error_rate}", "error", end_time - start_time
+                        f"error_{error_rate}",
+                        "error",
+                        end_time - start_time,
                     )
                     profiler.record_error(f"error_{error_rate}", "llm_error")
 
@@ -615,7 +639,7 @@ class TestBackendErrorHandling:
                 abs(actual_error_rate - error_rate) < error_rate_tolerance
             ), f"Error rate mismatch: {actual_error_rate:.2f} vs expected {error_rate:.2f}"
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_retry_logic_performance(self):
         """Test performance of retry logic for failed requests."""
         # This test would be more meaningful with a real backend that implements retry logic
@@ -639,10 +663,8 @@ class TestBackendErrorHandling:
                     if (hash(f"{system_prompt}{attempt}") % 100) / 100 < self.fail_rate:
                         if attempt < self.max_retries:
                             continue  # Retry
-                        else:
-                            raise LLMBackendError("Max retries exceeded", "Simulated failure")
-                    else:
-                        return f"Success on attempt {attempt + 1}"
+                        raise LLMBackendError("Max retries exceeded", "Simulated failure")
+                    return f"Success on attempt {attempt + 1}"
 
                 raise LLMBackendError("Unexpected retry logic error", "Should not reach here")
 
@@ -676,7 +698,7 @@ class TestBackendErrorHandling:
         success_stats = profiler.get_stats("retry_backend", "success")
         failure_stats = profiler.get_stats("retry_backend", "failure")
 
-        print(f"\nRetry Logic Performance:")
+        print("\nRetry Logic Performance:")
         print(f"  Total requests: {num_requests}")
         print(f"  Retry attempts: {retry_stats}")
         print(f"  Mean attempts per request: {mean(retry_stats):.1f}")

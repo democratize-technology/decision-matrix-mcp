@@ -2,8 +2,6 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from decision_matrix_mcp import ServerComponents
 from decision_matrix_mcp.orchestrator import DecisionOrchestrator
 
@@ -66,7 +64,8 @@ class TestResourceCleanup:
         mock_session_manager = MagicMock()
 
         components = ServerComponents(
-            orchestrator=mock_orchestrator, session_manager=mock_session_manager
+            orchestrator=mock_orchestrator,
+            session_manager=mock_session_manager,
         )
 
         # Call cleanup

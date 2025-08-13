@@ -36,6 +36,12 @@ logger = logging.getLogger(__name__)
 
 
 class SessionManager:
+    """Manages decision analysis sessions with TTL cleanup and LRU eviction.
+
+    Provides thread-safe session management with automatic cleanup of expired
+    sessions and LRU-based eviction when maximum session limits are reached.
+    """
+
     def __init__(
         self,
         max_sessions: int = SessionLimits.DEFAULT_MAX_SESSIONS,
@@ -99,10 +105,11 @@ class SessionManager:
         self.stats["sessions_created"] += 1
         self.stats["max_concurrent"] = max(self.stats["max_concurrent"], len(self.sessions))
 
-        logger.info(f"Created session {session_id[:8]} for topic: {topic}")
+        logger.info("Created session %s for topic: %s", session_id[:8], topic)
         return session
 
     def get_session(self, session_id: str) -> DecisionSession | None:
+        """Retrieve an active session by ID, updating access time."""
         self._cleanup_if_needed()
 
         session = self.sessions.get(session_id)
@@ -117,16 +124,20 @@ class SessionManager:
         return session
 
     def remove_session(self, session_id: str) -> bool:
+        """Remove a session from active management."""
         return self._remove_session(session_id)
 
     def list_active_sessions(self) -> dict[str, DecisionSession]:
+        """Get dictionary of all active sessions."""
         self._cleanup_if_needed()
         return self.sessions.copy()
 
     def clear_all_sessions(self) -> None:
+        """Clear all sessions and reset statistics."""
         self.sessions.clear()
 
     def get_stats(self) -> dict[str, Any]:
+        """Get session management statistics and current state."""
         return {
             **self.stats,
             "active_sessions": len(self.sessions),
@@ -134,6 +145,7 @@ class SessionManager:
         }
 
     def get_current_session(self) -> DecisionSession | None:
+        """Get the most recently accessed session."""
         self._cleanup_if_needed()
 
         if not self.sessions:
@@ -162,7 +174,7 @@ class SessionManager:
         self.last_cleanup = now
 
         if expired_sessions:
-            logger.info(f"Cleaned up {len(expired_sessions)} expired sessions")
+            logger.info("Cleaned up %d expired sessions", len(expired_sessions))
 
     def _is_session_expired(self, session: DecisionSession) -> bool:
         """Check if session has expired, handling both timezone-aware and naive datetimes."""
@@ -173,7 +185,7 @@ class SessionManager:
         if session_time.tzinfo is None:
             # Assume UTC for naive datetime (legacy sessions)
             session_time = session_time.replace(tzinfo=timezone.utc)
-            logger.debug(f"Session {session.session_id[:8]} has naive datetime, assuming UTC")
+            logger.debug("Session %s has naive datetime, assuming UTC", session.session_id[:8])
 
         return now - session_time > self.session_ttl
 
@@ -221,7 +233,10 @@ class SessionManager:
 
         if sessions_to_evict:
             logger.info(
-                f"Evicted {len(sessions_to_evict)} LRU sessions to maintain memory bounds (was {current_count}, now {len(self.sessions)})",
+                "Evicted %d LRU sessions to maintain memory bounds (was %d, now %d)",
+                len(sessions_to_evict),
+                current_count,
+                len(self.sessions),
             )
 
     def _cleanup_if_needed(self) -> None:
@@ -242,12 +257,14 @@ class SessionManager:
         if session_id in self.sessions:
             del self.sessions[session_id]
             self.stats["sessions_cleaned"] += 1
-            logger.debug(f"Removed session {session_id[:8]}")
+            logger.debug("Removed session %s", session_id[:8])
             return True
         return False
 
 
 class SessionValidator:
+    """Validation utilities for session-related inputs."""
+
     @staticmethod
     def validate_session_id(session_id: str) -> bool:
         if not session_id or not isinstance(session_id, str):

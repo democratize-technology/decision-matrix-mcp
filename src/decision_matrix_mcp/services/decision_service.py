@@ -20,7 +20,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""Decision Service - Core business logic for decision analysis
+"""Decision Service - Core business logic for decision analysis.
+
 Handles session lifecycle, option/criterion management, and evaluation orchestration.
 """
 
@@ -186,7 +187,9 @@ class DecisionService:
             Evaluation results dict mapping criterion->option->score_tuple
         """
         logger.info(
-            f"Starting evaluation: {len(session.options)} options × {len(session.criteria)} criteria",
+            "Starting evaluation: %d options × %d criteria",
+            len(session.options),
+            len(session.criteria),
         )
 
         return await self.orchestrator.evaluate_options_across_criteria(
@@ -250,7 +253,7 @@ class DecisionService:
 
         Returns:
             Decision matrix results with scores and rankings
-            
+
         Raises:
             ValidationError: If session is not ready for matrix generation
         """

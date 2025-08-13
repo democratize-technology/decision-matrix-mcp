@@ -88,7 +88,7 @@ class ConfigManager:
         try:
             self._load_configuration()
         except Exception as e:
-            logger.exception(f"Failed to load configuration: {e}")
+            logger.exception("Failed to load configuration")
             self._initialization_errors.append(str(e))
 
         self._initialized = True
@@ -116,12 +116,15 @@ class ConfigManager:
 
                 logger.info("Configuration loaded successfully")
                 if self._validator.warnings:
-                    logger.warning(f"Configuration warnings: {self._validator.warnings}")
+                    logger.warning("Configuration warnings: %s", self._validator.warnings)
                 if self._validator.recommendations:
-                    logger.info(f"Configuration recommendations: {self._validator.recommendations}")
+                    logger.info(
+                        "Configuration recommendations: %s",
+                        self._validator.recommendations,
+                    )
 
             except Exception as e:
-                logger.exception(f"Configuration validation failed: {e}")
+                logger.exception("Configuration validation failed")
                 raise ConfigValidationError(f"Invalid configuration: {e}")
 
     def _load_from_files(self, config_data: dict[str, Any]) -> None:
@@ -145,7 +148,8 @@ class ConfigManager:
                         if config_path.suffix in [".yaml", ".yml"]:
                             if yaml is None:
                                 logger.warning(
-                                    f"YAML support not available, skipping {config_path}",
+                                    "YAML support not available, skipping %s",
+                                    config_path,
                                 )
                                 continue
                             file_config = yaml.safe_load(f)
@@ -155,11 +159,11 @@ class ConfigManager:
                     if file_config:
                         self._merge_config(config_data, file_config)
                         self._loaded_from_file = True
-                        logger.info(f"Loaded configuration from {config_path}")
+                        logger.info("Loaded configuration from %s", config_path)
                         break
 
                 except Exception as e:
-                    logger.warning(f"Failed to load config from {config_path}: {e}")
+                    logger.warning("Failed to load config from %s: %s", config_path, e)
 
     def _load_from_environment(self, config_data: dict[str, Any]) -> None:
         """Load configuration from environment variables with DMM_ prefix."""
@@ -182,12 +186,13 @@ class ConfigManager:
                     env_vars_found.append(env_var)
 
                 except (ValueError, TypeError) as e:
-                    logger.warning(f"Invalid value for {env_var}='{env_value}': {e}")
+                    logger.warning("Invalid value for %s='%s': %s", env_var, env_value, e)
 
         if env_vars_found:
             self._loaded_from_env = True
             logger.info(
-                f"Loaded {len(env_vars_found)} configuration values from environment variables",
+                "Loaded %d configuration values from environment variables",
+                len(env_vars_found),
             )
 
     def _apply_environment_profile(self, config_data: dict[str, Any]) -> None:
@@ -198,7 +203,7 @@ class ConfigManager:
         if profile_overrides:
             for config_path, value in profile_overrides.items():
                 self._set_nested_value(config_data, config_path, value)
-            logger.info(f"Applied {environment} environment profile")
+            logger.info("Applied %s environment profile", environment)
 
     def _set_nested_value(self, data: dict[str, Any], path: str, value: Any) -> None:
         """Set a nested dictionary value using dot notation path."""
@@ -277,10 +282,10 @@ class ConfigManager:
                 new_config = ConfigSchema(**config_data)
                 self._validator.validate_config(new_config)
                 self._config = new_config
-                logger.info(f"Configuration updated: {list(kwargs.keys())}")
+                logger.info("Configuration updated: %s", list(kwargs.keys()))
 
             except Exception as e:
-                logger.exception(f"Configuration update failed: {e}")
+                logger.exception("Configuration update failed")
                 raise ConfigValidationError(f"Invalid configuration update: {e}")
 
     def reload_configuration(self) -> None:

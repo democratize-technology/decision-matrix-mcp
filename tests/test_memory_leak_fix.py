@@ -1,9 +1,6 @@
 """Tests for the memory leak fix - LRU bounded session storage"""
 
 from datetime import datetime, timedelta, timezone
-from unittest.mock import patch
-
-import pytest
 
 from decision_matrix_mcp.constants import SessionLimits
 from decision_matrix_mcp.exceptions import ResourceLimitError

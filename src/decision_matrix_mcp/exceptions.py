@@ -102,9 +102,17 @@ class LLMConfigurationError(LLMBackendError):
         context: dict[str, Any] | None = None,
     ) -> None:
         user_message = user_message or f"{backend} backend not properly configured"
-        recovery_suggestion = f"Ensure {backend} backend is properly configured with required dependencies"
+        recovery_suggestion = (
+            f"Ensure {backend} backend is properly configured with required dependencies"
+        )
         super().__init__(
-            backend, message, user_message, original_error, self.ERROR_CODE, context, recovery_suggestion
+            backend,
+            message,
+            user_message,
+            original_error,
+            self.ERROR_CODE,
+            context,
+            recovery_suggestion,
         )
 
 
@@ -124,7 +132,13 @@ class LLMAPIError(LLMBackendError):
         user_message = user_message or "LLM service temporarily unavailable"
         recovery_suggestion = "Retry the operation or check backend service status"
         super().__init__(
-            backend, message, user_message, original_error, self.ERROR_CODE, context, recovery_suggestion
+            backend,
+            message,
+            user_message,
+            original_error,
+            self.ERROR_CODE,
+            context,
+            recovery_suggestion,
         )
 
 

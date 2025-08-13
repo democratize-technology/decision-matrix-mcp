@@ -3,8 +3,6 @@
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
-import pytest
-
 from decision_matrix_mcp.models import DecisionSession
 from decision_matrix_mcp.session_manager import SessionManager
 
@@ -63,7 +61,9 @@ class TestSessionTTL:
 
         # Create sessions with different timezone representations
         utc_session = DecisionSession(
-            session_id="utc", created_at=datetime.now(timezone.utc), topic="UTC Session"
+            session_id="utc",
+            created_at=datetime.now(timezone.utc),
+            topic="UTC Session",
         )
 
         # Create a session with a different timezone (e.g., EST)
@@ -83,7 +83,8 @@ class TestSessionTTL:
     def test_cleanup_with_mixed_timezones(self):
         """Test cleanup works correctly with mixed timezone sessions."""
         manager = SessionManager(
-            session_ttl_hours=1, cleanup_interval_minutes=0  # Immediate cleanup
+            session_ttl_hours=1,
+            cleanup_interval_minutes=0,  # Immediate cleanup
         )
 
         # Create expired session (2 hours ago)
@@ -92,7 +93,9 @@ class TestSessionTTL:
 
         # Create recent session
         recent_session = DecisionSession(
-            session_id="recent", created_at=datetime.now(timezone.utc), topic="Recent Session"
+            session_id="recent",
+            created_at=datetime.now(timezone.utc),
+            topic="Recent Session",
         )
 
         # Create naive datetime session (recent, less than 1 hour old)

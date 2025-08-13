@@ -80,15 +80,10 @@ repos:
     hooks:
       - id: bandit
         description: Run bandit security checks
-        args: ['-r', 'src/', '-f', 'json']
+        args: ['-r', '-f', 'json']
+        files: '^src/'
         exclude: '^tests/'
 
-  # Dependency checks
-  - repo: https://github.com/Lucas-C/pre-commit-hooks-safety
-    rev: v1.3.2
-    hooks:
-      - id: python-safety-dependencies-check
-        description: Check for known security vulnerabilities
 
   # Documentation checks
   - repo: https://github.com/pycqa/pydocstyle

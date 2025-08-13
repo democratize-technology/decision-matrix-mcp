@@ -20,7 +20,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""Dependency Injection for Decision Matrix MCP
+"""Dependency Injection for Decision Matrix MCP.
+
 Provides service container and configuration management.
 """
 

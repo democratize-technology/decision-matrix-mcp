@@ -148,7 +148,7 @@ ResponseService
 - [Testing Strategies for Service-Oriented Architecture](https://martinfowler.com/articles/microservice-testing/)
 
 ---
-**Decision Date:** 2025-08-12  
-**Last Updated:** 2025-08-12  
-**Author(s):** Claude Code  
+**Decision Date:** 2025-08-12
+**Last Updated:** 2025-08-12
+**Author(s):** Claude Code
 **Review Status:** Approved

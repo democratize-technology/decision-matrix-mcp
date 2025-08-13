@@ -1,10 +1,10 @@
 """Tests for MCP server handlers in __init__.py"""
 
-from unittest.mock import patch
-
-import pytest
+from unittest.mock import Mock, patch
 
 from mcp.server.fastmcp import Context
+import pytest
+
 from decision_matrix_mcp import (
     AddCriterionRequest,
     AddOptionRequest,
@@ -19,15 +19,12 @@ from decision_matrix_mcp import (
     evaluate_options,
     get_decision_matrix,
     get_session_or_error,
-    get_server_components,
     list_sessions,
     start_decision_analysis,
 )
-from decision_matrix_mcp.validation_decorators import ValidationErrorFormatter
-from unittest.mock import Mock
 from decision_matrix_mcp.exceptions import ResourceLimitError, SessionError, ValidationError
 from decision_matrix_mcp.models import Criterion, ModelBackend, Score
-
+from decision_matrix_mcp.validation_decorators import ValidationErrorFormatter
 
 # Create server components for testing
 server_components = create_server_components()
@@ -82,7 +79,7 @@ class TestSessionHelpers:
 class TestStartDecisionAnalysis:
     """Test start_decision_analysis handler"""
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_start_decision_analysis_success(self):
         """Test successful session creation"""
         request = StartDecisionAnalysisRequest(
@@ -103,11 +100,13 @@ class TestStartDecisionAnalysis:
         # Cleanup
         session_manager.remove_session(result["session_id"])
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_start_decision_analysis_with_llm_params(self):
         """Test session creation with custom LLM parameters"""
         request = StartDecisionAnalysisRequest(
-            topic="Choose a model", options=["GPT-4", "Claude", "Llama"], temperature=0.7
+            topic="Choose a model",
+            options=["GPT-4", "Claude", "Llama"],
+            temperature=0.7,
         )
 
         result = await start_decision_analysis(request, mock_ctx)
@@ -121,7 +120,7 @@ class TestStartDecisionAnalysis:
         # Cleanup
         session_manager.remove_session(result["session_id"])
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_start_decision_analysis_with_initial_criteria(self):
         """Test session creation with initial criteria"""
         request = StartDecisionAnalysisRequest(
@@ -141,7 +140,7 @@ class TestStartDecisionAnalysis:
         # Cleanup
         session_manager.remove_session(result["session_id"])
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_start_decision_analysis_invalid_topic(self):
         """Test validation of topic"""
         # Empty topic
@@ -158,7 +157,7 @@ class TestStartDecisionAnalysis:
         assert result["error"] == "Invalid topic: must be a non-empty string under 500 characters"
         assert "formatted_output" in result
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_start_decision_analysis_invalid_options(self):
         """Test validation of options"""
         # Too few options
@@ -183,7 +182,7 @@ class TestStartDecisionAnalysis:
         result = await start_decision_analysis(request, mock_ctx)
         assert "Invalid option name" in result["error"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_start_decision_analysis_invalid_initial_criteria(self):
         """Test validation of initial criteria"""
         # Invalid criterion name
@@ -213,7 +212,7 @@ class TestStartDecisionAnalysis:
         result = await start_decision_analysis(request, mock_ctx)
         assert "Invalid weight" in result["error"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_start_decision_analysis_validation_error(self):
         """Test handling ValidationError from session manager"""
         with patch.object(
@@ -227,7 +226,7 @@ class TestStartDecisionAnalysis:
         assert result["error"] == "Please check your input"
         assert "formatted_output" in result
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_start_decision_analysis_resource_limit(self):
         """Test handling ResourceLimitError"""
         with patch.object(
@@ -241,7 +240,7 @@ class TestStartDecisionAnalysis:
         assert result["error"] == "Session limit reached"
         assert "formatted_output" in result
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_start_decision_analysis_unexpected_error(self):
         """Test handling unexpected errors"""
         with patch.object(
@@ -259,14 +258,14 @@ class TestStartDecisionAnalysis:
 class TestAddCriterion:
     """Test add_criterion handler"""
 
-    @pytest.fixture
+    @pytest.fixture()
     def test_session(self):
         """Create a test session"""
         session = session_manager.create_session("Test", ["Option A", "Option B"])
         yield session
         session_manager.remove_session(session.session_id)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_add_criterion_success(self, test_session):
         """Test successful criterion addition"""
         request = AddCriterionRequest(
@@ -285,7 +284,7 @@ class TestAddCriterion:
         assert result["total_criteria"] == 1
         assert "Performance" in result["all_criteria"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_add_criterion_with_custom_prompt(self, test_session):
         """Test adding criterion with custom prompt"""
         request = AddCriterionRequest(
@@ -304,7 +303,7 @@ class TestAddCriterion:
         criterion = session.criteria["Security"]
         assert "security expert" in criterion.system_prompt
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_add_criterion_with_llm_params(self, test_session):
         """Test adding criterion with custom LLM parameters"""
         request = AddCriterionRequest(
@@ -321,7 +320,7 @@ class TestAddCriterion:
         criterion = test_session.criteria["Reliability"]
         assert criterion.temperature == 0.3
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_add_criterion_inherits_session_defaults(self):
         """Test criterion inherits session defaults when not specified"""
         # Create session with custom defaults
@@ -343,7 +342,7 @@ class TestAddCriterion:
         # Cleanup
         session_manager.remove_session(test_session.session_id)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_add_criterion_invalid_session_id(self):
         """Test invalid session ID"""
         request = AddCriterionRequest(
@@ -357,7 +356,7 @@ class TestAddCriterion:
         assert result["error"] == "Invalid session ID"
         assert "formatted_output" in result
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_add_criterion_session_not_found(self):
         """Test non-existent session"""
         request = AddCriterionRequest(
@@ -369,7 +368,7 @@ class TestAddCriterion:
         result = await add_criterion(request, mock_ctx)
         assert "not found or expired" in result["error"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_add_criterion_duplicate(self, test_session):
         """Test adding duplicate criterion"""
         # Add first criterion
@@ -392,7 +391,7 @@ class TestAddCriterion:
         assert result["error"] == "Criterion 'Cost' already exists"
         assert "formatted_output" in result
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_add_criterion_validation_errors(self, test_session):
         """Test input validation"""
         # Invalid name
@@ -423,7 +422,7 @@ class TestAddCriterion:
         result = await add_criterion(request, mock_ctx)
         assert "Invalid weight" in result["error"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_add_criterion_session_error(self, test_session):
         """Test handling SessionError"""
         with patch.object(
@@ -443,7 +442,7 @@ class TestAddCriterion:
         assert result["error"] == "Cannot add criterion"
         assert "formatted_output" in result
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_add_criterion_unexpected_error(self, test_session):
         """Test handling unexpected errors"""
         with patch.object(test_session, "add_criterion", side_effect=Exception("Unexpected")):
@@ -463,7 +462,7 @@ class TestAddCriterion:
 class TestEvaluateOptions:
     """Test evaluate_options handler"""
 
-    @pytest.fixture
+    @pytest.fixture()
     def test_session_with_criteria(self):
         """Create a test session with options and criteria"""
         session = session_manager.create_session("Test", ["Option A", "Option B"])
@@ -477,7 +476,7 @@ class TestEvaluateOptions:
         yield session
         session_manager.remove_session(session.session_id)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_evaluate_options_success(self, test_session_with_criteria):
         """Test successful evaluation"""
         mock_results = {
@@ -506,7 +505,7 @@ class TestEvaluateOptions:
             assert result["summary"]["abstentions"] == 0
             assert result["summary"]["errors"] == 0
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_evaluate_options_with_abstentions(self, test_session_with_criteria):
         """Test evaluation with abstentions"""
         mock_results = {
@@ -531,7 +530,7 @@ class TestEvaluateOptions:
             assert result["summary"]["successful_scores"] == 3
             assert result["summary"]["abstentions"] == 1
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_evaluate_options_with_errors(self, test_session_with_criteria):
         """Test evaluation with errors"""
         mock_results = {
@@ -557,7 +556,7 @@ class TestEvaluateOptions:
             assert result["summary"]["errors"] == 2
             assert len(result["errors"]) == 2
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_evaluate_options_invalid_session(self):
         """Test evaluation with invalid session ID"""
         request = EvaluateOptionsRequest(session_id="")
@@ -566,7 +565,7 @@ class TestEvaluateOptions:
         assert result["error"] == "Invalid session ID"
         assert "formatted_output" in result
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_evaluate_options_no_options(self):
         """Test evaluation with no options"""
         session = session_manager.create_session("Test", [])
@@ -579,7 +578,7 @@ class TestEvaluateOptions:
 
         session_manager.remove_session(session.session_id)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_evaluate_options_no_criteria(self):
         """Test evaluation with no criteria"""
         session = session_manager.create_session("Test", ["Option A", "Option B"])
@@ -592,7 +591,7 @@ class TestEvaluateOptions:
 
         session_manager.remove_session(session.session_id)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_evaluate_options_orchestrator_error(self, test_session_with_criteria):
         """Test handling orchestrator errors"""
         with patch.object(
@@ -610,7 +609,7 @@ class TestEvaluateOptions:
 class TestGetDecisionMatrix:
     """Test get_decision_matrix handler"""
 
-    @pytest.fixture
+    @pytest.fixture()
     def evaluated_session(self):
         """Create a session with evaluation results"""
         session = session_manager.create_session("Test", ["Option A", "Option B"])
@@ -638,7 +637,7 @@ class TestGetDecisionMatrix:
         yield session
         session_manager.remove_session(session.session_id)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_get_decision_matrix_success(self, evaluated_session):
         """Test successful matrix retrieval"""
         request = GetDecisionMatrixRequest(session_id=evaluated_session.session_id)
@@ -650,7 +649,7 @@ class TestGetDecisionMatrix:
         assert result["session_info"]["total_options"] == 2
         assert result["session_info"]["total_criteria"] == 1
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_get_decision_matrix_invalid_session(self):
         """Test matrix retrieval with invalid session"""
         request = GetDecisionMatrixRequest(session_id="")
@@ -659,7 +658,7 @@ class TestGetDecisionMatrix:
         assert result["error"] == "Invalid session ID"
         assert "formatted_output" in result
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_get_decision_matrix_error_in_generation(self, evaluated_session):
         """Test handling errors in matrix generation"""
         with patch.object(
@@ -675,7 +674,7 @@ class TestGetDecisionMatrix:
         assert result["error"] == "No evaluations run yet"
         assert "formatted_output" in result
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_get_decision_matrix_unexpected_error(self, evaluated_session):
         """Test handling unexpected errors"""
         with patch.object(
@@ -695,14 +694,14 @@ class TestGetDecisionMatrix:
 class TestAddOption:
     """Test add_option handler"""
 
-    @pytest.fixture
+    @pytest.fixture()
     def test_session(self):
         """Create a test session"""
         session = session_manager.create_session("Test", ["Option A"])
         yield session
         session_manager.remove_session(session.session_id)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_add_option_success(self, test_session):
         """Test successful option addition"""
         request = AddOptionRequest(
@@ -717,7 +716,7 @@ class TestAddOption:
         assert result["total_options"] == 2
         assert "Option B" in result["all_options"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_add_option_invalid_session(self):
         """Test adding option to invalid session"""
         request = AddOptionRequest(
@@ -730,7 +729,7 @@ class TestAddOption:
         assert result["error"] == "Invalid session ID"
         assert "formatted_output" in result
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_add_option_invalid_name(self, test_session):
         """Test validation of option name"""
         request = AddOptionRequest(
@@ -741,7 +740,7 @@ class TestAddOption:
         result = await add_option(request, mock_ctx)
         assert "Invalid option name" in result["error"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_add_option_duplicate(self, test_session):
         """Test adding duplicate option"""
         request = AddOptionRequest(
@@ -754,7 +753,7 @@ class TestAddOption:
         assert result["error"] == "Option 'Option A' already exists"
         assert "formatted_output" in result
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_add_option_error_handling(self, test_session):
         """Test error handling"""
         with patch.object(test_session, "add_option", side_effect=Exception("Add failed")):
@@ -773,7 +772,7 @@ class TestAddOption:
 class TestListSessions:
     """Test list_sessions handler"""
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_list_sessions_empty(self):
         """Test listing when no sessions exist"""
         # Clear any existing sessions
@@ -786,7 +785,7 @@ class TestListSessions:
         assert result["total_active"] == 0
         assert "stats" in result
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_list_sessions_with_sessions(self):
         """Test listing active sessions"""
         # Create test sessions
@@ -818,11 +817,13 @@ class TestListSessions:
         session_manager.remove_session(session1.session_id)
         session_manager.remove_session(session2.session_id)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_list_sessions_error_handling(self):
         """Test error handling in list_sessions"""
         with patch.object(
-            session_manager, "list_active_sessions", side_effect=Exception("List failed")
+            session_manager,
+            "list_active_sessions",
+            side_effect=Exception("List failed"),
         ):
             result = await list_sessions(mock_ctx)
             assert "error" in result
@@ -833,7 +834,7 @@ class TestListSessions:
 class TestClearAllSessions:
     """Test clear_all_sessions handler"""
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_clear_all_sessions_success(self):
         """Test clearing all sessions"""
         # Create test sessions
@@ -850,7 +851,7 @@ class TestClearAllSessions:
         assert session_manager.get_session(session1.session_id) is None
         assert session_manager.get_session(session2.session_id) is None
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_clear_all_sessions_empty(self):
         """Test clearing when no sessions exist"""
         # Clear any existing sessions first
@@ -862,11 +863,13 @@ class TestClearAllSessions:
         assert result["cleared"] == 0
         assert "Cleared 0 active sessions" in result["message"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_clear_all_sessions_error_handling(self):
         """Test error handling"""
         with patch.object(
-            session_manager, "list_active_sessions", side_effect=Exception("Clear failed")
+            session_manager,
+            "list_active_sessions",
+            side_effect=Exception("Clear failed"),
         ):
             result = await clear_all_sessions(mock_ctx)
             assert "error" in result
@@ -877,7 +880,7 @@ class TestClearAllSessions:
 class TestCurrentSession:
     """Test current_session handler"""
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_current_session_no_sessions(self):
         """Test getting current session when none exist"""
         # Clear any existing sessions
@@ -890,7 +893,7 @@ class TestCurrentSession:
         assert result["message"] == "No active sessions found"
         assert "formatted_output" in result
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_current_session_single_session(self):
         """Test getting current session with one active session"""
         # Clear existing sessions first
@@ -916,7 +919,7 @@ class TestCurrentSession:
         # Cleanup
         session_manager.remove_session(session.session_id)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_current_session_multiple_sessions(self):
         """Test getting most recent session with multiple active sessions"""
         # Clear existing sessions first
@@ -944,7 +947,7 @@ class TestCurrentSession:
         session_manager.remove_session(session2.session_id)
         session_manager.remove_session(session3.session_id)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_current_session_evaluated_status(self):
         """Test current session shows evaluated status correctly"""
         # Clear existing sessions first
@@ -964,11 +967,13 @@ class TestCurrentSession:
         # Cleanup
         session_manager.remove_session(session.session_id)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_current_session_error_handling(self):
         """Test error handling in current_session"""
         with patch.object(
-            session_manager, "get_current_session", side_effect=Exception("Get current failed")
+            session_manager,
+            "get_current_session",
+            side_effect=Exception("Get current failed"),
         ):
             result = await current_session(mock_ctx)
             assert "error" in result

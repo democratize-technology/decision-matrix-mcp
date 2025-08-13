@@ -1,7 +1,8 @@
 """Tests for BackendFactory"""
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from decision_matrix_mcp.backends import (
     BackendFactory,
@@ -16,7 +17,7 @@ from decision_matrix_mcp.models import ModelBackend
 class TestBackendFactory:
     """Test BackendFactory implementation"""
 
-    @pytest.fixture
+    @pytest.fixture()
     def factory(self):
         """Create a BackendFactory instance"""
         return BackendFactory()
@@ -85,7 +86,6 @@ class TestBackendFactory:
             patch.object(LiteLLMBackend, "is_available", return_value=True),
             patch.object(OllamaBackend, "is_available", return_value=True),
         ):
-
             available = factory.get_available_backends()
             assert len(available) == 3
             assert ModelBackend.BEDROCK in available
@@ -100,7 +100,6 @@ class TestBackendFactory:
             patch.object(LiteLLMBackend, "is_available", return_value=False),
             patch.object(OllamaBackend, "is_available", return_value=False),
         ):
-
             available = factory.get_available_backends()
             assert len(available) == 1
             assert available == [ModelBackend.BEDROCK]

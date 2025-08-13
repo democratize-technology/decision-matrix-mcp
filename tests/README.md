@@ -175,7 +175,7 @@ Common fixtures available in all tests:
 - **Matrix Size Scaling**: Tests evaluate performance across different matrix sizes (2x2 to 20x10)
 - **Expected Metrics**:
   - Small matrices (2x2): < 10ms
-  - Medium matrices (10x5): < 50ms  
+  - Medium matrices (10x5): < 50ms
   - Large matrices (20x10): < 200ms
   - Throughput: > 50 evaluations/second
 

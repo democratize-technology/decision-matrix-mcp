@@ -76,7 +76,7 @@ class BackendFactory:
         # Cache the instance
         self._instances[backend_type] = instance
 
-        logger.debug(f"Created new {backend_type.value} backend instance")
+        logger.debug("Created new %s backend instance", backend_type.value)
         return instance
 
     def validate_backend_availability(self, backend_type: ModelBackend) -> bool:
@@ -92,7 +92,7 @@ class BackendFactory:
             backend = self.create_backend(backend_type)
             return backend.is_available()
         except Exception as e:
-            logger.warning(f"Backend {backend_type.value} not available: {e}")
+            logger.warning("Backend %s not available: %s", backend_type.value, e)
             return False
 
     def get_available_backends(self) -> list[ModelBackend]:
@@ -113,8 +113,8 @@ class BackendFactory:
             if hasattr(instance, "cleanup"):
                 try:
                     instance.cleanup()
-                    logger.debug(f"Cleaned up {backend_type.value} backend")
+                    logger.debug("Cleaned up %s backend", backend_type.value)
                 except Exception as e:
-                    logger.warning(f"Error cleaning up {backend_type.value} backend: {e}")
+                    logger.warning("Error cleaning up %s backend: %s", backend_type.value, e)
 
         self._instances.clear()

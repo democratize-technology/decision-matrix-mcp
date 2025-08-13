@@ -206,7 +206,9 @@ class TestDecisionSessionExtended:
 
         # Add criteria
         criterion1 = Criterion(
-            name="ACID Compliance", description="Transaction support", weight=2.0
+            name="ACID Compliance",
+            description="Transaction support",
+            weight=2.0,
         )
         criterion2 = Criterion(name="Scalability", description="Horizontal scaling", weight=1.5)
         session.add_criterion(criterion1)
@@ -219,7 +221,7 @@ class TestDecisionSessionExtended:
                 option_name="PostgreSQL",
                 score=10.0,
                 justification="Full ACID support",
-            )
+            ),
         )
         session.options["PostgreSQL"].add_score(
             Score(
@@ -227,7 +229,7 @@ class TestDecisionSessionExtended:
                 option_name="PostgreSQL",
                 score=7.0,
                 justification="Good vertical scaling",
-            )
+            ),
         )
 
         session.options["MongoDB"].add_score(
@@ -236,7 +238,7 @@ class TestDecisionSessionExtended:
                 option_name="MongoDB",
                 score=None,
                 justification="Not applicable for NoSQL",
-            )  # Abstained
+            ),  # Abstained
         )
         session.options["MongoDB"].add_score(
             Score(
@@ -244,7 +246,7 @@ class TestDecisionSessionExtended:
                 option_name="MongoDB",
                 score=9.0,
                 justification="Excellent horizontal scaling",
-            )
+            ),
         )
 
         # Generate matrix
@@ -281,7 +283,7 @@ class TestDecisionSessionExtended:
                 option_name="Option A",
                 score=8.0,
                 justification="Good option",
-            )
+            ),
         )
         session.options["Option B"].add_score(
             Score(
@@ -289,7 +291,7 @@ class TestDecisionSessionExtended:
                 option_name="Option B",
                 score=8.0,
                 justification="Also good",
-            )  # Same score
+            ),  # Same score
         )
 
         result = session.get_decision_matrix()
@@ -320,7 +322,7 @@ class TestDecisionSessionExtended:
                 option_name="Winner",
                 score=9.0,
                 justification="Excellent quality",
-            )
+            ),
         )
         session.options["Loser"].add_score(
             Score(
@@ -328,7 +330,7 @@ class TestDecisionSessionExtended:
                 option_name="Loser",
                 score=4.0,
                 justification="Poor quality",
-            )
+            ),
         )
 
         result = session.get_decision_matrix()
@@ -355,7 +357,7 @@ class TestDecisionSessionExtended:
                 option_name="Only Option",
                 score=7.0,
                 justification="Decent score",
-            )
+            ),
         )
 
         result = session.get_decision_matrix()

@@ -8,7 +8,7 @@ from decision_matrix_mcp.orchestrator import DecisionOrchestrator
 class TestResponseParser:
     """Test the robust response parser with various edge cases"""
 
-    @pytest.fixture
+    @pytest.fixture()
     def orchestrator(self):
         """Create orchestrator instance for testing"""
         return DecisionOrchestrator()

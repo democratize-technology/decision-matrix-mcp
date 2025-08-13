@@ -11,7 +11,7 @@ This document presents a comprehensive architectural design for refactoring the 
 **Primary Issues Identified:**
 
 1. **`evaluate_options_across_criteria` (lines 189-227)**: 35 lines handling parallel execution, error collection, and result aggregation
-2. **`_evaluate_single_option` (lines 229-304)**: 75 lines mixing prompt generation, CoT logic, backend routing, error handling, and response parsing  
+2. **`_evaluate_single_option` (lines 229-304)**: 75 lines mixing prompt generation, CoT logic, backend routing, error handling, and response parsing
 3. **`_get_thread_response` (lines 411-456)**: 35 lines with exponential backoff and error classification
 4. **Backend methods `_call_*` (lines 457-616)**: 160 lines of duplicated retry logic and error handling
 
@@ -35,12 +35,12 @@ from typing import Protocol
 
 class LLMBackend(ABC):
     """Abstract base for all LLM backend implementations"""
-    
+
     @abstractmethod
     async def generate_response(self, request: EvaluationRequest) -> EvaluationResponse:
         """Generate response for evaluation request"""
         pass
-    
+
     @abstractmethod
     def is_available(self) -> bool:
         """Check if backend dependencies are available"""
@@ -49,14 +49,14 @@ class LLMBackend(ABC):
 class BedrockBackend(LLMBackend):
     def __init__(self, client_factory: BedrockClientFactory):
         self.client_factory = client_factory
-    
+
     async def generate_response(self, request: EvaluationRequest) -> EvaluationResponse:
         # Bedrock-specific implementation
         pass
 
 class LiteLLMBackend(LLMBackend):
     async def generate_response(self, request: EvaluationRequest) -> EvaluationResponse:
-        # LiteLLM-specific implementation  
+        # LiteLLM-specific implementation
         pass
 
 class OllamaBackend(LLMBackend):
@@ -70,53 +70,53 @@ class OllamaBackend(LLMBackend):
 ```python
 class EvaluationHandler(ABC):
     """Base class for evaluation pipeline handlers"""
-    
+
     def __init__(self, next_handler: Optional['EvaluationHandler'] = None):
         self.next_handler = next_handler
-    
+
     @abstractmethod
     async def handle(self, command: EvaluationCommand) -> EvaluationResult:
         pass
 
 class PromptGeneratorHandler(EvaluationHandler):
     """Generates evaluation prompts from thread and option"""
-    
+
     async def handle(self, command: EvaluationCommand) -> EvaluationResult:
         prompt = self._generate_prompt(command.thread, command.option)
         command.context.prompt = prompt
-        
+
         if self.next_handler:
             return await self.next_handler.handle(command)
         return EvaluationResult.success(command)
 
 class CoTDecisionHandler(EvaluationHandler):
     """Decides whether to use Chain of Thought reasoning"""
-    
+
     def __init__(self, reasoning_orchestrator: DecisionReasoningOrchestrator, **kwargs):
         super().__init__(**kwargs)
         self.reasoning_orchestrator = reasoning_orchestrator
-    
+
     async def handle(self, command: EvaluationCommand) -> EvaluationResult:
         if self._should_use_cot(command):
             command.context.use_cot = True
             command.context.cot_orchestrator = self.reasoning_orchestrator
-        
+
         if self.next_handler:
             return await self.next_handler.handle(command)
         return EvaluationResult.success(command)
 
 class BackendRouterHandler(EvaluationHandler):
     """Routes request to appropriate backend"""
-    
+
     def __init__(self, backend_factory: BackendFactory, **kwargs):
         super().__init__(**kwargs)
         self.backend_factory = backend_factory
-    
+
     async def handle(self, command: EvaluationCommand) -> EvaluationResult:
         backend = self.backend_factory.create_backend(
             command.thread.criterion.model_backend
         )
-        
+
         try:
             response = await backend.generate_response(
                 command.to_evaluation_request()
@@ -124,14 +124,14 @@ class BackendRouterHandler(EvaluationHandler):
             command.context.response = response
         except Exception as e:
             return EvaluationResult.error(command, e)
-        
+
         if self.next_handler:
             return await self.next_handler.handle(command)
         return EvaluationResult.success(command)
 
 class ResponseParserHandler(EvaluationHandler):
     """Parses LLM response into score and justification"""
-    
+
     async def handle(self, command: EvaluationCommand) -> EvaluationResult:
         try:
             score, justification = self._parse_response(command.context.response)
@@ -139,7 +139,7 @@ class ResponseParserHandler(EvaluationHandler):
             command.context.justification = justification
         except Exception as e:
             return EvaluationResult.error(command, e)
-        
+
         return EvaluationResult.success(command)
 ```
 
@@ -153,7 +153,7 @@ class EvaluationCommand:
     option: Option
     context: EvaluationContext = field(default_factory=EvaluationContext)
     metadata: RequestMetadata = field(default_factory=RequestMetadata)
-    
+
     def to_evaluation_request(self) -> EvaluationRequest:
         """Convert to backend-specific request format"""
         return EvaluationRequest(
@@ -164,7 +164,7 @@ class EvaluationCommand:
             cot_orchestrator=self.context.cot_orchestrator
         )
 
-@dataclass  
+@dataclass
 class EvaluationContext:
     """Mutable context passed through pipeline"""
     prompt: str = ""
@@ -180,12 +180,12 @@ class EvaluationResult:
     success: bool
     command: EvaluationCommand
     error: Optional[Exception] = None
-    
+
     @classmethod
     def success(cls, command: EvaluationCommand) -> 'EvaluationResult':
         return cls(success=True, command=command)
-    
-    @classmethod  
+
+    @classmethod
     def error(cls, command: EvaluationCommand, error: Exception) -> 'EvaluationResult':
         return cls(success=False, command=command, error=error)
 ```
@@ -195,23 +195,23 @@ class EvaluationResult:
 ```python
 class BackendFactory:
     """Factory for creating LLM backend instances"""
-    
+
     def __init__(self):
         self._backends: dict[ModelBackend, type[LLMBackend]] = {
             ModelBackend.BEDROCK: BedrockBackend,
-            ModelBackend.LITELLM: LiteLLMBackend, 
+            ModelBackend.LITELLM: LiteLLMBackend,
             ModelBackend.OLLAMA: OllamaBackend,
         }
         self._instances: dict[ModelBackend, LLMBackend] = {}
-    
+
     def create_backend(self, backend_type: ModelBackend) -> LLMBackend:
         """Create or return cached backend instance"""
         if backend_type not in self._instances:
             backend_class = self._backends[backend_type]
             self._instances[backend_type] = backend_class()
-        
+
         return self._instances[backend_type]
-    
+
     def validate_backend_availability(self, backend_type: ModelBackend) -> bool:
         """Check if backend dependencies are available"""
         try:
@@ -226,53 +226,53 @@ class BackendFactory:
 ```python
 class RetryHandler:
     """Handles retry logic with exponential backoff"""
-    
+
     def __init__(self, max_retries: int = 3, base_delay: float = 1.0):
         self.max_retries = max_retries
         self.base_delay = base_delay
-    
+
     async def execute_with_retry(
-        self, 
+        self,
         operation: Callable[[], Awaitable[T]],
         error_classifier: ErrorClassifier
     ) -> T:
         """Execute operation with retry logic"""
         last_error = None
-        
+
         for attempt in range(self.max_retries):
             try:
                 return await operation()
             except Exception as e:
                 last_error = e
-                
+
                 if not error_classifier.is_retryable(e) or attempt == self.max_retries - 1:
                     break
-                
+
                 delay = self.base_delay * (2 ** attempt)
                 logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying in {delay}s...")
                 await asyncio.sleep(delay)
-        
+
         raise last_error
 
 class ErrorClassifier:
     """Classifies errors and determines retry eligibility"""
-    
+
     def is_retryable(self, error: Exception) -> bool:
         """Determine if error should trigger retry"""
         error_str = str(error).lower()
-        
+
         # Non-retryable errors
         non_retryable = [
-            "api_key", "credentials", "not found", "invalid", 
+            "api_key", "credentials", "not found", "invalid",
             "unauthorized", "forbidden", "model not found"
         ]
-        
+
         return not any(term in error_str for term in non_retryable)
-    
+
     def get_user_message(self, error: Exception) -> str:
         """Get user-friendly error message"""
         error_str = str(error).lower()
-        
+
         if "rate limit" in error_str or "quota" in error_str:
             return "API rate limit exceeded, please try again later"
         elif "api key" in error_str or "authentication" in error_str:
@@ -288,7 +288,7 @@ class ErrorClassifier:
 ```python
 class DecisionOrchestrator:
     """Simplified orchestrator focused on coordination"""
-    
+
     def __init__(
         self,
         backend_factory: BackendFactory,
@@ -301,9 +301,9 @@ class DecisionOrchestrator:
         self.evaluation_pipeline = self._build_evaluation_pipeline(
             reasoning_orchestrator, use_cot
         )
-    
+
     def _build_evaluation_pipeline(
-        self, 
+        self,
         reasoning_orchestrator: DecisionReasoningOrchestrator,
         use_cot: bool
     ) -> EvaluationHandler:
@@ -317,70 +317,70 @@ class DecisionOrchestrator:
                 )
             )
         )
-    
+
     async def evaluate_options_across_criteria(
         self, threads: dict[str, CriterionThread], options: list[Option]
     ) -> dict[str, dict[str, tuple[float | None, str]]]:
         """Orchestrate parallel evaluation across all criterion-option pairs"""
-        
+
         # Create evaluation tasks
         tasks = []
         task_metadata = []
-        
+
         for criterion_name, thread in threads.items():
             for option in options:
                 task = self._evaluate_option_pair(thread, option)
                 tasks.append(task)
                 task_metadata.append((criterion_name, option.name))
-        
+
         logger.info(
             f"Starting parallel evaluation of {len(options)} options "
             f"across {len(threads)} criteria"
         )
-        
+
         # Execute all evaluations in parallel
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        
+
         # Collect and organize results
         return self._organize_results(results, task_metadata)
-    
+
     async def _evaluate_option_pair(
         self, thread: CriterionThread, option: Option
     ) -> tuple[float | None, str]:
         """Evaluate a single thread-option pair through the pipeline"""
         command = EvaluationCommand(thread=thread, option=option)
-        
+
         try:
             result = await self.evaluation_pipeline.handle(command)
-            
+
             if result.success:
                 # Add assistant message to thread conversation
                 response_text = f"SCORE: {result.command.context.score or 'NO_RESPONSE'}\nJUSTIFICATION: {result.command.context.justification}"
                 thread.add_message("assistant", response_text)
-                
+
                 return (result.command.context.score, result.command.context.justification)
             else:
                 logger.error(f"Evaluation failed for {option.name}: {result.error}")
                 return (None, f"Error: {str(result.error)}")
-                
+
         except Exception as e:
             logger.exception(f"Unexpected error evaluating {option.name}")
             return (None, "Evaluation failed due to an unexpected error")
-    
+
     def _organize_results(
-        self, 
-        results: list[Any], 
+        self,
+        results: list[Any],
         task_metadata: list[tuple[str, str]]
     ) -> dict[str, dict[str, tuple[float | None, str]]]:
         """Organize raw results into criterion -> option -> (score, justification) structure"""
         evaluation_results: dict[str, dict[str, tuple[float | None, str]]] = {}
-        
+
         for i, result in enumerate(results):
             criterion_name, option_name = task_metadata[i]
-            
+
             if criterion_name not in evaluation_results:
                 evaluation_results[criterion_name] = {}
-            
+
             if isinstance(result, Exception):
                 logger.error(f"Error evaluating {option_name} for {criterion_name}: {result}")
                 evaluation_results[criterion_name][option_name] = (None, f"Error: {str(result)}")
@@ -389,14 +389,14 @@ class DecisionOrchestrator:
             else:
                 logger.error(f"Unexpected result type for {option_name}/{criterion_name}: {type(result)}")
                 evaluation_results[criterion_name][option_name] = (None, "Error: Unexpected result type")
-        
+
         return evaluation_results
-    
+
     async def test_bedrock_connection(self) -> dict[str, Any]:
         """Test Bedrock backend connectivity"""
         backend = self.backend_factory.create_backend(ModelBackend.BEDROCK)
         return await backend.test_connection()
-    
+
     def cleanup(self) -> None:
         """Clean up resources"""
         # Cleanup managed by individual backend instances
@@ -410,7 +410,7 @@ class DecisionOrchestrator:
 
 **Tasks**:
 1. Create `LLMBackend` interface and implementations
-2. Move logic from `_call_bedrock`, `_call_litellm`, `_call_ollama` 
+2. Move logic from `_call_bedrock`, `_call_litellm`, `_call_ollama`
 3. Create `BackendFactory` with availability checks
 4. Update orchestrator to use factory (keeping existing methods as facades)
 5. Comprehensive testing of backend isolation
@@ -420,7 +420,7 @@ class DecisionOrchestrator:
 - Backend logic is isolated and testable
 - No change to public API
 
-### Phase 2: Create Evaluation Pipeline (Week 2)  
+### Phase 2: Create Evaluation Pipeline (Week 2)
 **Goal**: Extract evaluation concerns into chain of responsibility
 
 **Tasks**:
@@ -475,20 +475,20 @@ class TestBedrockBackend:
     @pytest.fixture
     def mock_bedrock_client(self):
         return Mock()
-    
+
     @pytest.fixture
     def backend(self, mock_bedrock_client):
         factory = Mock()
         factory.create_client.return_value = mock_bedrock_client
         return BedrockBackend(factory)
-    
+
     async def test_generate_response_success(self, backend, mock_bedrock_client):
         # Test successful response generation
         mock_bedrock_client.converse.return_value = {...}
-        
+
         request = EvaluationRequest(...)
         response = await backend.generate_response(request)
-        
+
         assert response.text == "expected response"
         mock_bedrock_client.converse.assert_called_once()
 ```
@@ -499,19 +499,19 @@ class TestEvaluationPipeline:
     @pytest.fixture
     def mock_handlers(self):
         return [Mock(spec=EvaluationHandler) for _ in range(4)]
-    
+
     async def test_pipeline_execution(self, mock_handlers):
         # Test that command flows through all handlers
         handler1, handler2, handler3, handler4 = mock_handlers
-        
+
         # Build pipeline
         handler1.next_handler = handler2
-        handler2.next_handler = handler3  
+        handler2.next_handler = handler3
         handler3.next_handler = handler4
-        
+
         command = EvaluationCommand(...)
         await handler1.handle(command)
-        
+
         # Verify all handlers were called
         for handler in mock_handlers:
             handler.handle.assert_called_once_with(command)
@@ -527,9 +527,9 @@ class TestEvaluationIntegration:
         orchestrator = DecisionOrchestrator(...)
         threads = {...}
         options = [...]
-        
+
         results = await orchestrator.evaluate_options_across_criteria(threads, options)
-        
+
         assert len(results) == len(threads)
         for criterion_results in results.values():
             assert len(criterion_results) == len(options)
@@ -544,14 +544,14 @@ class TestPerformance:
     async def test_evaluation_latency(self, benchmark):
         # Measure evaluation latency before/after refactoring
         orchestrator = DecisionOrchestrator(...)
-        
+
         result = await benchmark.pedantic(
             orchestrator.evaluate_options_across_criteria,
             args=(threads, options),
             iterations=10,
             rounds=3
         )
-        
+
         assert result is not None
 ```
 
@@ -561,7 +561,7 @@ class TestPerformance:
 
 **Abstraction Layer Impact**:
 - Strategy pattern: +1 virtual method call per backend operation
-- Chain of responsibility: +3-4 method calls per evaluation  
+- Chain of responsibility: +3-4 method calls per evaluation
 - Command pattern: +object creation overhead per evaluation
 
 **Mitigation Strategies**:
@@ -609,14 +609,14 @@ class TestPerformance:
 
 ### Extensibility Improvements
 
-**Adding New Backends**: 
+**Adding New Backends**:
 1. Implement `LLMBackend` interface
 2. Register with `BackendFactory`
 3. No changes to orchestrator or evaluation logic
 
 **New Evaluation Features**:
 - Add caching handler to pipeline
-- Implement validation handler  
+- Implement validation handler
 - Add metrics collection handler
 - Insert A/B testing handler
 
@@ -670,7 +670,7 @@ This refactoring design transforms the monolithic `DecisionOrchestrator` into a 
 
 The investment in this refactoring will pay dividends in:
 - Reduced development time for new features
-- Improved system reliability and error handling  
+- Improved system reliability and error handling
 - Better testing and debugging capabilities
 - Easier onboarding for new developers
 - Enhanced scalability for future requirements

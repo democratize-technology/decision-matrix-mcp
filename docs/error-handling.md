@@ -90,7 +90,7 @@ When criteria cannot evaluate options, they abstain rather than error:
 # Abstention example
 score = Score(
     criterion_name="performance",
-    option_name="Option A", 
+    option_name="Option A",
     score=None,  # Abstained
     justification="Performance criterion not applicable to this option type"
 )
@@ -279,7 +279,7 @@ for var in required_vars:
   "suggestion": "Run: pip install boto3",
   "recovery_actions": [
     "Install boto3 package",
-    "Configure AWS credentials", 
+    "Configure AWS credentials",
     "Set AWS_REGION environment variable"
   ]
 }

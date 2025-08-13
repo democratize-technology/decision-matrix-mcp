@@ -22,13 +22,13 @@
 
 """Tests for the service layer components"""
 
+from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
-from unittest.mock import Mock, AsyncMock, patch
 
 from decision_matrix_mcp.dependency_injection import ServiceContainer
-from decision_matrix_mcp.services import DecisionService, ValidationService, ResponseService
-from decision_matrix_mcp.models import ModelBackend, DecisionSession
-from decision_matrix_mcp.formatting import DecisionFormatter
+from decision_matrix_mcp.models import ModelBackend
+from decision_matrix_mcp.services import DecisionService, ResponseService, ValidationService
 
 
 class TestServiceContainer:
@@ -90,15 +90,15 @@ class TestServiceContainer:
 class TestDecisionService:
     """Test the DecisionService"""
 
-    @pytest.fixture
+    @pytest.fixture()
     def mock_session_manager(self):
         return Mock()
 
-    @pytest.fixture
+    @pytest.fixture()
     def mock_orchestrator(self):
         return Mock()
 
-    @pytest.fixture
+    @pytest.fixture()
     def decision_service(self, mock_session_manager, mock_orchestrator):
         return DecisionService(mock_session_manager, mock_orchestrator)
 
@@ -110,7 +110,9 @@ class TestDecisionService:
         result = decision_service.create_session("test topic", ["option1", "option2"])
 
         mock_session_manager.create_session.assert_called_once_with(
-            topic="test topic", initial_options=["option1", "option2"], temperature=0.1
+            topic="test topic",
+            initial_options=["option1", "option2"],
+            temperature=0.1,
         )
         assert result is mock_session
 
@@ -163,7 +165,7 @@ class TestDecisionService:
         criterion = decision_service.create_criterion_from_request(request, session)
         assert criterion.temperature == 0.3
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_execute_parallel_evaluation(self, decision_service, mock_orchestrator):
         """Test parallel evaluation delegation"""
         session = Mock()
@@ -177,11 +179,12 @@ class TestDecisionService:
         result = await decision_service.execute_parallel_evaluation(session)
 
         mock_orchestrator.evaluate_options_across_criteria.assert_called_once_with(
-            {"criterion1": "thread1"}, ["option1"]
+            {"criterion1": "thread1"},
+            ["option1"],
         )
         assert result == mock_results
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_test_bedrock_connection(self, decision_service, mock_orchestrator):
         """Test Bedrock connection test delegation"""
         mock_result = {"status": "ok", "region": "us-east-1"}
@@ -196,7 +199,7 @@ class TestDecisionService:
 class TestValidationService:
     """Test the ValidationService"""
 
-    @pytest.fixture
+    @pytest.fixture()
     def validation_service(self):
         return ValidationService()
 
@@ -204,7 +207,9 @@ class TestValidationService:
         """Test session ID validation delegation"""
         # The ValidationService uses self.session_validator which is set to SessionValidator class
         with patch.object(
-            validation_service.session_validator, "validate_session_id", return_value=True
+            validation_service.session_validator,
+            "validate_session_id",
+            return_value=True,
         ) as mock_validate:
             result = validation_service.validate_session_id("test-id")
 
@@ -214,14 +219,17 @@ class TestValidationService:
     def test_validate_session_exists_success(self, validation_service):
         """Test successful session existence validation"""
         with patch.object(
-            validation_service.session_validator, "validate_session_id", return_value=True
+            validation_service.session_validator,
+            "validate_session_id",
+            return_value=True,
         ):
             mock_session_manager = Mock()
             mock_session = Mock()
             mock_session_manager.get_session.return_value = mock_session
 
             session, error = validation_service.validate_session_exists(
-                "valid-id", mock_session_manager
+                "valid-id",
+                mock_session_manager,
             )
 
             assert session is mock_session
@@ -230,12 +238,15 @@ class TestValidationService:
     def test_validate_session_exists_invalid_id(self, validation_service):
         """Test session existence validation with invalid ID"""
         with patch.object(
-            validation_service.session_validator, "validate_session_id", return_value=False
+            validation_service.session_validator,
+            "validate_session_id",
+            return_value=False,
         ):
             mock_session_manager = Mock()
 
             session, error = validation_service.validate_session_exists(
-                "invalid-id", mock_session_manager
+                "invalid-id",
+                mock_session_manager,
             )
 
             assert session is None
@@ -244,13 +255,16 @@ class TestValidationService:
     def test_validate_session_exists_not_found(self, validation_service):
         """Test session existence validation when session not found"""
         with patch.object(
-            validation_service.session_validator, "validate_session_id", return_value=True
+            validation_service.session_validator,
+            "validate_session_id",
+            return_value=True,
         ):
             mock_session_manager = Mock()
             mock_session_manager.get_session.return_value = None
 
             session, error = validation_service.validate_session_exists(
-                "missing-id", mock_session_manager
+                "missing-id",
+                mock_session_manager,
             )
 
             assert session is None
@@ -291,14 +305,14 @@ class TestValidationService:
 class TestResponseService:
     """Test the ResponseService"""
 
-    @pytest.fixture
+    @pytest.fixture()
     def mock_formatter(self):
         formatter = Mock()
         formatter.format_error.return_value = "Formatted error"
         formatter.format_session_created.return_value = "Formatted session"
         return formatter
 
-    @pytest.fixture
+    @pytest.fixture()
     def response_service(self, mock_formatter):
         return ResponseService(mock_formatter)
 

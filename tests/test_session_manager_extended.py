@@ -410,7 +410,8 @@ class TestGetCurrentSession:
     def test_current_session_expired_cleanup(self):
         """Test that current session triggers cleanup of expired sessions"""
         manager = SessionManager(
-            session_ttl_hours=1, cleanup_interval_minutes=0
+            session_ttl_hours=1,
+            cleanup_interval_minutes=0,
         )  # Set interval to 0 for immediate cleanup
 
         # Create an old session

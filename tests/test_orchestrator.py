@@ -1,6 +1,5 @@
 """Tests for the DecisionOrchestrator"""
 
-import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -18,12 +17,12 @@ from decision_matrix_mcp.orchestrator import DecisionOrchestrator
 class TestDecisionOrchestrator:
     """Test the DecisionOrchestrator class"""
 
-    @pytest.fixture
+    @pytest.fixture()
     def orchestrator(self):
         """Create an orchestrator instance"""
         return DecisionOrchestrator(max_retries=2, retry_delay=0.1)
 
-    @pytest.fixture
+    @pytest.fixture()
     def sample_criterion(self):
         """Create a sample criterion"""
         return Criterion(
@@ -33,12 +32,12 @@ class TestDecisionOrchestrator:
             model_backend=ModelBackend.BEDROCK,
         )
 
-    @pytest.fixture
+    @pytest.fixture()
     def sample_thread(self, sample_criterion):
         """Create a sample criterion thread"""
         return CriterionThread(id="test-thread", criterion=sample_criterion)
 
-    @pytest.fixture
+    @pytest.fixture()
     def sample_options(self):
         """Create sample options"""
         return [
@@ -158,9 +157,12 @@ JUSTIFICATION: Invalid score."""
         score, justification = orchestrator._parse_evaluation_response(response)
         assert score is None
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_evaluate_single_option_success(
-        self, orchestrator, sample_thread, sample_options
+        self,
+        orchestrator,
+        sample_thread,
+        sample_options,
     ):
         """Test successful single option evaluation"""
         mock_response = """SCORE: 8
@@ -168,16 +170,20 @@ JUSTIFICATION: Strong performance characteristics."""
 
         with patch.object(orchestrator, "_get_thread_response", return_value=mock_response):
             score, justification = await orchestrator._evaluate_single_option(
-                sample_thread, sample_options[0]
+                sample_thread,
+                sample_options[0],
             )
 
             assert score == 8.0
             assert justification == "Strong performance characteristics."
             assert len(sample_thread.conversation_history) == 2
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_evaluate_single_option_abstention(
-        self, orchestrator, sample_thread, sample_options
+        self,
+        orchestrator,
+        sample_thread,
+        sample_options,
     ):
         """Test option evaluation with abstention"""
         mock_response = """SCORE: [NO_RESPONSE]
@@ -185,15 +191,19 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
 
         with patch.object(orchestrator, "_get_thread_response", return_value=mock_response):
             score, justification = await orchestrator._evaluate_single_option(
-                sample_thread, sample_options[0]
+                sample_thread,
+                sample_options[0],
             )
 
             assert score is None
             assert "not applicable" in justification
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_evaluate_single_option_llm_error(
-        self, orchestrator, sample_thread, sample_options
+        self,
+        orchestrator,
+        sample_thread,
+        sample_options,
     ):
         """Test handling LLM backend errors"""
         error = LLMBackendError(
@@ -204,28 +214,35 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
 
         with patch.object(orchestrator, "_get_thread_response", side_effect=error):
             score, justification = await orchestrator._evaluate_single_option(
-                sample_thread, sample_options[0]
+                sample_thread,
+                sample_options[0],
             )
 
             assert score is None
             assert justification == "Rate limit reached. Try again later."
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_evaluate_single_option_unexpected_error(
-        self, orchestrator, sample_thread, sample_options
+        self,
+        orchestrator,
+        sample_thread,
+        sample_options,
     ):
         """Test handling unexpected errors"""
         with patch.object(
-            orchestrator, "_get_thread_response", side_effect=Exception("Unknown error")
+            orchestrator,
+            "_get_thread_response",
+            side_effect=Exception("Unknown error"),
         ):
             score, justification = await orchestrator._evaluate_single_option(
-                sample_thread, sample_options[0]
+                sample_thread,
+                sample_options[0],
             )
 
             assert score is None
             assert justification == "Evaluation failed due to an unexpected error"
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_evaluate_options_across_criteria(self, orchestrator, sample_options):
         """Test evaluating multiple options across multiple criteria"""
         # Create two criteria threads
@@ -258,7 +275,7 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
             assert results["Cost"]["Option A"] == (7.0, "Reasonable cost")
             assert results["Cost"]["Option B"] == (9.0, "Very cost effective")
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_evaluate_options_with_exceptions(self, orchestrator, sample_options):
         """Test handling exceptions during parallel evaluation"""
         criterion = Criterion(name="Performance", description="Evaluate performance", weight=2.0)
@@ -273,7 +290,7 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
             assert results["Performance"]["Option A"] == (None, "Error: Evaluation failed")
             assert results["Performance"]["Option B"] == (7.0, "Good option")
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_get_thread_response_unknown_backend(self, orchestrator):
         """Test error handling for unknown backend"""
         criterion = Criterion(
@@ -289,7 +306,7 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
 
         assert "Unknown model backend" in str(exc_info.value)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_get_thread_response_retry_logic(self, orchestrator, sample_thread):
         """Test retry logic with transient errors"""
         # Mock backend function that fails once then succeeds
@@ -310,7 +327,7 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
             assert response == "Success response"
             assert call_count == 2
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_get_thread_response_non_retryable_errors(self, orchestrator, sample_thread):
         """Test that non-retryable errors fail immediately"""
         non_retryable_errors = [
@@ -333,7 +350,7 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
 
             assert error_msg in str(exc_info.value)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_get_thread_response_max_retries_exceeded(self, orchestrator, sample_thread):
         """Test max retries exceeded"""
 
@@ -349,19 +366,19 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
 
             assert "Persistent error" in str(exc_info.value)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_call_bedrock_success(self, orchestrator, sample_thread):
         """Test successful Bedrock API call"""
         mock_response = {
             "body": MagicMock(
-                read=lambda: b'{"content": [{"text": "SCORE: 8\\nJUSTIFICATION: Good"}]}'
-            )
+                read=lambda: b'{"content": [{"text": "SCORE: 8\\nJUSTIFICATION: Good"}]}',
+            ),
         }
 
         with patch("boto3.Session") as mock_session:
             mock_client = MagicMock()
             mock_client.converse.return_value = {
-                "output": {"message": {"content": [{"text": "SCORE: 8\nJUSTIFICATION: Good"}]}}
+                "output": {"message": {"content": [{"text": "SCORE: 8\nJUSTIFICATION: Good"}]}},
             }
             mock_session.return_value.client.return_value = mock_client
 
@@ -380,7 +397,7 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
             )
             assert "additionalModelRequestFields" not in call_args.kwargs
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_call_bedrock_import_error(self, orchestrator, sample_thread):
         """Test Bedrock call when boto3 not available"""
         # Temporarily patch the BOTO3_AVAILABLE flag
@@ -397,7 +414,7 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
         finally:
             orch_module.BOTO3_AVAILABLE = original_value
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_call_bedrock_api_error(self, orchestrator, sample_thread):
         """Test Bedrock API errors"""
         with patch("boto3.Session") as mock_session:
@@ -415,7 +432,7 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
 
             assert "Bedrock API call failed" in str(exc_info.value)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_call_bedrock_invalid_response(self, orchestrator, sample_thread):
         """Test handling invalid Bedrock response format"""
         mock_response = {"body": MagicMock(read=lambda: b'{"invalid": "format"}')}
@@ -430,12 +447,12 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
 
             assert "Invalid response format" in str(exc_info.value)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_call_litellm_success(self, orchestrator, sample_thread):
         """Test successful LiteLLM API call"""
         mock_response = MagicMock()
         mock_response.choices = [
-            MagicMock(message=MagicMock(content="SCORE: 7\nJUSTIFICATION: Good"))
+            MagicMock(message=MagicMock(content="SCORE: 7\nJUSTIFICATION: Good")),
         ]
 
         with patch("litellm.acompletion", return_value=mock_response) as mock_litellm:
@@ -448,7 +465,7 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
             assert call_args.kwargs["temperature"] == sample_thread.criterion.temperature
             assert call_args.kwargs["max_tokens"] == sample_thread.criterion.max_tokens
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_call_litellm_import_error(self, orchestrator, sample_thread):
         """Test LiteLLM call when litellm not available"""
         # Temporarily patch the LITELLM_AVAILABLE flag
@@ -465,7 +482,7 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
         finally:
             orch_module.LITELLM_AVAILABLE = original_value
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_call_litellm_api_error(self, orchestrator, sample_thread):
         """Test LiteLLM API errors"""
         with patch("litellm.acompletion", side_effect=Exception("API key invalid")):
@@ -474,13 +491,13 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
 
             assert "LiteLLM API call failed" in str(exc_info.value)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_call_ollama_success(self, orchestrator, sample_thread):
         """Test successful Ollama API call"""
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "message": {"content": "SCORE: 6\nJUSTIFICATION: Average"}
+            "message": {"content": "SCORE: 6\nJUSTIFICATION: Average"},
         }
 
         with patch("httpx.AsyncClient") as mock_client_class:
@@ -497,7 +514,7 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
             request_json = call_args.kwargs["json"]
             assert request_json["options"]["temperature"] == sample_thread.criterion.temperature
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_call_ollama_custom_host(self, orchestrator, sample_thread):
         """Test Ollama with custom host from environment"""
         mock_response = MagicMock()
@@ -517,7 +534,7 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
                 call_args = mock_client.post.call_args
                 assert call_args.args[0] == "http://custom:11434/api/chat"
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_call_ollama_import_error(self, orchestrator, sample_thread):
         """Test Ollama call when httpx not available"""
         # Temporarily patch the HTTPX_AVAILABLE flag
@@ -534,7 +551,7 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
         finally:
             orch_module.HTTPX_AVAILABLE = original_value
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_call_ollama_api_error(self, orchestrator, sample_thread):
         """Test Ollama API errors"""
         mock_response = MagicMock()
@@ -552,7 +569,7 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
             assert exc_info.value.backend == "ollama"
             assert exc_info.value.user_message == "Model not available in Ollama: llama2"
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_call_ollama_connection_error(self, orchestrator, sample_thread):
         """Test Ollama connection errors"""
         with patch("httpx.AsyncClient") as mock_client_class:

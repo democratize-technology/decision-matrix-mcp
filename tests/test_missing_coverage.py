@@ -1,13 +1,13 @@
 """Tests for 100% coverage of remaining modules"""
 
-import pytest
 from unittest.mock import MagicMock, Mock, patch
 
-from decision_matrix_mcp import __main__, SessionError, clear_all_sessions
 from mcp.server.fastmcp import Context
-from decision_matrix_mcp.models import Option, DecisionSession, Score
-from decision_matrix_mcp.session_manager import SessionManager
+import pytest
 
+from decision_matrix_mcp import SessionError, clear_all_sessions
+from decision_matrix_mcp.models import DecisionSession, Option, Score
+from decision_matrix_mcp.session_manager import SessionManager
 
 # Mock context for all tests
 mock_ctx = Mock(spec=Context)
@@ -54,7 +54,10 @@ class TestModelEdgeCases:
 
         # Add score with None value but also None for score attribute check
         score = Score(
-            criterion_name="Test", option_name="Option A", score=None, justification="Abstained"
+            criterion_name="Test",
+            option_name="Option A",
+            score=None,
+            justification="Abstained",
         )
         # Manually set to test the None check branch
         score.score = 0.0  # This will test the "score is not None" but value is falsy
@@ -90,7 +93,7 @@ class TestSessionManagerEdgeCases:
 class TestClearAllSessions:
     """Test clear_all_sessions function"""
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_clear_all_sessions_success(self):
         """Test successful clearing of all sessions"""
         with patch("decision_matrix_mcp.get_server_components") as mock_get_components:
@@ -114,7 +117,7 @@ class TestClearAllSessions:
             assert "Cleared 2 active sessions" in result["message"]
             assert result["stats"]["active_sessions"] == 1
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_clear_all_sessions_error(self):
         """Test error handling in clear_all_sessions"""
         with patch("decision_matrix_mcp.get_server_components") as mock_get_components:
@@ -139,10 +142,10 @@ class TestClearAllSessions:
 class TestSessionErrorHandling:
     """Test SessionError handling in handlers"""
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_add_criterion_session_error(self):
         """Test SessionError handling in add_criterion"""
-        from decision_matrix_mcp import add_criterion, AddCriterionRequest
+        from decision_matrix_mcp import AddCriterionRequest, add_criterion
 
         # Create a valid session first
         with patch("decision_matrix_mcp.get_server_components") as mock_get_components:
@@ -158,11 +161,15 @@ class TestSessionErrorHandling:
 
             # Make add_criterion raise SessionError
             mock_session.add_criterion.side_effect = SessionError(
-                "Session error", "Session is locked"
+                "Session error",
+                "Session is locked",
             )
 
             request = AddCriterionRequest(
-                session_id="test", name="Test", description="Test", weight=1.0
+                session_id="test",
+                name="Test",
+                description="Test",
+                weight=1.0,
             )
 
             result = await add_criterion(request, mock_ctx)
@@ -241,7 +248,7 @@ class TestFormatterMissingLines:
         matrix_data = {
             "topic": "Test",
             "rankings": [
-                {"option": "Winner", "weighted_total": 9.5, "breakdown": []}  # > 8.0 threshold
+                {"option": "Winner", "weighted_total": 9.5, "breakdown": []},  # > 8.0 threshold
             ],
             "recommendation": "Winner wins",
             "criteria_weights": {},
@@ -270,9 +277,9 @@ class TestFormatterMissingLines:
                             "weighted_score": 16.0,
                             "justification": "Very cost effective solution with excellent ROI and low maintenance costs over time",
                             "abstained": False,
-                        }
+                        },
                     ],
-                }
+                },
             ],
             "recommendation": "Test wins",
             "criteria_weights": {"Cost": 2.0},

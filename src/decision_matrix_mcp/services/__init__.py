@@ -20,7 +20,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""Service layer for Decision Matrix MCP
+"""Service layer for Decision Matrix MCP.
+
 Provides business logic separation and dependency injection.
 """
 

@@ -107,7 +107,7 @@ Each backend checks for its own dependencies and configuration:
 - [Ollama API documentation](https://github.com/ollama/ollama/blob/main/docs/api.md)
 
 ---
-**Decision Date:** 2025-08-12  
-**Last Updated:** 2025-08-12  
-**Author(s):** Claude Code  
+**Decision Date:** 2025-08-12
+**Last Updated:** 2025-08-12
+**Author(s):** Claude Code
 **Review Status:** Approved

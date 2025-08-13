@@ -118,7 +118,7 @@ session_manager = SessionManager(
 # Limit conversation history size
 class CriterionThread:
     MAX_HISTORY_LENGTH = 10  # Keep only recent messages
-    
+
     def add_message(self, role: str, content: str):
         self.conversation_history.append(message)
         # Trim history to prevent memory growth
@@ -134,14 +134,14 @@ class CriterionThread:
 OPTIMAL_BATCH_SIZE = 5  # 5 options per criterion evaluation batch
 
 async def evaluate_in_batches(self, options: list[Option], criterion: Criterion):
-    batches = [options[i:i+OPTIMAL_BATCH_SIZE] 
+    batches = [options[i:i+OPTIMAL_BATCH_SIZE]
                for i in range(0, len(options), OPTIMAL_BATCH_SIZE)]
-    
+
     results = []
     for batch in batches:
         batch_result = await self.evaluate_batch(batch, criterion)
         results.extend(batch_result)
-    
+
     return results
 ```
 
@@ -167,7 +167,7 @@ def calculate_timeout(model_backend: ModelBackend, options_count: int) -> int:
         ModelBackend.LITELLM: 45,  # Network overhead
         ModelBackend.OLLAMA: 60    # Local processing variance
     }
-    
+
     # Scale with number of options
     complexity_factor = min(options_count / 5, 3.0)  # Max 3x scaling
     return int(base_timeout[model_backend] * complexity_factor)
@@ -198,14 +198,14 @@ class BackendCircuitBreaker:
         self.recovery_timeout = recovery_timeout
         self.last_failure = None
         self.state = "CLOSED"
-    
+
     async def call(self, func, *args, **kwargs):
         if self.state == "OPEN":
             if time.time() - self.last_failure > self.recovery_timeout:
                 self.state = "HALF_OPEN"
             else:
                 raise CircuitBreakerOpenError()
-        
+
         try:
             result = await func(*args, **kwargs)
             if self.state == "HALF_OPEN":
@@ -231,7 +231,7 @@ class MemoryAwareSessionManager(SessionManager):
     def __init__(self, memory_threshold=80):  # 80% memory usage
         super().__init__()
         self.memory_threshold = memory_threshold
-    
+
     def cleanup_if_needed(self):
         memory_percent = psutil.virtual_memory().percent
         if memory_percent > self.memory_threshold:
@@ -246,12 +246,12 @@ class MemoryAwareSessionManager(SessionManager):
 class OptimizedDecisionSession(DecisionSession):
     def get_decision_matrix(self, include_history=False) -> dict[str, Any]:
         result = super().get_decision_matrix()
-        
+
         if not include_history:
             # Remove conversation history from response
             for thread in self.threads.values():
                 thread.conversation_history = []
-        
+
         return result
 ```
 
@@ -269,18 +269,18 @@ class PerformanceMonitor:
     def __init__(self):
         self.latencies = defaultdict(list)
         self.error_counts = defaultdict(int)
-    
+
     def record_latency(self, operation: str, latency: float):
         self.latencies[operation].append(latency)
         # Keep only recent measurements
         if len(self.latencies[operation]) > 1000:
             self.latencies[operation] = self.latencies[operation][-500:]
-    
+
     def get_percentiles(self, operation: str) -> dict:
         latencies = sorted(self.latencies[operation])
         if not latencies:
             return {}
-        
+
         n = len(latencies)
         return {
             "p50": latencies[int(n * 0.5)],
@@ -298,18 +298,18 @@ class ThroughputMonitor:
         self.window_size = window_size
         self.requests = []
         self.errors = []
-    
+
     def record_request(self, success: bool):
         now = time.time()
         self.requests.append(now)
         if not success:
             self.errors.append(now)
-        
+
         # Clean old data
         cutoff = now - self.window_size
         self.requests = [t for t in self.requests if t > cutoff]
         self.errors = [t for t in self.errors if t > cutoff]
-    
+
     def get_metrics(self) -> dict:
         return {
             "requests_per_minute": len(self.requests) / (self.window_size / 60),
@@ -443,7 +443,7 @@ backends:
 1. **Session Accumulation**
    ```python
    # Check for sessions that never expire
-   old_sessions = [s for s in sessions.values() 
+   old_sessions = [s for s in sessions.values()
                    if (now - s.created_at).seconds > 7200]  # >2 hours
    if len(old_sessions) > 10:
        logger.warning(f"Found {len(old_sessions)} old sessions")
@@ -452,7 +452,7 @@ backends:
 2. **Conversation History Growth**
    ```python
    # Monitor conversation history sizes
-   large_histories = [t for t in threads.values() 
+   large_histories = [t for t in threads.values()
                       if len(t.conversation_history) > 20]
    if large_histories:
        logger.warning("Large conversation histories detected")

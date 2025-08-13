@@ -21,6 +21,7 @@
 # SOFTWARE.
 
 """Validation decorators for request validation with consistent error handling.
+
 Eliminates duplication of validation patterns across MCP tool functions.
 """
 
@@ -34,6 +35,7 @@ from .session_manager import SessionValidator
 
 class ValidationErrorFormatter:
     """Service for formatting validation error messages without circular imports.
+
     Uses service locator pattern with lazy initialization and graceful fallbacks.
     """
 

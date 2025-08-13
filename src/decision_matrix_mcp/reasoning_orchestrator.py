@@ -230,13 +230,13 @@ JUSTIFICATION: [your reasoning summary]""",
             return score, justification, reasoning_summary
 
         except asyncio.TimeoutError as e:
-            logger.exception(f"CoT evaluation timed out after {self.cot_timeout}s")
+            logger.exception("CoT evaluation timed out after %ss", self.cot_timeout)
             raise CoTTimeoutError(self.cot_timeout) from e
         except ChainOfThoughtError:
             # Re-raise our custom exceptions
             raise
         except Exception as e:
-            logger.error(f"Unexpected error in CoT evaluation: {e}", exc_info=True)
+            logger.error("Unexpected error in CoT evaluation: %s", e, exc_info=True)
             raise CoTProcessingError(
                 f"Failed to process reasoning: {e!s}",
                 stage="evaluation",
@@ -246,7 +246,7 @@ JUSTIFICATION: [your reasoning summary]""",
             try:
                 processor.clear_reasoning()
             except Exception as cleanup_error:
-                logger.warning(f"Error during processor cleanup: {cleanup_error}")
+                logger.warning("Error during processor cleanup: %s", cleanup_error)
 
     def _parse_evaluation_response(self, response: str) -> tuple[float | None, str]:
         """Parse the evaluation response to extract score and justification.
@@ -275,10 +275,10 @@ JUSTIFICATION: [your reasoning summary]""",
                 try:
                     score = float(score_text)
                     if score < 1.0 or score > 10.0:
-                        logger.warning(f"Score {score} outside valid range, clamping to 1-10")
+                        logger.warning("Score %s outside valid range, clamping to 1-10", score)
                     score = max(1.0, min(10.0, score))  # Clamp to 1-10
                 except ValueError as e:
-                    logger.exception(f"Failed to parse score '{score_text}': {e}")
+                    logger.exception("Failed to parse score '%s'", score_text)
                     raise CoTProcessingError(
                         f"Invalid score format: {score_text}",
                         stage="score_parsing",
@@ -294,6 +294,6 @@ JUSTIFICATION: [your reasoning summary]""",
 
         # Validate we got at least something useful
         if score is None and "NO_RESPONSE" not in response.upper():
-            logger.warning(f"Response missing valid score: {response[:200]}...")
+            logger.warning("Response missing valid score: %s...", response[:200])
 
         return score, justification

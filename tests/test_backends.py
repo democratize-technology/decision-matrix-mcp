@@ -1,7 +1,8 @@
 """Tests for individual backend implementations"""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from decision_matrix_mcp.backends import BedrockBackend, LiteLLMBackend, OllamaBackend
 from decision_matrix_mcp.exceptions import LLMAPIError, LLMConfigurationError
@@ -11,12 +12,12 @@ from decision_matrix_mcp.models import Criterion, CriterionThread, ModelBackend
 class TestBedrockBackend:
     """Test BedrockBackend implementation"""
 
-    @pytest.fixture
+    @pytest.fixture()
     def backend(self):
         """Create a BedrockBackend instance"""
         return BedrockBackend()
 
-    @pytest.fixture
+    @pytest.fixture()
     def sample_thread(self):
         """Create a sample criterion thread"""
         criterion = Criterion(
@@ -39,11 +40,11 @@ class TestBedrockBackend:
         with patch("decision_matrix_mcp.backends.bedrock.BOTO3_AVAILABLE", False):
             assert backend.is_available() is False
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_generate_response_success(self, backend, sample_thread):
         """Test successful response generation"""
         mock_response = {
-            "output": {"message": {"content": [{"text": "SCORE: 8\nJUSTIFICATION: Good"}]}}
+            "output": {"message": {"content": [{"text": "SCORE: 8\nJUSTIFICATION: Good"}]}},
         }
 
         with patch("decision_matrix_mcp.backends.bedrock.BOTO3_AVAILABLE", True):
@@ -56,7 +57,7 @@ class TestBedrockBackend:
                 assert response == "SCORE: 8\nJUSTIFICATION: Good"
                 mock_client.converse.assert_called_once()
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_generate_response_not_available(self, backend, sample_thread):
         """Test response generation when boto3 is not available"""
         with patch("decision_matrix_mcp.backends.bedrock.BOTO3_AVAILABLE", False):
@@ -64,7 +65,7 @@ class TestBedrockBackend:
                 await backend.generate_response(sample_thread)
             assert "boto3 is not installed" in str(exc_info.value)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_generate_response_api_error(self, backend, sample_thread):
         """Test handling of Bedrock API errors"""
         with patch("decision_matrix_mcp.backends.bedrock.BOTO3_AVAILABLE", True):
@@ -116,12 +117,12 @@ class TestBedrockBackend:
 class TestLiteLLMBackend:
     """Test LiteLLMBackend implementation"""
 
-    @pytest.fixture
+    @pytest.fixture()
     def backend(self):
         """Create a LiteLLMBackend instance"""
         return LiteLLMBackend()
 
-    @pytest.fixture
+    @pytest.fixture()
     def sample_thread(self):
         """Create a sample criterion thread"""
         criterion = Criterion(
@@ -144,12 +145,12 @@ class TestLiteLLMBackend:
         with patch("decision_matrix_mcp.backends.litellm.LITELLM_AVAILABLE", False):
             assert backend.is_available() is False
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_generate_response_success(self, backend, sample_thread):
         """Test successful response generation"""
         mock_response = MagicMock()
         mock_response.choices = [
-            MagicMock(message=MagicMock(content="SCORE: 7\nJUSTIFICATION: Good"))
+            MagicMock(message=MagicMock(content="SCORE: 7\nJUSTIFICATION: Good")),
         ]
 
         with patch("decision_matrix_mcp.backends.litellm.LITELLM_AVAILABLE", True):
@@ -161,7 +162,7 @@ class TestLiteLLMBackend:
                 assert response == "SCORE: 7\nJUSTIFICATION: Good"
                 mock_litellm.assert_called_once()
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_generate_response_not_available(self, backend, sample_thread):
         """Test response generation when litellm is not available"""
         with patch("decision_matrix_mcp.backends.litellm.LITELLM_AVAILABLE", False):
@@ -169,7 +170,7 @@ class TestLiteLLMBackend:
                 await backend.generate_response(sample_thread)
             assert "litellm is not installed" in str(exc_info.value)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_generate_response_api_error(self, backend, sample_thread):
         """Test handling of LiteLLM API errors"""
         with patch("decision_matrix_mcp.backends.litellm.LITELLM_AVAILABLE", True):
@@ -186,12 +187,12 @@ class TestLiteLLMBackend:
 class TestOllamaBackend:
     """Test OllamaBackend implementation"""
 
-    @pytest.fixture
+    @pytest.fixture()
     def backend(self):
         """Create an OllamaBackend instance"""
         return OllamaBackend()
 
-    @pytest.fixture
+    @pytest.fixture()
     def sample_thread(self):
         """Create a sample criterion thread"""
         criterion = Criterion(
@@ -214,13 +215,13 @@ class TestOllamaBackend:
         with patch("decision_matrix_mcp.backends.ollama.HTTPX_AVAILABLE", False):
             assert backend.is_available() is False
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_generate_response_success(self, backend, sample_thread):
         """Test successful response generation"""
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "message": {"content": "SCORE: 6\nJUSTIFICATION: Average"}
+            "message": {"content": "SCORE: 6\nJUSTIFICATION: Average"},
         }
 
         with patch("decision_matrix_mcp.backends.ollama.HTTPX_AVAILABLE", True):
@@ -234,7 +235,7 @@ class TestOllamaBackend:
                 assert response == "SCORE: 6\nJUSTIFICATION: Average"
                 mock_client.post.assert_called_once()
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_generate_response_not_available(self, backend, sample_thread):
         """Test response generation when httpx is not available"""
         with patch("decision_matrix_mcp.backends.ollama.HTTPX_AVAILABLE", False):
@@ -242,7 +243,7 @@ class TestOllamaBackend:
                 await backend.generate_response(sample_thread)
             assert "httpx is not installed" in str(exc_info.value)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_generate_response_api_error(self, backend, sample_thread):
         """Test handling of Ollama API errors"""
         with patch("decision_matrix_mcp.backends.ollama.HTTPX_AVAILABLE", True):

@@ -109,7 +109,7 @@ class ValidationLimitsConfig(BaseModel):
             if v <= min_options:
                 raise ValueError(
                     f"max_options_allowed ({v}) must be greater than min_options_required ({min_options})",
-            )
+                )
         return v
 
     @field_validator("max_criterion_weight")

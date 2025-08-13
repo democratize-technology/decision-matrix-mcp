@@ -65,7 +65,7 @@ Technical details about how this decision is implemented.
 - Code examples
 
 ---
-**Decision Date:** YYYY-MM-DD  
-**Last Updated:** YYYY-MM-DD  
-**Author(s):** [Name(s)]  
+**Decision Date:** YYYY-MM-DD
+**Last Updated:** YYYY-MM-DD
+**Author(s):** [Name(s)]
 **Review Status:** [Draft | Under Review | Approved]

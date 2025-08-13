@@ -39,7 +39,9 @@ class TestModels:
     def test_criterion_creation(self):
         """Test Criterion model creation and prompt generation"""
         criterion = Criterion(
-            name="scalability", description="How well does this scale with growth?", weight=2.0
+            name="scalability",
+            description="How well does this scale with growth?",
+            weight=2.0,
         )
 
         assert criterion.name == "scalability"
@@ -88,7 +90,9 @@ class TestModels:
     def test_decision_session(self):
         """Test DecisionSession functionality"""
         session = DecisionSession(
-            session_id="test-123", created_at=datetime.now(timezone.utc), topic="Test decision"
+            session_id="test-123",
+            created_at=datetime.now(timezone.utc),
+            topic="Test decision",
         )
 
         # Add options
@@ -194,7 +198,7 @@ class TestSessionValidator:
         assert not SessionValidator.validate_option_name(None)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestIntegration:
     """Integration tests for the complete system"""
 
@@ -202,7 +206,6 @@ class TestIntegration:
         """Test a complete decision analysis workflow"""
         # This would test the full MCP workflow but requires
         # more complex mocking of LLM backends
-        pass
 
 
 if __name__ == "__main__":

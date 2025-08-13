@@ -14,7 +14,6 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from decision_matrix_mcp.backends.base import LLMBackend
 from decision_matrix_mcp.backends.bedrock import BedrockBackend
 from decision_matrix_mcp.backends.factory import BackendFactory
 from decision_matrix_mcp.backends.litellm import LiteLLMBackend
@@ -50,7 +49,7 @@ class TestBackendFactory:
 class TestBedrockBackendIntegration:
     """Test Bedrock backend integration."""
 
-    @pytest.fixture
+    @pytest.fixture()
     def bedrock_backend(self):
         """Create Bedrock backend for testing."""
         return BedrockBackend()
@@ -60,7 +59,7 @@ class TestBedrockBackendIntegration:
         assert bedrock_backend.name == "bedrock"
         assert bedrock_backend.supports_streaming is False
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_bedrock_generate_with_mock(self, bedrock_backend):
         """Test Bedrock generate method with mocked response."""
         mock_response = {
@@ -80,7 +79,7 @@ class TestBedrockBackendIntegration:
             assert "performance" in result.lower()
 
     @pytest.mark.skipif(not os.environ.get("AWS_PROFILE"), reason="AWS credentials not available")
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_bedrock_real_connection(self, bedrock_backend):
         """Test real Bedrock connection (only if AWS credentials available)."""
         try:
@@ -100,18 +99,22 @@ class TestBedrockBackendIntegration:
             # If we get a specific backend error, that's expected in some environments
             pytest.skip(f"Bedrock not available: {e}")
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_bedrock_error_handling(self, bedrock_backend):
         """Test Bedrock error handling."""
         with patch.object(
-            bedrock_backend, "_make_bedrock_request", side_effect=Exception("Connection timeout")
+            bedrock_backend,
+            "_make_bedrock_request",
+            side_effect=Exception("Connection timeout"),
         ):
             with pytest.raises(LLMBackendError, match="Bedrock API error"):
                 await bedrock_backend.generate(
-                    system_prompt="Test", user_prompt="Test", temperature=0.1
+                    system_prompt="Test",
+                    user_prompt="Test",
+                    temperature=0.1,
                 )
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_bedrock_response_parsing(self, bedrock_backend):
         """Test Bedrock response parsing with various formats."""
         test_cases = [
@@ -126,7 +129,9 @@ class TestBedrockBackendIntegration:
 
         for case in test_cases:
             with patch.object(
-                bedrock_backend, "_make_bedrock_request", return_value=case["response"]
+                bedrock_backend,
+                "_make_bedrock_request",
+                return_value=case["response"],
             ):
                 if "expected_error" in case:
                     with pytest.raises(LLMBackendError, match=case["expected_error"]):
@@ -139,7 +144,7 @@ class TestBedrockBackendIntegration:
 class TestLiteLLMBackendIntegration:
     """Test LiteLLM backend integration."""
 
-    @pytest.fixture
+    @pytest.fixture()
     def litellm_backend(self):
         """Create LiteLLM backend for testing."""
         return LiteLLMBackend()
@@ -149,7 +154,7 @@ class TestLiteLLMBackendIntegration:
         assert litellm_backend.name == "litellm"
         assert litellm_backend.supports_streaming is False
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_litellm_generate_with_mock(self, litellm_backend):
         """Test LiteLLM generate method with mocked response."""
         from litellm import ModelResponse
@@ -158,9 +163,9 @@ class TestLiteLLMBackendIntegration:
         mock_response = Mock(spec=ModelResponse)
         mock_response.choices = [Mock()]
         mock_response.choices[0].message = Mock()
-        mock_response.choices[0].message.content = (
-            "7.5: This framework has a moderate learning curve."
-        )
+        mock_response.choices[
+            0
+        ].message.content = "7.5: This framework has a moderate learning curve."
 
         with patch("litellm.acompletion", return_value=mock_response):
             result = await litellm_backend.generate(
@@ -177,7 +182,7 @@ class TestLiteLLMBackendIntegration:
         not os.environ.get("LITELLM_API_KEY") and not os.environ.get("OPENAI_API_KEY"),
         reason="LiteLLM API key not available",
     )
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_litellm_real_connection(self, litellm_backend):
         """Test real LiteLLM connection (only if API key available)."""
         try:
@@ -197,19 +202,20 @@ class TestLiteLLMBackendIntegration:
         except LLMBackendError as e:
             pytest.skip(f"LiteLLM not available: {e}")
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_litellm_error_handling(self, litellm_backend):
         """Test LiteLLM error handling."""
         with patch("litellm.acompletion", side_effect=Exception("API rate limit exceeded")):
             with pytest.raises(LLMBackendError, match="LiteLLM API error"):
                 await litellm_backend.generate(
-                    system_prompt="Test", user_prompt="Test", model="gpt-3.5-turbo"
+                    system_prompt="Test",
+                    user_prompt="Test",
+                    model="gpt-3.5-turbo",
                 )
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_litellm_response_validation(self, litellm_backend):
         """Test LiteLLM response validation."""
-        from litellm import ModelResponse
 
         # Test various response formats
         test_cases = [
@@ -248,7 +254,7 @@ class TestLiteLLMBackendIntegration:
 class TestOllamaBackendIntegration:
     """Test Ollama backend integration."""
 
-    @pytest.fixture
+    @pytest.fixture()
     def ollama_backend(self):
         """Create Ollama backend for testing."""
         return OllamaBackend()
@@ -259,7 +265,7 @@ class TestOllamaBackendIntegration:
         assert ollama_backend.supports_streaming is False
         assert ollama_backend.base_url == "http://localhost:11434"
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_ollama_generate_with_mock(self, ollama_backend):
         """Test Ollama generate method with mocked response."""
         mock_response_data = {
@@ -282,7 +288,7 @@ class TestOllamaBackendIntegration:
             assert "6.0" in result
             assert "cost" in result.lower()
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_ollama_connection_check(self, ollama_backend):
         """Test Ollama connection checking."""
         # Test successful connection
@@ -299,16 +305,18 @@ class TestOllamaBackendIntegration:
             is_available = await ollama_backend.is_available()
             assert is_available is False
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_ollama_error_handling(self, ollama_backend):
         """Test Ollama error handling."""
         with patch("httpx.AsyncClient.post", side_effect=Exception("Connection timeout")):
             with pytest.raises(LLMBackendError, match="Ollama API error"):
                 await ollama_backend.generate(
-                    system_prompt="Test", user_prompt="Test", model="llama3.2:3b"
+                    system_prompt="Test",
+                    user_prompt="Test",
+                    model="llama3.2:3b",
                 )
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_ollama_response_parsing(self, ollama_backend):
         """Test Ollama response parsing with various formats."""
         test_cases = [
@@ -342,7 +350,8 @@ class TestBackendContractValidation:
     """Test that all backends conform to the expected contract."""
 
     @pytest.mark.parametrize(
-        "backend_type", [ModelBackend.BEDROCK, ModelBackend.LITELLM, ModelBackend.OLLAMA]
+        "backend_type",
+        [ModelBackend.BEDROCK, ModelBackend.LITELLM, ModelBackend.OLLAMA],
     )
     def test_backend_implements_interface(self, backend_type):
         """Test that each backend implements the required interface."""
@@ -360,9 +369,10 @@ class TestBackendContractValidation:
         assert hasattr(backend, "is_available")
         assert callable(backend.is_available)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     @pytest.mark.parametrize(
-        "backend_type", [ModelBackend.BEDROCK, ModelBackend.LITELLM, ModelBackend.OLLAMA]
+        "backend_type",
+        [ModelBackend.BEDROCK, ModelBackend.LITELLM, ModelBackend.OLLAMA],
     )
     async def test_backend_generate_signature(self, backend_type):
         """Test that generate method has consistent signature across backends."""
@@ -385,30 +395,31 @@ class TestBackendContractValidation:
         if mock_method:
             with patch.object(backend, mock_method, return_value=mock_response):
                 result = await backend.generate(
-                    system_prompt="Test system prompt", user_prompt="Test user prompt"
+                    system_prompt="Test system prompt",
+                    user_prompt="Test user prompt",
                 )
-        else:
-            if backend_type == ModelBackend.LITELLM:
-                with patch("litellm.acompletion", return_value=mock_response):
-                    result = await backend.generate(
-                        system_prompt="Test system prompt",
-                        user_prompt="Test user prompt",
-                        model="gpt-3.5-turbo",
-                    )
-            else:  # OLLAMA
-                with patch("httpx.AsyncClient.post", return_value=mock_response):
-                    result = await backend.generate(
-                        system_prompt="Test system prompt",
-                        user_prompt="Test user prompt",
-                        model="llama3.2:3b",
-                    )
+        elif backend_type == ModelBackend.LITELLM:
+            with patch("litellm.acompletion", return_value=mock_response):
+                result = await backend.generate(
+                    system_prompt="Test system prompt",
+                    user_prompt="Test user prompt",
+                    model="gpt-3.5-turbo",
+                )
+        else:  # OLLAMA
+            with patch("httpx.AsyncClient.post", return_value=mock_response):
+                result = await backend.generate(
+                    system_prompt="Test system prompt",
+                    user_prompt="Test user prompt",
+                    model="llama3.2:3b",
+                )
 
         assert isinstance(result, str)
         assert len(result) > 0
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     @pytest.mark.parametrize(
-        "backend_type", [ModelBackend.BEDROCK, ModelBackend.LITELLM, ModelBackend.OLLAMA]
+        "backend_type",
+        [ModelBackend.BEDROCK, ModelBackend.LITELLM, ModelBackend.OLLAMA],
     )
     async def test_backend_availability_check(self, backend_type):
         """Test that is_available method works for all backends."""
@@ -437,7 +448,7 @@ class TestBackendContractValidation:
 class TestBackendErrorRecovery:
     """Test backend error recovery and fallback mechanisms."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_backend_timeout_handling(self):
         """Test that backends handle timeouts gracefully."""
         backends = [
@@ -450,7 +461,9 @@ class TestBackendErrorRecovery:
             # Mock timeout exception
             if backend.name == "bedrock":
                 with patch.object(
-                    backend, "_make_bedrock_request", side_effect=asyncio.TimeoutError()
+                    backend,
+                    "_make_bedrock_request",
+                    side_effect=asyncio.TimeoutError(),
                 ):
                     with pytest.raises(LLMBackendError, match="timeout|Bedrock API error"):
                         await backend.generate("system", "user")
@@ -463,7 +476,7 @@ class TestBackendErrorRecovery:
                     with pytest.raises(LLMBackendError, match="timeout|Ollama API error"):
                         await backend.generate("system", "user", model="llama3.2:3b")
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_backend_rate_limit_handling(self):
         """Test that backends handle rate limits appropriately."""
         backends = [

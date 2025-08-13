@@ -11,15 +11,13 @@ These tests measure:
 
 import asyncio
 import gc
+from statistics import mean, median, stdev
 import time
 import tracemalloc
-from statistics import mean, median, stdev
-from typing import List, Dict
-from unittest.mock import Mock
 
 import pytest
 
-from decision_matrix_mcp.models import Criterion, DecisionSession, Score
+from decision_matrix_mcp.models import Criterion, Score
 from decision_matrix_mcp.session_manager import SessionManager
 
 
@@ -78,7 +76,7 @@ class SessionPerformanceProfiler:
             return sum(stat.size_diff for stat in diff)
         return 0
 
-    def get_operation_stats(self, operation_name: str) -> Dict:
+    def get_operation_stats(self, operation_name: str) -> dict:
         """Get statistics for an operation."""
         if operation_name not in self.operation_times:
             return {}
@@ -119,13 +117,13 @@ class SessionPerformanceProfiler:
 class TestSessionCreationPerformance:
     """Test session creation and initialization performance."""
 
-    @pytest.fixture
+    @pytest.fixture()
     def profiler(self):
         """Create performance profiler."""
         return SessionPerformanceProfiler()
 
     @pytest.mark.parametrize("num_sessions", [10, 50, 100, 200])
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_session_creation_scaling(self, profiler, num_sessions):
         """Test session creation performance at different scales."""
         session_manager = SessionManager(max_sessions=num_sessions + 50, session_ttl_hours=1)
@@ -156,13 +154,16 @@ class TestSessionCreationPerformance:
         retrieval_times = []
         for session in created_sessions[: min(50, len(created_sessions))]:  # Test first 50
             _, retrieval_time = profiler.time_operation(
-                "session_retrieval", session_manager.get_session, session.session_id
+                "session_retrieval",
+                session_manager.get_session,
+                session.session_id,
             )
             retrieval_times.append(retrieval_time)
 
         # Measure listing performance
         _, listing_time = profiler.time_operation(
-            "session_listing", session_manager.list_active_sessions
+            "session_listing",
+            session_manager.list_active_sessions,
         )
 
         # Calculate memory usage
@@ -176,7 +177,7 @@ class TestSessionCreationPerformance:
         print(f"\nSession Creation Performance ({num_sessions} sessions):")
         print(f"  Mean creation time: {mean_creation_time*1000:.2f}ms")
         print(
-            f"  Creation time range: {min(creation_times)*1000:.2f}ms - {max(creation_times)*1000:.2f}ms"
+            f"  Creation time range: {min(creation_times)*1000:.2f}ms - {max(creation_times)*1000:.2f}ms",
         )
         print(f"  Mean retrieval time: {mean_retrieval_time*1000:.2f}ms")
         print(f"  Listing time: {listing_time*1000:.2f}ms")
@@ -209,7 +210,7 @@ class TestSessionCreationPerformance:
 
         tracemalloc.stop()
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_concurrent_session_creation_performance(self, profiler):
         """Test concurrent session creation performance."""
         session_manager = SessionManager(max_sessions=100, session_ttl_hours=1)
@@ -286,7 +287,7 @@ class TestSessionCreationPerformance:
 class TestSessionCleanupPerformance:
     """Test session cleanup and memory management performance."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_session_cleanup_performance(self):
         """Test performance of session cleanup operations."""
         session_manager = SessionManager(max_sessions=200, session_ttl_hours=1)
@@ -331,7 +332,9 @@ class TestSessionCleanupPerformance:
 
         for session in sessions_to_remove:
             _, removal_time = profiler.time_operation(
-                "individual_removal", session_manager.remove_session, session.session_id
+                "individual_removal",
+                session_manager.remove_session,
+                session.session_id,
             )
             removal_times.append(removal_time)
 
@@ -359,15 +362,17 @@ class TestSessionCleanupPerformance:
         batch_removal_rate = len(remaining_sessions) / batch_cleanup_time
 
         memory_after_creation = profiler.get_memory_diff(
-            "before_cleanup_test", "after_creation_for_cleanup"
+            "before_cleanup_test",
+            "after_creation_for_cleanup",
         )
         memory_after_individual = profiler.get_memory_diff(
-            "before_cleanup_test", "after_individual_removal"
+            "before_cleanup_test",
+            "after_individual_removal",
         )
         memory_after_batch = profiler.get_memory_diff("before_cleanup_test", "after_batch_removal")
         memory_after_gc = profiler.get_memory_diff("before_cleanup_test", "after_gc")
 
-        print(f"\nSession Cleanup Performance:")
+        print("\nSession Cleanup Performance:")
         print(f"  Sessions created: {num_sessions}")
         print(f"  Mean individual removal time: {mean_removal_time*1000:.2f}ms")
         print(f"  Batch cleanup rate: {batch_removal_rate:.1f} sessions/sec")
@@ -401,7 +406,7 @@ class TestSessionCleanupPerformance:
 
         tracemalloc.stop()
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_session_ttl_cleanup_performance(self):
         """Test performance of TTL-based session cleanup."""
         # Use very short TTL for testing
@@ -415,7 +420,8 @@ class TestSessionCleanupPerformance:
         expired_sessions = []
         for i in range(20):
             session = session_manager.create_session(
-                f"TTL Test {i}", [f"TTLOpt{i}A", f"TTLOpt{i}B"]
+                f"TTL Test {i}",
+                [f"TTLOpt{i}A", f"TTLOpt{i}B"],
             )
             expired_sessions.append(session)
 
@@ -451,7 +457,7 @@ class TestSessionCleanupPerformance:
         memory_after_cleanup = profiler.get_memory_diff("before_ttl_test", "after_ttl_cleanup")
         memory_after_gc = profiler.get_memory_diff("before_ttl_test", "after_ttl_gc")
 
-        print(f"\nTTL Cleanup Performance:")
+        print("\nTTL Cleanup Performance:")
         print(f"  Expired sessions: {len(expired_sessions)}")
         print(f"  TTL cleanup time: {cleanup_time*1000:.2f}ms")
         print(f"  Memory after creation: {memory_after_creation/1024:.1f} KB")
@@ -475,7 +481,7 @@ class TestSessionCleanupPerformance:
 class TestSessionMemoryPatterns:
     """Test memory usage patterns during session lifecycle."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_session_memory_growth_patterns(self):
         """Test memory growth patterns as sessions are modified."""
         session_manager = SessionManager(max_sessions=50, session_ttl_hours=1)
@@ -484,7 +490,8 @@ class TestSessionMemoryPatterns:
 
         # Create a session for testing
         session = session_manager.create_session(
-            "Memory Pattern Test", ["MemOpt1", "MemOpt2", "MemOpt3"]
+            "Memory Pattern Test",
+            ["MemOpt1", "MemOpt2", "MemOpt3"],
         )
 
         snapshots = {}
@@ -548,7 +555,7 @@ class TestSessionMemoryPatterns:
                 memory_growth = sum(stat.size_diff for stat in diff)
                 memory_progression[snapshot_name] = memory_growth
 
-        print(f"\nSession Memory Growth Patterns:")
+        print("\nSession Memory Growth Patterns:")
         for stage, growth in memory_progression.items():
             print(f"  {stage}: {growth/1024:.1f} KB")
 
@@ -564,7 +571,7 @@ class TestSessionMemoryPatterns:
 
             growth_per_criterion = (current_growth - prev_growth) / (count - prev_count)
             print(
-                f"  Memory per criterion ({prev_count}->{count}): {growth_per_criterion:.0f} bytes"
+                f"  Memory per criterion ({prev_count}->{count}): {growth_per_criterion:.0f} bytes",
             )
 
             # Should be reasonable per criterion (less than 10KB each)
@@ -616,7 +623,7 @@ class TestSessionMemoryPatterns:
 class TestSessionLookupPerformance:
     """Test session lookup and search performance."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_session_lookup_performance_scaling(self):
         """Test session lookup performance as number of sessions grows."""
         max_sessions = 500
@@ -633,7 +640,8 @@ class TestSessionLookupPerformance:
             while len(sessions_pool) < target_count:
                 i = len(sessions_pool)
                 session = session_manager.create_session(
-                    f"Lookup Test {i}", [f"LookupOpt{i}A", f"LookupOpt{i}B"]
+                    f"Lookup Test {i}",
+                    [f"LookupOpt{i}A", f"LookupOpt{i}B"],
                 )
                 sessions_pool.append(session)
 
@@ -672,7 +680,7 @@ class TestSessionLookupPerformance:
             assert len(all_sessions) == target_count
 
         # Analyze scaling behavior
-        print(f"\nSession Lookup Performance Scaling:")
+        print("\nSession Lookup Performance Scaling:")
         print(f"{'Sessions':<10} {'Mean Lookup':<12} {'Max Lookup':<12} {'Listing':<12}")
         print("-" * 50)
 

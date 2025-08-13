@@ -11,16 +11,13 @@ These tests measure:
 
 import asyncio
 import gc
+from statistics import mean, median, stdev
 import time
 import tracemalloc
-from statistics import mean, median, stdev
-from typing import Dict, List, Tuple
-from unittest.mock import Mock, patch
 
 import pytest
 
-from decision_matrix_mcp.models import Criterion, DecisionSession, ModelBackend
-from decision_matrix_mcp.orchestrator import EvaluationOrchestrator
+from decision_matrix_mcp.models import Criterion, DecisionSession
 from decision_matrix_mcp.session_manager import SessionManager
 
 
@@ -72,7 +69,7 @@ class MemoryProfiler:
             return sum(stat.size_diff for stat in self.memory_diff)
         return 0
 
-    def get_top_growth_sources(self, limit: int = 5) -> List[str]:
+    def get_top_growth_sources(self, limit: int = 5) -> list[str]:
         """Get top memory growth sources."""
         if not self.memory_diff:
             return []
@@ -89,8 +86,11 @@ class MockEvaluationOrchestrator:
         self.call_count = 0
 
     async def evaluate_options_across_criteria(
-        self, session: DecisionSession, options: List[str], criteria: List[str]
-    ) -> Dict[str, Dict[str, Tuple[float, str]]]:
+        self,
+        session: DecisionSession,
+        options: list[str],
+        criteria: list[str],
+    ) -> dict[str, dict[str, tuple[float, str]]]:
         """Mock evaluation with realistic delays."""
         self.call_count += 1
 
@@ -116,7 +116,7 @@ class MockEvaluationOrchestrator:
 class TestEvaluationPerformanceScaling:
     """Test evaluation performance across different matrix sizes."""
 
-    @pytest.fixture
+    @pytest.fixture()
     def session_manager(self):
         """Create session manager for performance tests."""
         manager = SessionManager(max_sessions=100, session_ttl_hours=1)
@@ -135,15 +135,19 @@ class TestEvaluationPerformanceScaling:
             (20, 10),  # 20x10 matrix (200 evaluations)
         ],
     )
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_evaluation_performance_scaling(
-        self, session_manager, options_count, criteria_count
+        self,
+        session_manager,
+        options_count,
+        criteria_count,
     ):
         """Test evaluation performance for different matrix sizes."""
         # Create session with specified dimensions
         options = [f"Option{i}" for i in range(options_count)]
         session = session_manager.create_session(
-            f"Performance Test {options_count}x{criteria_count}", options
+            f"Performance Test {options_count}x{criteria_count}",
+            options,
         )
 
         # Add criteria
@@ -165,7 +169,9 @@ class TestEvaluationPerformanceScaling:
         with PerformanceTimer(f"Evaluation {options_count}x{criteria_count}") as timer:
             with MemoryProfiler(f"Memory {options_count}x{criteria_count}") as memory:
                 results = await mock_orchestrator.evaluate_options_across_criteria(
-                    session, list(session.options.keys()), list(session.criteria.keys())
+                    session,
+                    list(session.options.keys()),
+                    list(session.criteria.keys()),
                 )
 
         # Verify results completeness
@@ -202,7 +208,7 @@ class TestEvaluationPerformanceScaling:
         print(f"  Memory growth: {memory_growth / 1024:.1f} KB")
         print(f"  Memory per evaluation: {memory_growth / total_evaluations:.0f} bytes")
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_concurrent_evaluation_performance(self, session_manager):
         """Test performance of concurrent evaluations across multiple sessions."""
         num_sessions = 5
@@ -217,7 +223,9 @@ class TestEvaluationPerformanceScaling:
             # Add criteria
             for j in range(matrix_size[1]):
                 criterion = Criterion(
-                    name=f"S{i}Crit{j}", description=f"Criterion {j} for session {i}", weight=1.0
+                    name=f"S{i}Crit{j}",
+                    description=f"Criterion {j} for session {i}",
+                    weight=1.0,
                 )
                 session.add_criterion(criterion)
 
@@ -231,7 +239,9 @@ class TestEvaluationPerformanceScaling:
             start_time = time.perf_counter()
 
             results = await mock_orchestrator.evaluate_options_across_criteria(
-                session, list(session.options.keys()), list(session.criteria.keys())
+                session,
+                list(session.options.keys()),
+                list(session.criteria.keys()),
             )
 
             end_time = time.perf_counter()
@@ -248,7 +258,7 @@ class TestEvaluationPerformanceScaling:
         durations = [result[1] for result in evaluation_results]
         total_evaluations = num_sessions * matrix_size[0] * matrix_size[1]
 
-        print(f"\nConcurrent evaluation performance:")
+        print("\nConcurrent evaluation performance:")
         print(f"  Sessions: {num_sessions}")
         print(f"  Matrix size: {matrix_size[0]}x{matrix_size[1]}")
         print(f"  Total evaluations: {total_evaluations}")
@@ -278,7 +288,7 @@ class TestEvaluationPerformanceScaling:
 class TestEvaluationThroughput:
     """Test evaluation throughput under sustained load."""
 
-    @pytest.fixture
+    @pytest.fixture()
     def performance_session_manager(self):
         """Create session manager configured for performance testing."""
         manager = SessionManager(max_sessions=200, session_ttl_hours=1)
@@ -287,7 +297,7 @@ class TestEvaluationThroughput:
         for session_id in list(manager.list_active_sessions().keys()):
             manager.remove_session(session_id)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_sustained_evaluation_throughput(self, performance_session_manager):
         """Test sustained evaluation throughput over multiple batches."""
         batch_size = 8
@@ -295,7 +305,8 @@ class TestEvaluationThroughput:
         matrix_size = (4, 3)  # 4 options, 3 criteria
 
         mock_orchestrator = MockEvaluationOrchestrator(
-            base_delay=0.001, per_evaluation_delay=0.0005
+            base_delay=0.001,
+            per_evaluation_delay=0.0005,
         )
 
         batch_results = []
@@ -309,7 +320,8 @@ class TestEvaluationThroughput:
                 for i in range(batch_size):
                     options = [f"B{batch_id}S{i}Opt{j}" for j in range(matrix_size[0])]
                     session = performance_session_manager.create_session(
-                        f"Batch {batch_id} Session {i}", options
+                        f"Batch {batch_id} Session {i}",
+                        options,
                     )
 
                     # Add criteria
@@ -328,7 +340,9 @@ class TestEvaluationThroughput:
 
                     async def evaluate_batch_session(session):
                         return await mock_orchestrator.evaluate_options_across_criteria(
-                            session, list(session.options.keys()), list(session.criteria.keys())
+                            session,
+                            list(session.options.keys()),
+                            list(session.criteria.keys()),
                         )
 
                     batch_tasks = [evaluate_batch_session(s) for s in batch_sessions]
@@ -344,11 +358,11 @@ class TestEvaluationThroughput:
                         "duration": batch_timer.duration,
                         "evaluations": batch_evaluations,
                         "throughput": batch_throughput,
-                    }
+                    },
                 )
 
                 print(
-                    f"  Batch {batch_id}: {batch_evaluations} evaluations in {batch_timer.duration:.4f}s"
+                    f"  Batch {batch_id}: {batch_evaluations} evaluations in {batch_timer.duration:.4f}s",
                 )
                 print(f"  Throughput: {batch_throughput:.1f} eval/s")
 
@@ -367,7 +381,7 @@ class TestEvaluationThroughput:
         total_duration = sum(durations)
         overall_throughput = total_evaluations / total_duration
 
-        print(f"\nSustained throughput analysis:")
+        print("\nSustained throughput analysis:")
         print(f"  Total batches: {num_batches}")
         print(f"  Sessions per batch: {batch_size}")
         print(f"  Matrix size: {matrix_size[0]}x{matrix_size[1]}")
@@ -401,7 +415,7 @@ class TestEvaluationThroughput:
             for source in memory.get_top_growth_sources():
                 print(f"  {source}")
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_peak_load_handling(self, performance_session_manager):
         """Test system behavior under peak load conditions."""
         peak_sessions = 20
@@ -413,7 +427,8 @@ class TestEvaluationThroughput:
             for i in range(peak_sessions):
                 options = [f"PeakOpt{i}_{j}" for j in range(matrix_size[0])]
                 session = performance_session_manager.create_session(
-                    f"Peak Load Session {i}", options
+                    f"Peak Load Session {i}",
+                    options,
                 )
 
                 # Add criteria
@@ -435,7 +450,9 @@ class TestEvaluationThroughput:
 
                 async def evaluate_peak_session(session):
                     return await mock_orchestrator.evaluate_options_across_criteria(
-                        session, list(session.options.keys()), list(session.criteria.keys())
+                        session,
+                        list(session.options.keys()),
+                        list(session.criteria.keys()),
                     )
 
                 # Run all evaluations concurrently
@@ -446,7 +463,7 @@ class TestEvaluationThroughput:
         total_evaluations = peak_sessions * matrix_size[0] * matrix_size[1]
         peak_throughput = total_evaluations / eval_timer.duration
 
-        print(f"\nPeak load performance:")
+        print("\nPeak load performance:")
         print(f"  Concurrent sessions: {peak_sessions}")
         print(f"  Matrix size: {matrix_size[0]}x{matrix_size[1]}")
         print(f"  Total evaluations: {total_evaluations}")
@@ -480,7 +497,7 @@ class TestEvaluationThroughput:
 class TestPerformanceRegression:
     """Test for performance regressions and establish baselines."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_baseline_performance_metrics(self):
         """Establish baseline performance metrics for regression testing."""
         test_cases = [
@@ -491,7 +508,8 @@ class TestPerformanceRegression:
 
         session_manager = SessionManager(max_sessions=50, session_ttl_hours=1)
         mock_orchestrator = MockEvaluationOrchestrator(
-            base_delay=0.001, per_evaluation_delay=0.0008
+            base_delay=0.001,
+            per_evaluation_delay=0.0008,
         )
 
         baselines = {}
@@ -504,7 +522,9 @@ class TestPerformanceRegression:
             # Add criteria
             for i in range(criteria_count):
                 criterion = Criterion(
-                    name=f"{test_name}Crit{i}", description=f"Baseline criterion {i}", weight=1.0
+                    name=f"{test_name}Crit{i}",
+                    description=f"Baseline criterion {i}",
+                    weight=1.0,
                 )
                 session.add_criterion(criterion)
 
@@ -517,7 +537,9 @@ class TestPerformanceRegression:
                 with PerformanceTimer(f"{test_name} iteration {iteration}") as timer:
                     with MemoryProfiler(f"{test_name} memory {iteration}") as memory:
                         await mock_orchestrator.evaluate_options_across_criteria(
-                            session, list(session.options.keys()), list(session.criteria.keys())
+                            session,
+                            list(session.options.keys()),
+                            list(session.criteria.keys()),
                         )
 
                 durations.append(timer.duration)
@@ -553,15 +575,15 @@ class TestPerformanceRegression:
 
         for test_name, metrics in baselines.items():
             print(
-                f"\n{test_name.upper()} MATRIX ({metrics['matrix_size'][0]}x{metrics['matrix_size'][1]}):"
+                f"\n{test_name.upper()} MATRIX ({metrics['matrix_size'][0]}x{metrics['matrix_size'][1]}):",
             )
             print(f"  Total evaluations: {metrics['total_evaluations']}")
             print(
-                f"  Mean duration: {metrics['mean_duration']:.4f}s ± {metrics['duration_std']:.4f}s"
+                f"  Mean duration: {metrics['mean_duration']:.4f}s ± {metrics['duration_std']:.4f}s",
             )
             print(f"  Throughput: {metrics['throughput']:.1f} eval/s")
             print(
-                f"  Memory per evaluation: {metrics['mean_memory'] / metrics['total_evaluations']:.0f} bytes"
+                f"  Memory per evaluation: {metrics['mean_memory'] / metrics['total_evaluations']:.0f} bytes",
             )
             print(f"  Memory std dev: {metrics['memory_std'] / 1024:.1f} KB")
 

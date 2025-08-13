@@ -113,6 +113,7 @@ class Score:
         Abstained scores (score=None) are excluded from weighted calculations
         but are preserved for transparency in decision documentation.
     """
+
     criterion_name: str
     option_name: str
     score: float | None  # 1-10 scale, None if abstained
@@ -161,6 +162,7 @@ class Criterion:
         - Temperature defaults to 0.0 for maximum consistency across evaluations
         - Each criterion gets its own conversation thread for context isolation
     """
+
     name: str
     description: str
     weight: float = 1.0
@@ -223,6 +225,7 @@ class Option:
         - Abstained scores are excluded from weighted calculations
         - Thread-safe for concurrent score updates
     """
+
     name: str
     description: str | None = None
     scores: dict[str, Score] = field(default_factory=dict)  # criterion_name -> Score
@@ -268,10 +271,11 @@ class Option:
         # Create cache key from criteria weights
         cache_key = str(sorted((name, crit.weight) for name, crit in criteria.items()))
         current_time = datetime.now(timezone.utc).timestamp()
-        
+
         # Return cached result if valid
-        if (cache_key in self._weighted_total_cache and 
-            current_time - self._cache_timestamp < 1.0):  # 1 second cache
+        if (
+            cache_key in self._weighted_total_cache and current_time - self._cache_timestamp < 1.0
+        ):  # 1 second cache
             return self._weighted_total_cache[cache_key]
 
         total = 0.0
@@ -290,11 +294,11 @@ class Option:
             total_weight = sum(criterion.weight for _, criterion in valid_scores)
 
         result = total / total_weight if total_weight > 0 else 0.0
-        
+
         # Cache the result
         self._weighted_total_cache[cache_key] = result
         self._cache_timestamp = current_time
-        
+
         return result
 
     def get_score_breakdown(self, criteria: dict[str, Criterion]) -> list[dict[str, Any]]:
@@ -373,6 +377,7 @@ class CriterionThread:
         - All messages include UTC timestamps for audit trail
         - Thread-safe for concurrent access during parallel evaluation
     """
+
     id: str
     criterion: Criterion
     conversation_history: list[dict[str, str]] = field(default_factory=list)
@@ -432,6 +437,7 @@ class DecisionSession:
         - Supports dynamic addition of options and criteria during analysis
         - Uses caching and lazy loading for optimal performance
     """
+
     session_id: str
     created_at: datetime
     topic: str
@@ -488,7 +494,7 @@ class DecisionSession:
 
         thread = CriterionThread(id=str(uuid4()), criterion=criterion)
         self.threads[criterion.name] = thread
-        
+
         # Invalidate caches when criteria change
         self._invalidate_cache()
 
@@ -539,36 +545,37 @@ class DecisionSession:
             - Thread-safe for concurrent access with caching
         """
         current_time = datetime.now(timezone.utc).timestamp()
-        
+
         # Check cache validity (1 second TTL)
-        if (self._matrix_cache and 
-            current_time - self._cache_timestamp < 1.0):
+        if self._matrix_cache and current_time - self._cache_timestamp < 1.0:
             return self._matrix_cache
 
         if not self.options:
             from .exceptions import ValidationError
+
             raise ValidationError(
                 "Cannot generate matrix without options",
                 user_message="No options available to evaluate",
                 error_code="DMX_1002",
                 context={"has_options": False, "has_criteria": bool(self.criteria)},
-                recovery_suggestion="Add options to the decision session before generating matrix"
+                recovery_suggestion="Add options to the decision session before generating matrix",
             )
-            
+
         if not self.criteria:
             from .exceptions import ValidationError
+
             raise ValidationError(
-                "Cannot generate matrix without criteria", 
+                "Cannot generate matrix without criteria",
                 user_message="No evaluation criteria defined",
                 error_code="DMX_1003",
                 context={"has_options": bool(self.options), "has_criteria": False},
-                recovery_suggestion="Add evaluation criteria before generating matrix"
+                recovery_suggestion="Add evaluation criteria before generating matrix",
             )
 
         # Pre-compute criteria data for O(1) access
         criteria_items = list(self.criteria.items())
         criteria_weights = self._get_criteria_weights()
-        
+
         # Optimized matrix generation with batch processing
         matrix = self._build_matrix_optimized(criteria_items)
         rankings = self._build_rankings_optimized(criteria_weights)
@@ -583,14 +590,17 @@ class DecisionSession:
             "criteria_weights": criteria_weights,
             "evaluation_timestamp": current_time,
         }
-        
+
         # Cache the result
         self._matrix_cache = result
         self._cache_timestamp = current_time
-        
+
         return result
 
-    def _build_matrix_optimized(self, criteria_items: list[tuple[str, Criterion]]) -> dict[str, dict[str, dict[str, Any]]]:
+    def _build_matrix_optimized(
+        self,
+        criteria_items: list[tuple[str, Criterion]],
+    ) -> dict[str, dict[str, dict[str, Any]]]:
         """Build decision matrix with optimized O(n) algorithm."""
         return {
             option_name: {
@@ -600,7 +610,12 @@ class DecisionSession:
             for option_name, option in self.options.items()
         }
 
-    def _get_score_data(self, option: Option, criterion_name: str, criterion: Criterion) -> dict[str, Any]:
+    def _get_score_data(
+        self,
+        option: Option,
+        criterion_name: str,
+        criterion: Criterion,
+    ) -> dict[str, Any]:
         """Get score data for a specific option-criterion pair."""
         score = option.scores.get(criterion_name)
         if score and not score.abstained and score.score is not None:
@@ -609,18 +624,17 @@ class DecisionSession:
                 "weighted_score": score.score * criterion.weight,
                 "justification": score.justification,
             }
-        elif score and score.abstained:
+        if score and score.abstained:
             return {
                 "raw_score": None,
                 "weighted_score": None,
                 "justification": "Abstained - criterion not applicable",
             }
-        else:
-            return {
-                "raw_score": None,
-                "weighted_score": None,
-                "justification": "Score not available",
-            }
+        return {
+            "raw_score": None,
+            "weighted_score": None,
+            "justification": "Score not available",
+        }
 
     def _build_rankings_optimized(self, criteria_weights: dict[str, float]) -> list[dict[str, Any]]:
         """Build rankings with optimized batch processing."""
@@ -633,7 +647,7 @@ class DecisionSession:
             }
             for option_name, option in self.options.items()
         ]
-        
+
         # Single sort operation
         rankings.sort(key=lambda x: x["weighted_total"], reverse=True)
         return rankings
@@ -642,17 +656,22 @@ class DecisionSession:
         """Generate recommendation based on rankings."""
         if not rankings:
             return "No clear recommendation available"
-        
+
         winner = rankings[0]
         if len(rankings) > 1 and winner["weighted_total"] > rankings[1]["weighted_total"]:
-            return f"{winner['option']} is the clear winner with {winner['weighted_total']:.1f} points"
-        else:
-            return f"Close race, but {winner['option']} edges ahead with {winner['weighted_total']:.1f} points"
+            return (
+                f"{winner['option']} is the clear winner with {winner['weighted_total']:.1f} points"
+            )
+        return f"Close race, but {winner['option']} edges ahead with {winner['weighted_total']:.1f} points"
 
     def _get_criteria_weights(self) -> dict[str, float]:
         """Get cached criteria weights for performance."""
-        if not self._criteria_weights_cache or len(self._criteria_weights_cache) != len(self.criteria):
-            self._criteria_weights_cache = {name: crit.weight for name, crit in self.criteria.items()}
+        if not self._criteria_weights_cache or len(self._criteria_weights_cache) != len(
+            self.criteria,
+        ):
+            self._criteria_weights_cache = {
+                name: crit.weight for name, crit in self.criteria.items()
+            }
         return self._criteria_weights_cache
 
     def _invalidate_cache(self) -> None:
@@ -660,11 +679,11 @@ class DecisionSession:
         self._matrix_cache.clear()
         self._criteria_weights_cache.clear()
         self._cache_timestamp = 0.0
-        
+
         # Clear cached property if it exists
-        if hasattr(self, 'decision_matrix'):
+        if hasattr(self, "decision_matrix"):
             try:
-                delattr(self, 'decision_matrix')
+                delattr(self, "decision_matrix")
             except AttributeError:
                 pass
 

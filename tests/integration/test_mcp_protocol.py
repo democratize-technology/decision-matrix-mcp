@@ -8,14 +8,8 @@ These tests verify the complete MCP server functionality including:
 - Session management through MCP interface
 """
 
-import asyncio
-import json
-import subprocess
-import sys
-import time
-from io import StringIO
 from pathlib import Path
-from typing import Any, Dict, List
+import sys
 from unittest.mock import patch
 
 import pytest
@@ -50,7 +44,7 @@ class MCPServerTestHelper:
                 session_manager.remove_session(session_id)
 
 
-@pytest.fixture
+@pytest.fixture()
 async def mcp_server():
     """Fixture providing a configured MCP server for testing."""
     helper = MCPServerTestHelper()
@@ -62,13 +56,13 @@ async def mcp_server():
 class TestMCPServerStartup:
     """Test MCP server initialization and tool registration."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_server_creation(self, mcp_server):
         """Test that the MCP server can be created successfully."""
         assert mcp_server.mcp_server is not None
         assert mcp_server.server_components is not None
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_server_tool_registration(self, mcp_server):
         """Test that all required tools are registered with the server."""
         # Get the FastMCP app
@@ -90,14 +84,14 @@ class TestMCPServerStartup:
         # Note: We can't directly access the tool registry in FastMCP,
         # but we can verify the handlers exist
         from decision_matrix_mcp import (
-            start_decision_analysis,
             add_criterion,
-            evaluate_options,
-            get_decision_matrix,
             add_option,
-            list_sessions,
             clear_all_sessions,
             current_session,
+            evaluate_options,
+            get_decision_matrix,
+            list_sessions,
+            start_decision_analysis,
             test_aws_bedrock_connection,
         )
 
@@ -116,20 +110,21 @@ class TestMCPServerStartup:
 class TestCompleteDecisionWorkflow:
     """Test complete decision analysis workflow through MCP protocol."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_complete_workflow_success(self, mcp_server):
         """Test a complete decision analysis workflow from start to finish."""
+        from unittest.mock import Mock
+
         from decision_matrix_mcp import (
-            StartDecisionAnalysisRequest,
             AddCriterionRequest,
             EvaluateOptionsRequest,
             GetDecisionMatrixRequest,
-            start_decision_analysis,
+            StartDecisionAnalysisRequest,
             add_criterion,
             evaluate_options,
             get_decision_matrix,
+            start_decision_analysis,
         )
-        from unittest.mock import Mock
 
         mock_ctx = Mock()
 
@@ -227,18 +222,19 @@ class TestCompleteDecisionWorkflow:
             assert "option" in rank_data
             assert "weighted_total" in rank_data
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_workflow_with_abstentions(self, mcp_server):
         """Test workflow handling abstentions in evaluation."""
+        from unittest.mock import Mock
+
         from decision_matrix_mcp import (
-            StartDecisionAnalysisRequest,
             AddCriterionRequest,
             EvaluateOptionsRequest,
-            start_decision_analysis,
+            StartDecisionAnalysisRequest,
             add_criterion,
             evaluate_options,
+            start_decision_analysis,
         )
-        from unittest.mock import Mock
 
         mock_ctx = Mock()
 
@@ -267,7 +263,7 @@ class TestCompleteDecisionWorkflow:
                 "Microservices": (7.0, "Requires larger teams for effective management"),
                 "Monolith": (8.0, "Works well with smaller teams"),
                 "Serverless": (None, "Not applicable for this criterion"),  # Abstention
-            }
+            },
         }
 
         with patch.object(
@@ -283,26 +279,28 @@ class TestCompleteDecisionWorkflow:
             assert eval_result["summary"]["abstentions"] == 1
             assert eval_result["summary"]["errors"] == 0
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_workflow_error_handling(self, mcp_server):
         """Test error handling throughout the workflow."""
+        from unittest.mock import Mock
+
         from decision_matrix_mcp import (
-            StartDecisionAnalysisRequest,
             AddCriterionRequest,
             EvaluateOptionsRequest,
             GetDecisionMatrixRequest,
-            start_decision_analysis,
+            StartDecisionAnalysisRequest,
             add_criterion,
             evaluate_options,
             get_decision_matrix,
+            start_decision_analysis,
         )
-        from unittest.mock import Mock
 
         mock_ctx = Mock()
 
         # Test invalid inputs
         invalid_start_request = StartDecisionAnalysisRequest(
-            topic="", options=["A", "B"]  # Invalid empty topic
+            topic="",
+            options=["A", "B"],  # Invalid empty topic
         )
 
         start_result = await start_decision_analysis(invalid_start_request, mock_ctx)
@@ -311,7 +309,8 @@ class TestCompleteDecisionWorkflow:
 
         # Test with valid session
         valid_start_request = StartDecisionAnalysisRequest(
-            topic="Valid topic", options=["Option A", "Option B"]
+            topic="Valid topic",
+            options=["Option A", "Option B"],
         )
 
         start_result = await start_decision_analysis(valid_start_request, mock_ctx)
@@ -345,27 +344,30 @@ class TestCompleteDecisionWorkflow:
 class TestSessionManagementIntegration:
     """Test session management through MCP interface."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_session_isolation(self, mcp_server):
         """Test that sessions are properly isolated from each other."""
+        from unittest.mock import Mock
+
         from decision_matrix_mcp import (
-            StartDecisionAnalysisRequest,
             AddCriterionRequest,
+            StartDecisionAnalysisRequest,
+            add_criterion,
             list_sessions,
             start_decision_analysis,
-            add_criterion,
         )
-        from unittest.mock import Mock
 
         mock_ctx = Mock()
 
         # Create two separate sessions
         session1_request = StartDecisionAnalysisRequest(
-            topic="Database choice for Project A", options=["MySQL", "PostgreSQL"]
+            topic="Database choice for Project A",
+            options=["MySQL", "PostgreSQL"],
         )
 
         session2_request = StartDecisionAnalysisRequest(
-            topic="Frontend framework for Project B", options=["React", "Vue", "Angular"]
+            topic="Frontend framework for Project B",
+            options=["React", "Vue", "Angular"],
         )
 
         session1_result = await start_decision_analysis(session1_request, mock_ctx)
@@ -415,23 +417,25 @@ class TestSessionManagementIntegration:
         assert set(session2_data["options"]) == {"React", "Vue", "Angular"}
         assert session2_data["criteria"] == ["Learning Curve"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_session_cleanup(self, mcp_server):
         """Test session cleanup functionality."""
+        from unittest.mock import Mock
+
         from decision_matrix_mcp import (
             StartDecisionAnalysisRequest,
             clear_all_sessions,
             list_sessions,
             start_decision_analysis,
         )
-        from unittest.mock import Mock
 
         mock_ctx = Mock()
 
         # Create multiple sessions
         for i in range(3):
             request = StartDecisionAnalysisRequest(
-                topic=f"Decision {i}", options=[f"Option {i}A", f"Option {i}B"]
+                topic=f"Decision {i}",
+                options=[f"Option {i}A", f"Option {i}B"],
             )
             await start_decision_analysis(request, mock_ctx)
 
@@ -448,15 +452,16 @@ class TestSessionManagementIntegration:
         assert sessions_result_after["total_active"] == 0
         assert sessions_result_after["sessions"] == []
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_current_session_tracking(self, mcp_server):
         """Test current session tracking functionality."""
+        from unittest.mock import Mock
+
         from decision_matrix_mcp import (
             StartDecisionAnalysisRequest,
             current_session,
             start_decision_analysis,
         )
-        from unittest.mock import Mock
 
         mock_ctx = Mock()
 
@@ -466,7 +471,8 @@ class TestSessionManagementIntegration:
 
         # Create a session
         request = StartDecisionAnalysisRequest(
-            topic="Current session test", options=["Option X", "Option Y"]
+            topic="Current session test",
+            options=["Option X", "Option Y"],
         )
 
         session_result = await start_decision_analysis(request, mock_ctx)
@@ -485,17 +491,19 @@ class TestSessionManagementIntegration:
 class TestMCPProtocolCompliance:
     """Test MCP protocol compliance and edge cases."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_error_response_format(self, mcp_server):
         """Test that error responses follow expected format."""
-        from decision_matrix_mcp import StartDecisionAnalysisRequest, start_decision_analysis
         from unittest.mock import Mock
+
+        from decision_matrix_mcp import StartDecisionAnalysisRequest, start_decision_analysis
 
         mock_ctx = Mock()
 
         # Test invalid request
         invalid_request = StartDecisionAnalysisRequest(
-            topic="", options=["A"]  # Invalid empty topic  # Too few options
+            topic="",
+            options=["A"],  # Invalid empty topic  # Too few options
         )
 
         result = await start_decision_analysis(invalid_request, mock_ctx)
@@ -510,20 +518,21 @@ class TestMCPProtocolCompliance:
         assert len(result["error"]) > 0
         assert "Invalid topic" in result["error"] or "Need at least 2 options" in result["error"]
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_all_tools_return_proper_format(self, mcp_server):
         """Test that all tools return properly formatted responses."""
+        from unittest.mock import Mock
+
         from decision_matrix_mcp import (
-            StartDecisionAnalysisRequest,
             AddCriterionRequest,
-            list_sessions,
+            StartDecisionAnalysisRequest,
+            add_criterion,
             clear_all_sessions,
             current_session,
-            test_aws_bedrock_connection,
+            list_sessions,
             start_decision_analysis,
-            add_criterion,
+            test_aws_bedrock_connection,
         )
-        from unittest.mock import Mock
 
         mock_ctx = Mock()
 
@@ -556,7 +565,9 @@ class TestMCPProtocolCompliance:
 
         # add_criterion (invalid session)
         invalid_criterion = AddCriterionRequest(
-            session_id="invalid-session-id", name="Test", description="Test"
+            session_id="invalid-session-id",
+            name="Test",
+            description="Test",
         )
         criterion_result = await add_criterion(invalid_criterion, mock_ctx)
         assert isinstance(criterion_result, dict)

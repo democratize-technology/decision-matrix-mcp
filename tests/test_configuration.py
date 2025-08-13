@@ -34,25 +34,23 @@ Tests cover:
 - Runtime configuration updates
 """
 
-import os
 import json
+import os
 import tempfile
-from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
 import pytest
 
 from decision_matrix_mcp.config import (
+    DEFAULT_CONFIG,
     ConfigManager,
     ConfigSchema,
-    ConfigValidator,
     ConfigValidationError,
-    DEFAULT_CONFIG,
-    ENV_VAR_MAPPING,
-    ENV_VAR_TYPES,
+    ConfigValidator,
 )
 
 # Import constants for backward compatibility testing
-from decision_matrix_mcp.constants import ValidationLimits, SessionLimits
+from decision_matrix_mcp.constants import SessionLimits, ValidationLimits
 
 
 class TestConfigSchema:
@@ -90,7 +88,7 @@ class TestConfigSchema:
                 validation={
                     "min_options_required": 5,
                     "max_options_allowed": 3,  # Invalid: less than min
-                }
+                },
             )
 
     def test_session_limits_constraints(self):
@@ -295,7 +293,7 @@ class TestConfigurationFileLoading:
             with patch.object(ConfigManager, "_load_from_files") as mock_load:
 
                 def mock_load_impl(self, config_data_dict):
-                    with open(config_file, "r") as f:
+                    with open(config_file) as f:
                         file_config = json.load(f)
                     self._merge_config(config_data_dict, file_config)
                     self._loaded_from_file = True
@@ -378,7 +376,7 @@ class TestRuntimeConfigurationUpdates:
         # Try to set an invalid configuration
         with pytest.raises(ConfigValidationError):
             config_manager.update_config(
-                validation__max_options_allowed=-5  # Invalid: negative value
+                validation__max_options_allowed=-5,  # Invalid: negative value
             )
 
 

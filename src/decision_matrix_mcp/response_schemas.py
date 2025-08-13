@@ -113,7 +113,7 @@ class EvaluationResponse:
             data = json.loads(json_str)
             return cls.from_dict(data)
         except (json.JSONDecodeError, TypeError) as e:
-            logger.warning(f"Failed to parse JSON response: {e}")
+            logger.warning("Failed to parse JSON response: %s", e)
             raise ValueError(f"Invalid JSON format: {e}")
 
     def is_abstention(self) -> bool:
@@ -167,7 +167,7 @@ def parse_structured_response(response: str) -> EvaluationResponse:
     try:
         return _parse_json_response(response)
     except (json.JSONDecodeError, ValueError, KeyError) as e:
-        logger.debug(f"JSON parsing failed: {e}, falling back to regex parsing")
+        logger.debug("JSON parsing failed: %s, falling back to regex parsing", e)
         # Fall back to legacy regex parsing
         return _parse_legacy_response(response)
 
@@ -253,13 +253,16 @@ def _parse_legacy_regex(response: str) -> tuple[float | None, str]:
 
         # Validate that we have at least a score or justification
         if score is None and justification == "No justification provided":
-            logger.warning(f"Could not parse meaningful content from response: {response[:200]}...")
+            logger.warning(
+                "Could not parse meaningful content from response: %s...",
+                response[:200],
+            )
             return (None, "Could not parse evaluation from response")
 
         return (score, justification)
 
-    except Exception as e:
-        logger.exception(f"Error parsing evaluation response: {e}")
+    except Exception:
+        logger.exception("Error parsing evaluation response")
         # Return partial parse if possible
         try:
             justification = _extract_justification_legacy(response)
