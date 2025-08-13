@@ -61,8 +61,9 @@ class TestOrchestratorErrorHandling:
         # Temporarily set BOTO3_AVAILABLE to False to test the error path
         with patch("decision_matrix_mcp.orchestrator.BOTO3_AVAILABLE", False):
             from decision_matrix_mcp.orchestrator import DecisionOrchestrator
+
             orchestrator = DecisionOrchestrator()
-            
+
             with pytest.raises(LLMConfigurationError) as exc_info:
                 await orchestrator._call_bedrock(bedrock_thread)
 
@@ -208,8 +209,9 @@ class TestOrchestratorErrorHandling:
         # Temporarily set HTTPX_AVAILABLE to False to test the error path
         with patch("decision_matrix_mcp.orchestrator.HTTPX_AVAILABLE", False):
             from decision_matrix_mcp.orchestrator import DecisionOrchestrator
+
             orchestrator = DecisionOrchestrator()
-            
+
             with pytest.raises(LLMConfigurationError) as exc_info:
                 await orchestrator._call_ollama(ollama_thread)
 

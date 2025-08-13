@@ -361,30 +361,32 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
         with patch("boto3.Session") as mock_session:
             mock_client = MagicMock()
             mock_client.converse.return_value = {
-                "output": {
-                    "message": {
-                        "content": [{"text": "SCORE: 8\nJUSTIFICATION: Good"}]
-                    }
-                }
+                "output": {"message": {"content": [{"text": "SCORE: 8\nJUSTIFICATION: Good"}]}}
             }
             mock_session.return_value.client.return_value = mock_client
 
             response = await orchestrator._call_bedrock(sample_thread)
             assert response == "SCORE: 8\nJUSTIFICATION: Good"
-            
+
             # Verify request format
             call_args = mock_client.converse.call_args
-            assert call_args.kwargs["inferenceConfig"]["temperature"] == sample_thread.criterion.temperature
-            assert call_args.kwargs["inferenceConfig"]["maxTokens"] == sample_thread.criterion.max_tokens
+            assert (
+                call_args.kwargs["inferenceConfig"]["temperature"]
+                == sample_thread.criterion.temperature
+            )
+            assert (
+                call_args.kwargs["inferenceConfig"]["maxTokens"]
+                == sample_thread.criterion.max_tokens
+            )
             assert "additionalModelRequestFields" not in call_args.kwargs
-
 
     @pytest.mark.asyncio
     async def test_call_bedrock_import_error(self, orchestrator, sample_thread):
         """Test Bedrock call when boto3 not available"""
         # Temporarily patch the BOTO3_AVAILABLE flag
         import sys
-        orch_module = sys.modules['decision_matrix_mcp.orchestrator']
+
+        orch_module = sys.modules["decision_matrix_mcp.orchestrator"]
         original_value = orch_module.BOTO3_AVAILABLE
         try:
             orch_module.BOTO3_AVAILABLE = False
@@ -451,7 +453,8 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
         """Test LiteLLM call when litellm not available"""
         # Temporarily patch the LITELLM_AVAILABLE flag
         import sys
-        orch_module = sys.modules['decision_matrix_mcp.orchestrator']
+
+        orch_module = sys.modules["decision_matrix_mcp.orchestrator"]
         original_value = orch_module.LITELLM_AVAILABLE
         try:
             orch_module.LITELLM_AVAILABLE = False
@@ -488,12 +491,11 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
 
             response = await orchestrator._call_ollama(sample_thread)
             assert response == "SCORE: 6\nJUSTIFICATION: Average"
-            
+
             # Verify request parameters
             call_args = mock_client.post.call_args
             request_json = call_args.kwargs["json"]
             assert request_json["options"]["temperature"] == sample_thread.criterion.temperature
-
 
     @pytest.mark.asyncio
     async def test_call_ollama_custom_host(self, orchestrator, sample_thread):
@@ -520,7 +522,8 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
         """Test Ollama call when httpx not available"""
         # Temporarily patch the HTTPX_AVAILABLE flag
         import sys
-        orch_module = sys.modules['decision_matrix_mcp.orchestrator']
+
+        orch_module = sys.modules["decision_matrix_mcp.orchestrator"]
         original_value = orch_module.HTTPX_AVAILABLE
         try:
             orch_module.HTTPX_AVAILABLE = False

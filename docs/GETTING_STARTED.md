@@ -133,7 +133,7 @@ Let's walk through a complete decision analysis example using Claude Desktop.
 
 Ask Claude:
 ```
-I need to choose a web framework for my new project. 
+I need to choose a web framework for my new project.
 My options are: React, Vue, Angular, and Svelte.
 ```
 
@@ -144,7 +144,7 @@ Claude will use the `start_decision_analysis` tool to create a session.
 ```
 Add these criteria:
 - Learning Curve (weight: 2.0) - How easy it is to learn
-- Performance (weight: 3.0) - Runtime performance and bundle size  
+- Performance (weight: 3.0) - Runtime performance and bundle size
 - Ecosystem (weight: 1.5) - Available libraries and tools
 - Community Support (weight: 2.0) - Documentation and help availability
 ```

@@ -42,7 +42,7 @@ pip install -e .
 ## Available Tools
 
 - `start_decision_analysis` - Initialize decision matrix
-- `add_criterion` - Add weighted evaluation criteria  
+- `add_criterion` - Add weighted evaluation criteria
 - `evaluate_options` - Run parallel evaluation
 - `get_decision_matrix` - View results and rankings
 - `add_option` - Add new alternatives
@@ -116,7 +116,7 @@ docker run --network host ...
 
 **Symptom**: "Session not found or expired" after some time
 
-**Solution**: 
+**Solution**:
 - Sessions expire after 24 hours by default
 - Use `list_sessions` to see active sessions
 - Start a new analysis if needed

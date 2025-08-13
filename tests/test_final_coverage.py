@@ -15,15 +15,16 @@ class TestRemainingCoverage:
         """Test that main function exists and is callable"""
         # Test the main function can be imported
         from decision_matrix_mcp import main
+
         assert callable(main)
 
     def test_session_error_handling_in_add_criterion(self):
         """Test SessionError handling branch"""
         from decision_matrix_mcp import add_criterion, AddCriterionRequest, get_server_components
-        
+
         # We need to trigger the SessionError exception handler
         # This happens at lines 339-340 in __init__.py
-        
+
     def test_validation_error_in_add_criterion(self):
         """Test ValidationError handling in add_criterion"""
         # This covers lines 339-340 in __init__.py
@@ -37,21 +38,18 @@ class TestRemainingCoverage:
     def test_option_score_breakdown_edge_case(self):
         """Test Option.get_score_breakdown with score=None but not abstained"""
         option = Option(name="Test")
-        
+
         # Create a score with None value but manipulate abstained check
         score = Score(
-            criterion_name="Test",
-            option_name="Test",
-            score=None,
-            justification="None score"
+            criterion_name="Test", option_name="Test", score=None, justification="None score"
         )
         # Manually override to test the specific branch
         # This tests line 191 in models.py
         option.scores["Test"] = score
-        
+
         criteria = {"Test": MagicMock(weight=1.0)}
         breakdown = option.get_score_breakdown(criteria)
-        
+
         # Should handle None score appropriately
         assert len(breakdown) == 1
         assert breakdown[0]["raw_score"] is None
@@ -61,16 +59,14 @@ class TestRemainingCoverage:
         """Test DecisionSession.get_decision_matrix with no rankings"""
         from decision_matrix_mcp.models import DecisionSession
         from datetime import datetime, timezone
-        
+
         session = DecisionSession(
-            session_id="test",
-            created_at=datetime.now(timezone.utc),
-            topic="Test"
+            session_id="test", created_at=datetime.now(timezone.utc), topic="Test"
         )
-        
+
         # Get matrix with no options/criteria
         matrix = session.get_decision_matrix()
-        
+
         # Should return error, not recommendation
         assert "error" in matrix
         assert matrix["error"] == "Need both options and criteria to generate matrix"
@@ -78,7 +74,7 @@ class TestRemainingCoverage:
     def test_session_manager_ttl_default(self):
         """Test SessionManager initialization with default TTL"""
         from decision_matrix_mcp.session_manager import SessionManager
-        
+
         # Create manager with default TTL
         manager = SessionManager()
         # Manager should initialize without error
@@ -88,18 +84,19 @@ class TestRemainingCoverage:
     def test_validation_decorator_pass_through(self):
         """Test validation decorator when validation passes"""
         from decision_matrix_mcp.validation_decorators import validate_request
-        
+
         # Create a simple function with validation
         @validate_request(test_field=lambda x: x == "valid")
         async def test_func(request):
             return {"success": True}
-        
+
         # Create mock request
         mock_request = MagicMock()
         mock_request.test_field = "valid"
-        
+
         # This should pass validation (lines 52, 54)
         import asyncio
+
         result = asyncio.run(test_func(mock_request))
         assert result == {"success": True}
 
@@ -114,7 +111,7 @@ class TestRemainingCoverage:
         """Test orchestrator retry mechanism branches"""
         # Lines 118-119 are covered when retries happen
         # Lines 206-213 are the Bedrock response parsing
-        # Lines 237-238 are LiteLLM response parsing  
+        # Lines 237-238 are LiteLLM response parsing
         # These are integration-level and tested in other test files
         pass
 

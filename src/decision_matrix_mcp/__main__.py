@@ -21,9 +21,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""
-Decision Matrix MCP Server - Command Line Entry Point
-"""
+"""Decision Matrix MCP Server - Command Line Entry Point."""
 
 from . import main
 

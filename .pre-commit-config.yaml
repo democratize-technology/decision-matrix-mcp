@@ -1,38 +1,113 @@
+# Pre-commit hooks for code quality and consistency
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
 repos:
+  # Standard pre-commit hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v4.6.0
     hooks:
       - id: trailing-whitespace
+        description: Remove trailing whitespace
       - id: end-of-file-fixer
+        description: Ensure files end with newline
       - id: check-yaml
-      - id: check-added-large-files
-      - id: check-merge-conflict
+        description: Check YAML file syntax
       - id: check-toml
+        description: Check TOML file syntax
+      - id: check-json
+        description: Check JSON file syntax
+      - id: check-merge-conflict
+        description: Check for merge conflict markers
+      - id: check-added-large-files
+        description: Prevent large files from being committed
+        args: ['--maxkb=500']
       - id: debug-statements
+        description: Check for debugger imports and breakpoints
+      - id: check-docstring-first
+        description: Check docstring placement
       - id: mixed-line-ending
+        description: Enforce consistent line endings
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.14
+  # Python code formatting with Black
+  - repo: https://github.com/psf/black
+    rev: 24.4.2
     hooks:
-      - id: ruff
-        args: [--fix]
-      - id: ruff-format
+      - id: black
+        description: Format Python code with Black
+        language_version: python3
+        args: ['--config=pyproject.toml']
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.8.0
-    hooks:
-      - id: mypy
-        additional_dependencies: [types-all]
-        args: [--strict, --ignore-missing-imports]
-
+  # Import sorting with isort (integrated with Black)
   - repo: https://github.com/pycqa/isort
     rev: 5.13.2
     hooks:
       - id: isort
-        args: ["--profile", "black"]
+        description: Sort Python imports
+        args: ['--profile=black', '--check-only', '--diff']
 
-  - repo: https://github.com/asottile/pyupgrade
-    rev: v3.15.0
+  # Ruff linting and formatting
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.4
     hooks:
-      - id: pyupgrade
-        args: [--py310-plus]
+      # Run the linter
+      - id: ruff
+        description: Run Ruff linting
+        args: ['--fix', '--exit-non-zero-on-fix']
+      # Run the formatter
+      - id: ruff-format
+        description: Run Ruff formatting
+
+  # Type checking with mypy
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.0
+    hooks:
+      - id: mypy
+        description: Run mypy type checking
+        additional_dependencies: [
+          'types-requests',
+          'types-urllib3',
+          'types-PyYAML',
+          'boto3-stubs[essential]',
+          'pydantic',
+        ]
+        args: ['--config-file=pyproject.toml']
+        exclude: '^tests/'  # Skip type checking for tests
+
+  # Security checks with bandit
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.8
+    hooks:
+      - id: bandit
+        description: Run bandit security checks
+        args: ['-r', 'src/', '-f', 'json']
+        exclude: '^tests/'
+
+  # Dependency checks
+  - repo: https://github.com/Lucas-C/pre-commit-hooks-safety
+    rev: v1.3.2
+    hooks:
+      - id: python-safety-dependencies-check
+        description: Check for known security vulnerabilities
+
+  # Documentation checks
+  - repo: https://github.com/pycqa/pydocstyle
+    rev: 6.3.0
+    hooks:
+      - id: pydocstyle
+        description: Check docstring style
+        args: ['--convention=google', '--add-ignore=D100,D104,D105,D107']
+        exclude: '^tests/'
+
+# Configuration for pre-commit ci service
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit.com hooks
+
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_branch: ''
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: []
+  submodules: false

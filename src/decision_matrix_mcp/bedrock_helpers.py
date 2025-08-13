@@ -20,7 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""Helper functions for AWS Bedrock integration"""
+"""Helper functions for AWS Bedrock integration."""
 
 import logging
 import os
@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_aws_region() -> str:
-    """Get AWS region from environment variables with fallback
+    """Get AWS region from environment variables with fallback.
 
     Returns:
         AWS region string
@@ -42,7 +42,7 @@ def get_aws_region() -> str:
 
 
 def format_messages_for_converse(thread: CriterionThread) -> list[dict[str, Any]]:
-    """Format thread messages for Bedrock converse API
+    """Format thread messages for Bedrock converse API.
 
     Args:
         thread: CriterionThread containing conversation history
@@ -57,9 +57,11 @@ def format_messages_for_converse(thread: CriterionThread) -> list[dict[str, Any]
 
 
 def build_converse_request(
-    thread: CriterionThread, messages: list[dict[str, Any]], model_id: str
+    thread: CriterionThread,
+    messages: list[dict[str, Any]],
+    model_id: str,
 ) -> dict[str, Any]:
-    """Build the complete converse API request
+    """Build the complete converse API request.
 
     Args:
         thread: CriterionThread with criterion config
@@ -81,7 +83,7 @@ def build_converse_request(
 
 
 def extract_response_text(response: dict[str, Any]) -> str:
-    """Extract text from Bedrock converse API response
+    """Extract text from Bedrock converse API response.
 
     Args:
         response: Response from Bedrock converse API
@@ -105,7 +107,7 @@ def extract_response_text(response: dict[str, Any]) -> str:
 
 
 def diagnose_bedrock_error(error: Exception, model_id: str, region: str) -> tuple[str, str]:
-    """Diagnose Bedrock API errors and provide user-friendly messages
+    """Diagnose Bedrock API errors and provide user-friendly messages.
 
     Args:
         error: The exception from Bedrock API

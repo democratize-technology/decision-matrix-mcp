@@ -20,14 +20,15 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""Session management for Decision Matrix MCP"""
+"""Session management for Decision Matrix MCP."""
 
-import logging
+from collections import OrderedDict
 from datetime import datetime, timedelta, timezone
+import logging
 from typing import Any
 from uuid import uuid4
 
-from .constants import ValidationLimits
+from .constants import SessionLimits, ValidationLimits
 from .exceptions import ResourceLimitError
 from .models import DecisionSession
 
@@ -37,15 +38,16 @@ logger = logging.getLogger(__name__)
 class SessionManager:
     def __init__(
         self,
-        max_sessions: int = 50,
-        session_ttl_hours: int = 24,
-        cleanup_interval_minutes: int = 30,
-    ):
+        max_sessions: int = SessionLimits.DEFAULT_MAX_SESSIONS,
+        session_ttl_hours: int = SessionLimits.DEFAULT_SESSION_TTL_HOURS,
+        cleanup_interval_minutes: int = SessionLimits.DEFAULT_CLEANUP_INTERVAL_MINUTES,
+    ) -> None:
         self.max_sessions = max_sessions
         self.session_ttl = timedelta(hours=session_ttl_hours)
         self.cleanup_interval = timedelta(minutes=cleanup_interval_minutes)
 
-        self.sessions: dict[str, DecisionSession] = {}
+        # Use OrderedDict for LRU tracking - maintains insertion/access order
+        self.sessions: OrderedDict[str, DecisionSession] = OrderedDict()
         self.last_cleanup = datetime.now(timezone.utc)
 
         self.stats = {
@@ -56,18 +58,29 @@ class SessionManager:
         }
 
     def create_session(
-        self, topic: str, initial_options: list[str] | None = None, temperature: float = 0.1
+        self,
+        topic: str,
+        initial_options: list[str] | None = None,
+        temperature: float = 0.1,
     ) -> DecisionSession:
+        # Always run cleanup first (includes both TTL and LRU eviction)
         self._cleanup_if_needed()
 
+        # Check if we're at the creation limit (max_sessions)
         if len(self.sessions) >= self.max_sessions:
+            # Try TTL cleanup first
             self._cleanup_expired_sessions()
 
+            # If still at creation limit, try LRU eviction to make room
             if len(self.sessions) >= self.max_sessions:
-                raise ResourceLimitError(
-                    f"Session limit of {self.max_sessions} exceeded",
-                    f"Maximum number of active sessions ({self.max_sessions}) reached. Please try again later.",
-                )
+                self._evict_lru_sessions()
+
+                # If still at creation limit after all cleanup attempts, reject
+                if len(self.sessions) >= self.max_sessions:
+                    raise ResourceLimitError(
+                        f"Session limit of {self.max_sessions} exceeded",
+                        f"Maximum number of active sessions ({self.max_sessions}) reached. Please try again later.",
+                    )
 
         session_id = str(uuid4())
         session = DecisionSession(
@@ -96,6 +109,10 @@ class SessionManager:
         if session and self._is_session_expired(session):
             self._remove_session(session_id)
             return None
+
+        # Track access for LRU - move to end (most recently used)
+        if session:
+            self._touch_session(session_id)
 
         return session
 
@@ -126,7 +143,8 @@ class SessionManager:
 
         return sorted_sessions[0][1]
 
-    def _cleanup_if_needed(self) -> None:
+    def _original_cleanup_if_needed(self) -> None:
+        """Original cleanup method - kept for reference but replaced with enhanced version."""
         if datetime.now(timezone.utc) - self.last_cleanup > self.cleanup_interval:
             self._cleanup_expired_sessions()
 
@@ -150,14 +168,75 @@ class SessionManager:
         """Check if session has expired, handling both timezone-aware and naive datetimes."""
         now = datetime.now(timezone.utc)
         session_time = session.created_at
-        
+
         # Ensure session time is timezone-aware
         if session_time.tzinfo is None:
             # Assume UTC for naive datetime (legacy sessions)
             session_time = session_time.replace(tzinfo=timezone.utc)
             logger.debug(f"Session {session.session_id[:8]} has naive datetime, assuming UTC")
-        
+
         return now - session_time > self.session_ttl
+
+    def _touch_session(self, session_id: str) -> None:
+        """Update LRU order by moving session to end (most recently used)."""
+        if session_id in self.sessions:
+            self.sessions.move_to_end(session_id)
+
+    def _evict_lru_sessions(self) -> None:
+        """Evict least recently used sessions when approaching memory limits."""
+        current_count = len(self.sessions)
+
+        # Only evict if we're approaching the memory limit (95% threshold)
+        memory_threshold = int(SessionLimits.MAX_ACTIVE_SESSIONS * 0.95)
+        if current_count < memory_threshold:
+            return
+
+        # Calculate target final size: try to get down to a safe level below the limit
+        # Aim for the smaller of: max_sessions limit, or 90% of MAX_ACTIVE_SESSIONS
+        target_final_size = min(self.max_sessions, int(SessionLimits.MAX_ACTIVE_SESSIONS * 0.9))
+
+        # Calculate how many to evict
+        if current_count > target_final_size:
+            target_evictions = current_count - target_final_size
+            # Cap at batch size to avoid massive cleanups
+            target_evictions = min(target_evictions, SessionLimits.LRU_EVICTION_BATCH_SIZE)
+        else:
+            # If we're not that far over, just evict the batch size
+            target_evictions = SessionLimits.LRU_EVICTION_BATCH_SIZE
+
+        # Ensure we evict at least 1 but never more than available
+        target_evictions = max(1, min(target_evictions, current_count - 1))
+
+        sessions_to_evict = []
+
+        # Collect LRU sessions for eviction (first items in OrderedDict are oldest/LRU)
+        for session_id in list(self.sessions.keys()):
+            if len(sessions_to_evict) >= target_evictions:
+                break
+            sessions_to_evict.append(session_id)
+
+        # Perform actual eviction
+        for session_id in sessions_to_evict:
+            self._remove_session(session_id)
+
+        if sessions_to_evict:
+            logger.info(
+                f"Evicted {len(sessions_to_evict)} LRU sessions to maintain memory bounds (was {current_count}, now {len(self.sessions)})",
+            )
+
+    def _cleanup_if_needed(self) -> None:
+        """More aggressive cleanup including both TTL and LRU-based eviction."""
+        now = datetime.now(timezone.utc)
+
+        # Check if cleanup interval has passed
+        if now - self.last_cleanup > self.cleanup_interval:
+            self._cleanup_expired_sessions()
+
+        # Always check if we're approaching memory limits - be more proactive
+        # Start LRU eviction when we get close to the limit, not just at it
+        memory_threshold = int(SessionLimits.MAX_ACTIVE_SESSIONS * 0.95)  # 95% of limit
+        if len(self.sessions) >= memory_threshold:
+            self._evict_lru_sessions()
 
     def _remove_session(self, session_id: str) -> bool:
         if session_id in self.sessions:
@@ -173,39 +252,31 @@ class SessionValidator:
     def validate_session_id(session_id: str) -> bool:
         if not session_id or not isinstance(session_id, str):
             return False
-        if len(session_id) > ValidationLimits.MAX_SESSION_ID_LENGTH:
-            return False
-        return True
+        return not len(session_id) > ValidationLimits.MAX_SESSION_ID_LENGTH
 
     @staticmethod
     def validate_topic(topic: str) -> bool:
         if not topic or not isinstance(topic, str):
             return False
-        if len(topic.strip()) == 0 or len(topic) > ValidationLimits.MAX_TOPIC_LENGTH:
-            return False
-        return True
+        return not (len(topic.strip()) == 0 or len(topic) > ValidationLimits.MAX_TOPIC_LENGTH)
 
     @staticmethod
     def validate_option_name(option_name: str) -> bool:
         if not option_name or not isinstance(option_name, str):
             return False
-        if (
+        return not (
             len(option_name.strip()) == 0
             or len(option_name) > ValidationLimits.MAX_OPTION_NAME_LENGTH
-        ):
-            return False
-        return True
+        )
 
     @staticmethod
     def validate_criterion_name(criterion_name: str) -> bool:
         if not criterion_name or not isinstance(criterion_name, str):
             return False
-        if (
+        return not (
             len(criterion_name.strip()) == 0
             or len(criterion_name) > ValidationLimits.MAX_CRITERION_NAME_LENGTH
-        ):
-            return False
-        return True
+        )
 
     @staticmethod
     def validate_weight(weight: float) -> bool:
@@ -219,9 +290,7 @@ class SessionValidator:
     def validate_description(description: str) -> bool:
         if not description or not isinstance(description, str):
             return False
-        if (
+        return not (
             len(description.strip()) == 0
             or len(description) > ValidationLimits.MAX_DESCRIPTION_LENGTH
-        ):
-            return False
-        return True
+        )

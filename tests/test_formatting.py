@@ -372,9 +372,7 @@ class TestDecisionFormatter:
         assert "# 🎯 Decision Matrix: Test" in output
 
         # Single option
-        matrix_data["rankings"] = [
-            {"option": "Only", "weighted_total": 5.0, "breakdown": []}
-        ]
+        matrix_data["rankings"] = [{"option": "Only", "weighted_total": 5.0, "breakdown": []}]
         output = formatter.format_decision_matrix(matrix_data)
         assert "🥇 **Only** - 5.0 pts" in output
 

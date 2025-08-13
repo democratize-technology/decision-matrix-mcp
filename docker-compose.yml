@@ -9,26 +9,26 @@ services:
       # AWS Bedrock configuration (optional)
       - AWS_PROFILE=${AWS_PROFILE:-}
       - AWS_REGION=${AWS_REGION:-us-east-1}
-      
+
       # LiteLLM configuration (optional)
       - LITELLM_API_KEY=${LITELLM_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      
+
       # Ollama configuration (optional)
       - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
-      
+
       # Logging level
       - LOG_LEVEL=${LOG_LEVEL:-WARNING}
-    
+
     # Mount AWS credentials if using Bedrock
     volumes:
       - ~/.aws:/home/mcp/.aws:ro
-    
+
     # MCP uses stdio, so we need interactive mode
     stdin_open: true
     tty: true
-    
+
     # Health check
     healthcheck:
       test: ["CMD", "python", "-c", "import decision_matrix_mcp; print('healthy')"]
@@ -36,7 +36,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
-    
+
     # Resource limits
     deploy:
       resources:

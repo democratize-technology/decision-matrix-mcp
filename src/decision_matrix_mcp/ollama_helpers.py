@@ -20,7 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""Helper functions for Ollama integration"""
+"""Helper functions for Ollama integration."""
 
 import os
 from typing import Any
@@ -30,7 +30,7 @@ from .models import CriterionThread
 
 
 def get_ollama_host() -> str:
-    """Get Ollama host from environment with default
+    """Get Ollama host from environment with default.
 
     Returns:
         Ollama host URL
@@ -39,7 +39,7 @@ def get_ollama_host() -> str:
 
 
 def format_messages_for_ollama(thread: CriterionThread) -> list[dict[str, str]]:
-    """Format thread messages for Ollama API
+    """Format thread messages for Ollama API.
 
     Args:
         thread: CriterionThread containing conversation history
@@ -54,9 +54,11 @@ def format_messages_for_ollama(thread: CriterionThread) -> list[dict[str, str]]:
 
 
 def build_ollama_request(
-    thread: CriterionThread, messages: list[dict[str, str]], model: str
+    thread: CriterionThread,
+    messages: list[dict[str, str]],
+    model: str,
 ) -> dict[str, Any]:
-    """Build the complete Ollama API request
+    """Build the complete Ollama API request.
 
     Args:
         thread: CriterionThread with criterion config
@@ -77,7 +79,7 @@ def build_ollama_request(
 
 
 def parse_ollama_response(response: Any, status_code: int, model: str) -> str:
-    """Parse Ollama API response and handle errors
+    """Parse Ollama API response and handle errors.
 
     Args:
         response: HTTP response object
@@ -108,25 +110,24 @@ def parse_ollama_response(response: Any, status_code: int, model: str) -> str:
                 message=error_msg,
                 user_message=f"Model not available in Ollama: {model}",
             )
-        elif status_code == 503:
+        if status_code == 503:
             raise LLMAPIError(
                 backend="ollama",
                 message=error_msg,
                 user_message="Ollama service is not running",
             )
-        else:
-            raise LLMAPIError(
-                backend="ollama",
-                message=error_msg,
-                user_message="Ollama service temporarily unavailable",
-            )
+        raise LLMAPIError(
+            backend="ollama",
+            message=error_msg,
+            user_message="Ollama service temporarily unavailable",
+        )
 
     result = response.json()
     return result["message"]["content"]
 
 
 def diagnose_ollama_error(error: Exception) -> str:
-    """Diagnose Ollama connection errors and provide user-friendly messages
+    """Diagnose Ollama connection errors and provide user-friendly messages.
 
     Args:
         error: The exception from Ollama API
@@ -138,5 +139,4 @@ def diagnose_ollama_error(error: Exception) -> str:
 
     if "connection" in error_message or "refused" in error_message:
         return "Cannot connect to Ollama service. Is it running?"
-    else:
-        return "Ollama service error"
+    return "Ollama service error"

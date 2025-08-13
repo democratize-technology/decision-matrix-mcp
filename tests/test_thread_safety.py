@@ -7,7 +7,11 @@ from unittest.mock import patch
 import pytest
 
 import decision_matrix_mcp
-from decision_matrix_mcp import ServerComponents, get_server_components, initialize_server_components
+from decision_matrix_mcp import (
+    ServerComponents,
+    get_server_components,
+    initialize_server_components,
+)
 
 
 class TestThreadSafetyInitialization:
@@ -132,7 +136,9 @@ class TestThreadSafetyInitialization:
         decision_matrix_mcp._server_components = None
 
         # Make initialization fail
-        with patch("decision_matrix_mcp.create_server_components", side_effect=RuntimeError("Init failed")):
+        with patch(
+            "decision_matrix_mcp.create_server_components", side_effect=RuntimeError("Init failed")
+        ):
             with pytest.raises(RuntimeError, match="Init failed"):
                 get_server_components()
 

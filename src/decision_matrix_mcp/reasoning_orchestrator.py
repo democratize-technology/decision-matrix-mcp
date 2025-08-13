@@ -20,17 +20,14 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""Chain of Thought integration for structured decision reasoning"""
+"""Chain of Thought integration for structured decision reasoning."""
 
 import asyncio
 import logging
 from typing import Any
 
 try:
-    from chain_of_thought import (
-        TOOL_SPECS,
-        AsyncChainOfThoughtProcessor,
-    )
+    from chain_of_thought import TOOL_SPECS, AsyncChainOfThoughtProcessor
 
     COT_AVAILABLE = True
 except ImportError:
@@ -43,28 +40,36 @@ logger = logging.getLogger(__name__)
 
 
 class DecisionReasoningOrchestrator:
-    """Orchestrates Chain of Thought reasoning for decision evaluation"""
+    """Orchestrates Chain of Thought reasoning for decision evaluation."""
 
-    def __init__(self, cot_timeout: float = 30.0):
-        """Initialize the reasoning orchestrator
+    def __init__(self, cot_timeout: float | None = None) -> None:
+        """Initialize the reasoning orchestrator.
 
         Args:
-            cot_timeout: Maximum time in seconds for CoT processing (default: 30s)
+            cot_timeout: Maximum time in seconds for CoT processing.
+                        If None, uses configuration default.
         """
+        # Import config here to avoid circular imports
+        from .config import config
+
+        # Use configuration value if not explicitly provided
+        resolved_timeout = (
+            cot_timeout if cot_timeout is not None else config.performance.cot_timeout_seconds
+        )
         if not COT_AVAILABLE:
             logger.warning(
-                "chain-of-thought-tool not available. Install with: pip install chain-of-thought-tool"
+                "chain-of-thought-tool not available. Install with: pip install chain-of-thought-tool",
             )
-        self.cot_timeout = cot_timeout
+        self.cot_timeout = resolved_timeout
         self._cot_available = COT_AVAILABLE
 
     @property
     def is_available(self) -> bool:
-        """Check if Chain of Thought reasoning is available"""
+        """Check if Chain of Thought reasoning is available."""
         return self._cot_available
 
     def _sanitize_input(self, text: str) -> str:
-        """Sanitize input text to prevent injection attacks
+        """Sanitize input text to prevent injection attacks.
 
         Args:
             text: Input text to sanitize
@@ -105,15 +110,18 @@ class DecisionReasoningOrchestrator:
         return text.strip()
 
     def get_cot_tools(self) -> list[dict[str, Any]]:
-        """Get Chain of Thought tool specifications for Bedrock"""
+        """Get Chain of Thought tool specifications for Bedrock."""
         if not COT_AVAILABLE:
             return []
         return TOOL_SPECS
 
     async def evaluate_with_reasoning(
-        self, thread: CriterionThread, option: Option, bedrock_client: Any
+        self,
+        thread: CriterionThread,
+        option: Option,
+        bedrock_client: Any,
     ) -> tuple[float | None, str, dict[str, Any]]:
-        """Evaluate an option using structured Chain of Thought reasoning
+        """Evaluate an option using structured Chain of Thought reasoning.
 
         Returns:
             Tuple of (score, justification, reasoning_summary)
@@ -125,7 +133,7 @@ class DecisionReasoningOrchestrator:
         # Validate and sanitize option data
         option_name = self._sanitize_input(option.name)
         option_description = self._sanitize_input(
-            option.description or "No additional description provided"
+            option.description or "No additional description provided",
         )
 
         # Create a CoT processor for this evaluation with unique ID
@@ -133,7 +141,7 @@ class DecisionReasoningOrchestrator:
 
         unique_id = uuid.uuid4().hex[:8]
         processor = AsyncChainOfThoughtProcessor(
-            conversation_id=f"{thread.id}-{option_name}-{unique_id}"
+            conversation_id=f"{thread.id}-{option_name}-{unique_id}",
         )
 
         # Prepare the enhanced system prompt
@@ -170,10 +178,10 @@ Option Description: {option_description}
 Use chain_of_thought_step to reason through your evaluation systematically.
 Remember to follow the scoring format at the end:
 SCORE: [1-10 or NO_RESPONSE if not applicable]
-JUSTIFICATION: [your reasoning summary]"""
-                    }
+JUSTIFICATION: [your reasoning summary]""",
+                    },
                 ],
-            }
+            },
         )
 
         request = {
@@ -210,7 +218,7 @@ JUSTIFICATION: [your reasoning summary]"""
             try:
                 reasoning_summary = await asyncio.wait_for(
                     processor.get_reasoning_summary(),
-                    timeout=5.0,  # Quick timeout for summary
+                    timeout=config.performance.cot_summary_timeout_seconds,
                 )
             except asyncio.TimeoutError:
                 logger.warning("Timeout getting reasoning summary")
@@ -222,7 +230,7 @@ JUSTIFICATION: [your reasoning summary]"""
             return score, justification, reasoning_summary
 
         except asyncio.TimeoutError as e:
-            logger.error(f"CoT evaluation timed out after {self.cot_timeout}s")
+            logger.exception(f"CoT evaluation timed out after {self.cot_timeout}s")
             raise CoTTimeoutError(self.cot_timeout) from e
         except ChainOfThoughtError:
             # Re-raise our custom exceptions
@@ -230,7 +238,8 @@ JUSTIFICATION: [your reasoning summary]"""
         except Exception as e:
             logger.error(f"Unexpected error in CoT evaluation: {e}", exc_info=True)
             raise CoTProcessingError(
-                f"Failed to process reasoning: {str(e)}", stage="evaluation"
+                f"Failed to process reasoning: {e!s}",
+                stage="evaluation",
             ) from e
         finally:
             # Always clean up the processor
@@ -240,7 +249,7 @@ JUSTIFICATION: [your reasoning summary]"""
                 logger.warning(f"Error during processor cleanup: {cleanup_error}")
 
     def _parse_evaluation_response(self, response: str) -> tuple[float | None, str]:
-        """Parse the evaluation response to extract score and justification
+        """Parse the evaluation response to extract score and justification.
 
         Raises:
             CoTProcessingError: If response format is invalid
@@ -249,12 +258,15 @@ JUSTIFICATION: [your reasoning summary]"""
 
         if not response or not isinstance(response, str):
             raise CoTProcessingError(
-                "Invalid response format: expected non-empty string", stage="response_parsing"
+                "Invalid response format: expected non-empty string",
+                stage="response_parsing",
             )
 
         # Look for SCORE: pattern
         score_match = re.search(
-            r"SCORE:\s*([0-9]+(?:\.[0-9]+)?|NO_RESPONSE)", response, re.IGNORECASE
+            r"SCORE:\s*([0-9]+(?:\.[0-9]+)?|NO_RESPONSE)",
+            response,
+            re.IGNORECASE,
         )
         score = None
         if score_match:
@@ -266,9 +278,10 @@ JUSTIFICATION: [your reasoning summary]"""
                         logger.warning(f"Score {score} outside valid range, clamping to 1-10")
                     score = max(1.0, min(10.0, score))  # Clamp to 1-10
                 except ValueError as e:
-                    logger.error(f"Failed to parse score '{score_text}': {e}")
+                    logger.exception(f"Failed to parse score '{score_text}': {e}")
                     raise CoTProcessingError(
-                        f"Invalid score format: {score_text}", stage="score_parsing"
+                        f"Invalid score format: {score_text}",
+                        stage="score_parsing",
                     ) from e
 
         # Look for JUSTIFICATION: pattern

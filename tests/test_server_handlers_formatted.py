@@ -23,6 +23,7 @@ from decision_matrix_mcp.exceptions import ValidationError, ResourceLimitError
 # Mock context for all tests
 mock_ctx = Mock(spec=Context)
 
+
 class TestFormattedResponses:
     """Test that all handlers return formatted_output field"""
 
@@ -62,9 +63,7 @@ class TestFormattedResponses:
     async def test_add_criterion_with_formatted_output(self):
         """Test add_criterion includes formatted output"""
         # First create a session
-        start_request = StartDecisionAnalysisRequest(
-            topic="Test", options=["A", "B"]
-        )
+        start_request = StartDecisionAnalysisRequest(topic="Test", options=["A", "B"])
         start_result = await start_decision_analysis(start_request, mock_ctx)
         session_id = start_result["session_id"]
 
@@ -174,8 +173,7 @@ class TestFormattedResponses:
             # Mock formatter
             mock_formatter = MagicMock()
             mock_formatter.format_decision_matrix.return_value = (
-                "# 🎯 Decision Matrix: Choose a language\n"
-                "### 🥇 **Winner: Python**"
+                "# 🎯 Decision Matrix: Choose a language\n" "### 🥇 **Winner: Python**"
             )
             mock_formatter.format_error.return_value = "## ❌ Error"
             mock_components.formatter = mock_formatter
@@ -231,9 +229,7 @@ class TestFormattedResponses:
     async def test_add_option_with_formatted_output(self):
         """Test add_option includes formatted output"""
         # Create session first
-        start_request = StartDecisionAnalysisRequest(
-            topic="Test", options=["A", "B"]
-        )
+        start_request = StartDecisionAnalysisRequest(topic="Test", options=["A", "B"])
         start_result = await start_decision_analysis(start_request, mock_ctx)
         session_id = start_result["session_id"]
 
@@ -308,9 +304,7 @@ class TestFormattedResponses:
     async def test_no_criteria_error_formatting(self):
         """Test no criteria error has helpful formatting"""
         # Create session without criteria
-        start_request = StartDecisionAnalysisRequest(
-            topic="Test", options=["A", "B"]
-        )
+        start_request = StartDecisionAnalysisRequest(topic="Test", options=["A", "B"])
         start_result = await start_decision_analysis(start_request, mock_ctx)
         session_id = start_result["session_id"]
 

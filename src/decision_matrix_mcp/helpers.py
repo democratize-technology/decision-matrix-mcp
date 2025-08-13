@@ -20,7 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""Helper functions to reduce complexity in main module"""
+"""Helper functions to reduce complexity in main module."""
 
 import logging
 from typing import Any
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 def validate_evaluation_prerequisites(session: DecisionSession) -> dict[str, Any] | None:
-    """Validate that a session is ready for evaluation
+    """Validate that a session is ready for evaluation.
 
     Args:
         session: The decision session to validate
@@ -55,9 +55,10 @@ def validate_evaluation_prerequisites(session: DecisionSession) -> dict[str, Any
 
 
 def process_evaluation_results(
-    evaluation_results: dict[str, dict[str, tuple[float | None, str]]], session: DecisionSession
+    evaluation_results: dict[str, dict[str, tuple[float | None, str]]],
+    session: DecisionSession,
 ) -> tuple[int, int, list[str]]:
-    """Process evaluation results and update session scores
+    """Process evaluation results and update session scores.
 
     Args:
         evaluation_results: Results from orchestrator evaluation
@@ -99,7 +100,7 @@ def create_evaluation_response(
     abstentions: int,
     errors: list[str],
 ) -> dict[str, Any]:
-    """Create standardized evaluation response
+    """Create standardized evaluation response.
 
     Args:
         session_id: ID of the session
@@ -129,9 +130,11 @@ def create_evaluation_response(
 
 
 def create_error_response(
-    error_msg: str, context: str = "Validation error", formatter: Any | None = None
+    error_msg: str,
+    context: str = "Validation error",
+    formatter: Any | None = None,
 ) -> dict[str, Any]:
-    """Create standardized error response
+    """Create standardized error response.
 
     Args:
         error_msg: The error message
@@ -150,7 +153,7 @@ def create_error_response(
 
 
 def process_initial_criteria(request: Any, session: DecisionSession) -> list[str]:
-    """Process and add initial criteria to a session
+    """Process and add initial criteria to a session.
 
     Args:
         request: Request containing initial_criteria and model settings
@@ -187,9 +190,11 @@ def process_initial_criteria(request: Any, session: DecisionSession) -> list[str
 
 
 def create_session_response(
-    session: DecisionSession, request: Any, criteria_added: list[str]
+    session: DecisionSession,
+    request: Any,
+    criteria_added: list[str],
 ) -> dict[str, Any]:
-    """Create standardized session creation response
+    """Create standardized session creation response.
 
     Args:
         session: The created decision session
@@ -220,7 +225,7 @@ def create_session_response(
 
 
 def create_criterion_from_request(request: Any, session: DecisionSession) -> Any:
-    """Create a Criterion object from request data
+    """Create a Criterion object from request data.
 
     Args:
         request: Request containing criterion parameters
@@ -250,7 +255,7 @@ def create_criterion_from_request(request: Any, session: DecisionSession) -> Any
 
 
 def create_criterion_response(request: Any, session: DecisionSession) -> dict[str, Any]:
-    """Create standardized criterion addition response
+    """Create standardized criterion addition response.
 
     Args:
         request: Request containing criterion data

@@ -46,7 +46,7 @@ This is a Model Context Protocol (MCP) server that implements structured decisio
 
 ### Core Components
 
-1. **MCP Server (`__init__.py`)**: 
+1. **MCP Server (`__init__.py`)**:
    - FastMCP-based server using stdio transport
    - Exposes decision analysis tools to Claude Desktop
    - CRITICAL: All output must go to stderr, never stdout (reserved for MCP protocol)

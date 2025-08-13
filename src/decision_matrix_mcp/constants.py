@@ -20,30 +20,119 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""
-Validation constants for the decision matrix MCP server.
+"""Configuration-based constants for the decision matrix MCP server.
 
-This module centralizes all validation limits and constants to ensure consistency
-across the codebase and make configuration changes easier.
+This module provides backward-compatible constants that now use the
+ConfigManager for dynamic configuration via environment variables.
+
+MIGRATION NOTE: This module maintains backward compatibility with existing
+code while transitioning to the new configuration system. All constants
+now dynamically read from the ConfigManager instead of hardcoded values.
+
+Environment Variables:
+- All configuration can be overridden using DMM_* environment variables
+- See config.defaults.ENV_VAR_MAPPING for the complete list
+- Example: DMM_MAX_OPTIONS_ALLOWED=30 to change the max options limit
+
+For new code, prefer importing directly from the config module:
+    from decision_matrix_mcp.config import config
+    max_options = config.validation.max_options_allowed
 """
+
+from .config import config
 
 
 class ValidationLimits:
-    """Validation limits for input sanitization and business logic."""
+    """Validation limits for input sanitization and business logic.
 
-    # Session validation
-    MAX_SESSION_ID_LENGTH = 100
+    These properties dynamically read from the ConfigManager, allowing
+    runtime configuration via environment variables.
+    """
 
-    # Content validation
-    MAX_TOPIC_LENGTH = 500
-    MAX_OPTION_NAME_LENGTH = 200
-    MAX_CRITERION_NAME_LENGTH = 100
-    MAX_DESCRIPTION_LENGTH = 1000
+    @property
+    def MAX_SESSION_ID_LENGTH(self) -> int:
+        """Maximum length for session IDs."""
+        return config.validation.max_session_id_length
 
-    # Business logic limits
-    MIN_OPTIONS_REQUIRED = 2
-    MAX_OPTIONS_ALLOWED = 20
+    @property
+    def MAX_TOPIC_LENGTH(self) -> int:
+        """Maximum length for decision topics."""
+        return config.validation.max_topic_length
 
-    # Weight validation
-    MIN_CRITERION_WEIGHT = 0.1
-    MAX_CRITERION_WEIGHT = 10.0
+    @property
+    def MAX_OPTION_NAME_LENGTH(self) -> int:
+        """Maximum length for option names."""
+        return config.validation.max_option_name_length
+
+    @property
+    def MAX_CRITERION_NAME_LENGTH(self) -> int:
+        """Maximum length for criterion names."""
+        return config.validation.max_criterion_name_length
+
+    @property
+    def MAX_DESCRIPTION_LENGTH(self) -> int:
+        """Maximum length for descriptions."""
+        return config.validation.max_description_length
+
+    @property
+    def MIN_OPTIONS_REQUIRED(self) -> int:
+        """Minimum number of options required for decision analysis."""
+        return config.validation.min_options_required
+
+    @property
+    def MAX_OPTIONS_ALLOWED(self) -> int:
+        """Maximum number of options allowed per decision."""
+        return config.validation.max_options_allowed
+
+    @property
+    def MAX_CRITERIA_ALLOWED(self) -> int:
+        """Maximum number of criteria allowed per decision."""
+        return config.validation.max_criteria_allowed
+
+    @property
+    def MIN_CRITERION_WEIGHT(self) -> float:
+        """Minimum weight value for criteria."""
+        return config.validation.min_criterion_weight
+
+    @property
+    def MAX_CRITERION_WEIGHT(self) -> float:
+        """Maximum weight value for criteria."""
+        return config.validation.max_criterion_weight
+
+
+class SessionLimits:
+    """Session management limits for memory safety and resource control.
+
+    These properties dynamically read from the ConfigManager, allowing
+    runtime configuration via environment variables.
+    """
+
+    @property
+    def MAX_ACTIVE_SESSIONS(self) -> int:
+        """Maximum active sessions before LRU eviction kicks in."""
+        return config.session.max_active_sessions
+
+    @property
+    def LRU_EVICTION_BATCH_SIZE(self) -> int:
+        """Number of sessions to evict when reaching limit (batch eviction)."""
+        return config.session.lru_eviction_batch_size
+
+    @property
+    def DEFAULT_MAX_SESSIONS(self) -> int:
+        """Default maximum sessions per SessionManager instance."""
+        return config.session.default_max_sessions
+
+    @property
+    def DEFAULT_SESSION_TTL_HOURS(self) -> int:
+        """Default session time-to-live in hours."""
+        return config.session.default_session_ttl_hours
+
+    @property
+    def DEFAULT_CLEANUP_INTERVAL_MINUTES(self) -> int:
+        """Default cleanup interval in minutes."""
+        return config.session.default_cleanup_interval_minutes
+
+
+# Create singleton instances for backward compatibility
+ValidationLimits = ValidationLimits()
+SessionLimits = SessionLimits()

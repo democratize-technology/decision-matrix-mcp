@@ -57,9 +57,9 @@ class TestModels:
             description="Performance evaluation",
             weight=1.5,
             temperature=0.7,
-            max_tokens=2048
+            max_tokens=2048,
         )
-        
+
         assert criterion.temperature == 0.7
         assert criterion.max_tokens == 2048
 
@@ -112,15 +112,15 @@ class TestModels:
             session_id="test-456",
             created_at=datetime.now(timezone.utc),
             topic="Test decision",
-            default_temperature=0.5
+            default_temperature=0.5,
         )
-        
+
         assert session.default_temperature == 0.5
-        
+
         # Test parameter inheritance when adding criterion
         criterion = Criterion("test", "Test criterion", weight=1.0)
         session.add_criterion(criterion)
-        
+
         # Criterion should inherit session defaults
         assert session.criteria["test"].temperature == 0.5
 
@@ -146,14 +146,10 @@ class TestSessionManager:
     def test_session_creation_with_llm_params(self):
         """Test creating session with custom LLM parameters"""
         manager = SessionManager(max_sessions=5, session_ttl_hours=1)
-        
+
         # Create session with custom parameters
-        session = manager.create_session(
-            "Test topic", 
-            ["option1", "option2"],
-            temperature=0.7
-        )
-        
+        session = manager.create_session("Test topic", ["option1", "option2"], temperature=0.7)
+
         assert session.default_temperature == 0.7
 
     def test_session_limit(self):
