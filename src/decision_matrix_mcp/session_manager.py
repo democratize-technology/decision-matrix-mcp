@@ -69,6 +69,7 @@ class SessionManager:
         initial_options: list[str] | None = None,
         temperature: float = 0.1,
     ) -> DecisionSession:
+        """Create a new decision analysis session with the given topic and options."""
         # Always run cleanup first (includes both TTL and LRU eviction)
         self._cleanup_if_needed()
 
@@ -154,11 +155,6 @@ class SessionManager:
         sorted_sessions = sorted(self.sessions.items(), key=lambda x: x[1].created_at, reverse=True)
 
         return sorted_sessions[0][1]
-
-    def _original_cleanup_if_needed(self) -> None:
-        """Original cleanup method - kept for reference but replaced with enhanced version."""
-        if datetime.now(timezone.utc) - self.last_cleanup > self.cleanup_interval:
-            self._cleanup_expired_sessions()
 
     def _cleanup_expired_sessions(self) -> None:
         now = datetime.now(timezone.utc)
@@ -267,18 +263,21 @@ class SessionValidator:
 
     @staticmethod
     def validate_session_id(session_id: str) -> bool:
+        """Validate session ID format and length."""
         if not session_id or not isinstance(session_id, str):
             return False
         return not len(session_id) > ValidationLimits.MAX_SESSION_ID_LENGTH
 
     @staticmethod
     def validate_topic(topic: str) -> bool:
+        """Validate decision topic format and length."""
         if not topic or not isinstance(topic, str):
             return False
         return not (len(topic.strip()) == 0 or len(topic) > ValidationLimits.MAX_TOPIC_LENGTH)
 
     @staticmethod
     def validate_option_name(option_name: str) -> bool:
+        """Validate option name format and length."""
         if not option_name or not isinstance(option_name, str):
             return False
         return not (
@@ -288,6 +287,7 @@ class SessionValidator:
 
     @staticmethod
     def validate_criterion_name(criterion_name: str) -> bool:
+        """Validate criterion name format and length."""
         if not criterion_name or not isinstance(criterion_name, str):
             return False
         return not (
@@ -297,6 +297,7 @@ class SessionValidator:
 
     @staticmethod
     def validate_weight(weight: float) -> bool:
+        """Validate criterion weight is within allowed range."""
         if not isinstance(weight, (int, float)):
             return False
         return (
@@ -305,6 +306,7 @@ class SessionValidator:
 
     @staticmethod
     def validate_description(description: str) -> bool:
+        """Validate description format and length."""
         if not description or not isinstance(description, str):
             return False
         return not (

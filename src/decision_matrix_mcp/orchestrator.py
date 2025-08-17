@@ -38,9 +38,6 @@ from .response_schemas import parse_structured_response
 # Optional dependency imports for legacy compatibility
 try:
     import boto3
-    from botocore.exceptions import BotoCoreError, ClientError
-
-    from .bedrock_helpers import get_aws_region
 
     BOTO3_AVAILABLE = True
 except ImportError:
@@ -154,7 +151,7 @@ class DecisionOrchestrator:
                 "api_version": "converse",
             }
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             region = os.environ.get("AWS_REGION", os.environ.get("AWS_DEFAULT_REGION", "us-east-1"))
 
             # Extract error details if it's a Bedrock error
@@ -176,7 +173,11 @@ class DecisionOrchestrator:
                 "suggestion": self._get_bedrock_error_suggestion(error_code, error_message),
             }
 
-    def _get_bedrock_error_suggestion(self, error_code: str, error_message: str) -> str:
+    def _get_bedrock_error_suggestion(
+        self,
+        error_code: str,  # noqa: ARG002
+        error_message: str,
+    ) -> str:
         if "access" in error_message.lower() or "permission" in error_message.lower():
             return (
                 "Enable model access in AWS Console: Bedrock > Model access > Manage model access"
@@ -344,7 +345,7 @@ JUSTIFICATION: [your reasoning]"""
             structured_response = parse_structured_response(response)
             return structured_response.get_legacy_format()
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning("Structured parsing failed, using legacy fallback: %s", e)
             # Fall back to legacy regex parsing
             return self._parse_evaluation_response_legacy(response)
@@ -386,16 +387,17 @@ JUSTIFICATION: [your reasoning]"""
                 )
                 return (None, "Could not parse evaluation from response")
 
-            return (score, justification)
-
         except Exception:
             logger.exception("Error parsing evaluation response")
             # Return partial parse if possible
             try:
                 justification = self._extract_justification(response)
-                return (None, justification)
-            except Exception:
+            except Exception:  # noqa: BLE001
                 return (None, "Parse error: Unable to extract evaluation")
+            else:
+                return (None, justification)
+        else:
+            return (score, justification)
 
     def _extract_score(self, response: str) -> float | None:
         # Pattern 1: SCORE: X
@@ -449,10 +451,9 @@ JUSTIFICATION: [your reasoning]"""
 
         # Fallback: If response has multiple lines, take everything after first line
         lines = response.strip().split("\n")
-        if len(lines) > 1:
+        if len(lines) > 1 and re.search(r"(score|rating|^\d+)", lines[0], re.IGNORECASE):
             # Skip first line if it contains score
-            if re.search(r"(score|rating|^\d+)", lines[0], re.IGNORECASE):
-                return "\n".join(lines[1:]).strip()
+            return "\n".join(lines[1:]).strip()
 
         # Last fallback: Return trimmed response if it's descriptive
         if len(response.strip()) > 20 and not re.match(r"^\d+(\.\d+)?$", response.strip()):
@@ -473,7 +474,7 @@ JUSTIFICATION: [your reasoning]"""
         for attempt in range(self.max_retries):
             try:
                 return await backend_fn(thread)
-            except Exception as e:
+            except Exception as e:  # noqa: PERF203
                 last_error = e
                 error_str = str(e).lower()
 
