@@ -44,9 +44,9 @@ class SessionManager:
 
     def __init__(
         self,
-        max_sessions: int = 10,  # type: ignore[assignment]
-        session_ttl_hours: int = 24,  # type: ignore[assignment]
-        cleanup_interval_minutes: int = 60,  # type: ignore[assignment]
+        max_sessions: int = 10,
+        session_ttl_hours: int = 24,
+        cleanup_interval_minutes: int = 60,
     ) -> None:
         self.max_sessions = max_sessions
         self.session_ttl = timedelta(hours=session_ttl_hours)
@@ -215,7 +215,7 @@ class SessionManager:
         # Ensure we evict at least 1 but never more than available
         target_evictions = max(1, min(target_evictions, current_count - 1))
 
-        sessions_to_evict = []
+        sessions_to_evict: list[str] = []
 
         # Collect LRU sessions for eviction (first items in OrderedDict are oldest/LRU)
         for session_id in list(self.sessions.keys()):

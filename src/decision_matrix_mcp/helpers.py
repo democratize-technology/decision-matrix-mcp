@@ -162,7 +162,7 @@ def process_initial_criteria(request: Any, session: DecisionSession) -> list[str
     Returns:
         List of criteria names that were added
     """
-    criteria_added = []
+    criteria_added: list[str] = []
 
     if not request.initial_criteria:
         return criteria_added

@@ -566,7 +566,7 @@ async def add_option(
 
 
 @mcp.tool(description="List all active decision analysis sessions")
-async def list_sessions(*, ctx: Context) -> dict[str, Any]:  # noqa: ARG001
+async def list_sessions(*, ctx: Context) -> dict[str, Any]:  # type: ignore[type-arg]  # noqa: ARG001
     """List all active decision analysis sessions."""
     components = get_server_components()
 
@@ -586,7 +586,7 @@ async def list_sessions(*, ctx: Context) -> dict[str, Any]:  # noqa: ARG001
 
 
 @mcp.tool(description="Clear all active decision analysis sessions")
-async def clear_all_sessions(*, ctx: Context) -> dict[str, Any]:  # noqa: ARG001
+async def clear_all_sessions(*, ctx: Context) -> dict[str, Any]:  # type: ignore[type-arg]  # noqa: ARG001
     """Clear all active sessions from the session manager."""
     components = get_server_components()
 
@@ -615,7 +615,7 @@ async def clear_all_sessions(*, ctx: Context) -> dict[str, Any]:  # noqa: ARG001
 @mcp.tool(
     description="Quick check of your most recent analysis session - see topic and status without remembering session ID",
 )
-async def current_session(*, ctx: Context) -> dict[str, Any]:  # noqa: ARG001
+async def current_session(*, ctx: Context) -> dict[str, Any]:  # type: ignore[type-arg]  # noqa: ARG001
     """Get the most recently created active session without needing the session ID."""
     components = get_server_components()
 
@@ -636,7 +636,7 @@ async def current_session(*, ctx: Context) -> dict[str, Any]:  # noqa: ARG001
 @mcp.tool(
     description="Test AWS Bedrock connectivity and configuration for debugging connection issues",
 )
-async def test_aws_bedrock_connection(*, ctx: Context) -> dict[str, Any]:  # noqa: ARG001
+async def test_aws_bedrock_connection(*, ctx: Context) -> dict[str, Any]:  # type: ignore[type-arg]  # noqa: ARG001
     """Test Bedrock connectivity and return detailed diagnostics."""
     components = get_server_components()
 

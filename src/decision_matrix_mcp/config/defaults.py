@@ -26,6 +26,8 @@ This module provides the default configuration that ensures the system
 works out-of-the-box without any environment variable configuration.
 """
 
+from typing import Any
+
 from .schema import ConfigSchema
 
 # Default configuration instance
@@ -111,7 +113,7 @@ ENV_VAR_TYPES = {
 }
 
 # Configuration profiles for different environments
-ENVIRONMENT_PROFILES = {
+ENVIRONMENT_PROFILES: dict[str, dict[str, Any]] = {
     "development": {
         "debug_mode": True,
         "validation.max_options_allowed": 10,  # Smaller limits for dev
@@ -133,6 +135,6 @@ ENVIRONMENT_PROFILES = {
 }
 
 
-def get_profile_overrides(environment: str) -> dict:
+def get_profile_overrides(environment: str) -> dict[str, Any]:
     """Get configuration overrides for a specific environment profile."""
     return ENVIRONMENT_PROFILES.get(environment, {})

@@ -68,7 +68,7 @@ class ResponseService:
         Returns:
             Error response dictionary with formatted output and enhanced error info
         """
-        error_response = {
+        error_response: dict[str, Any] = {
             "error": message,
             "context": context,
             "timestamp": datetime.now(timezone.utc).isoformat(),

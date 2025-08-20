@@ -42,96 +42,105 @@ For new code, prefer importing directly from the config module:
 from .config import config
 
 
-class ValidationLimits:
-    """Validation limits for input sanitization and business logic.
+class _ValidationLimitsProxy:
+    """Internal proxy class that provides dynamic access to validation config.
 
-    These properties dynamically read from the ConfigManager, allowing
-    runtime configuration via environment variables.
+    This class dynamically reads from the ConfigManager, allowing
+    runtime configuration via environment variables while providing
+    proper type safety for arithmetic operations.
     """
 
     @property
     def MAX_SESSION_ID_LENGTH(self) -> int:  # noqa: N802
         """Maximum length for session IDs."""
-        return config.validation.max_session_id_length  # type: ignore[no-any-return]
+        return int(config.validation.max_session_id_length)
 
     @property
     def MAX_TOPIC_LENGTH(self) -> int:  # noqa: N802
         """Maximum length for decision topics."""
-        return config.validation.max_topic_length  # type: ignore[no-any-return]
+        return int(config.validation.max_topic_length)
 
     @property
     def MAX_OPTION_NAME_LENGTH(self) -> int:  # noqa: N802
         """Maximum length for option names."""
-        return config.validation.max_option_name_length  # type: ignore[no-any-return]
+        return int(config.validation.max_option_name_length)
 
     @property
     def MAX_CRITERION_NAME_LENGTH(self) -> int:  # noqa: N802
         """Maximum length for criterion names."""
-        return config.validation.max_criterion_name_length  # type: ignore[no-any-return]
+        return int(config.validation.max_criterion_name_length)
 
     @property
     def MAX_DESCRIPTION_LENGTH(self) -> int:  # noqa: N802
         """Maximum length for descriptions."""
-        return config.validation.max_description_length  # type: ignore[no-any-return]
+        return int(config.validation.max_description_length)
 
     @property
     def MIN_OPTIONS_REQUIRED(self) -> int:  # noqa: N802
         """Minimum number of options required for decision analysis."""
-        return config.validation.min_options_required  # type: ignore[no-any-return]
+        return int(config.validation.min_options_required)
 
     @property
     def MAX_OPTIONS_ALLOWED(self) -> int:  # noqa: N802
         """Maximum number of options allowed per decision."""
-        return config.validation.max_options_allowed  # type: ignore[no-any-return]
+        return int(config.validation.max_options_allowed)
 
     @property
     def MAX_CRITERIA_ALLOWED(self) -> int:  # noqa: N802
         """Maximum number of criteria allowed per decision."""
-        return config.validation.max_criteria_allowed  # type: ignore[no-any-return]
+        return int(config.validation.max_criteria_allowed)
 
     @property
     def MIN_CRITERION_WEIGHT(self) -> float:  # noqa: N802
         """Minimum weight value for criteria."""
-        return config.validation.min_criterion_weight  # type: ignore[no-any-return]
+        return float(config.validation.min_criterion_weight)
 
     @property
     def MAX_CRITERION_WEIGHT(self) -> float:  # noqa: N802
         """Maximum weight value for criteria."""
-        return config.validation.max_criterion_weight  # type: ignore[no-any-return]
+        return float(config.validation.max_criterion_weight)
 
 
-class SessionLimits:
-    """Session management limits for memory safety and resource control.
+class _SessionLimitsProxy:
+    """Internal proxy class that provides dynamic access to session config.
 
-    These properties dynamically read from the ConfigManager, allowing
-    runtime configuration via environment variables.
+    This class dynamically reads from the ConfigManager, allowing
+    runtime configuration via environment variables while providing
+    proper type safety for arithmetic operations.
     """
 
     @property
     def MAX_ACTIVE_SESSIONS(self) -> int:  # noqa: N802
         """Maximum active sessions before LRU eviction kicks in."""
-        return config.session.max_active_sessions  # type: ignore[no-any-return]
+        return int(config.session.max_active_sessions)
 
     @property
     def LRU_EVICTION_BATCH_SIZE(self) -> int:  # noqa: N802
         """Number of sessions to evict when reaching limit (batch eviction)."""
-        return config.session.lru_eviction_batch_size  # type: ignore[no-any-return]
+        return int(config.session.lru_eviction_batch_size)
 
     @property
     def DEFAULT_MAX_SESSIONS(self) -> int:  # noqa: N802
         """Default maximum sessions per SessionManager instance."""
-        return config.session.default_max_sessions  # type: ignore[no-any-return]
+        return int(config.session.default_max_sessions)
 
     @property
     def DEFAULT_SESSION_TTL_HOURS(self) -> int:  # noqa: N802
         """Default session time-to-live in hours."""
-        return config.session.default_session_ttl_hours  # type: ignore[no-any-return]
+        return int(config.session.default_session_ttl_hours)
 
     @property
     def DEFAULT_CLEANUP_INTERVAL_MINUTES(self) -> int:  # noqa: N802
         """Default cleanup interval in minutes."""
-        return config.session.default_cleanup_interval_minutes  # type: ignore[no-any-return]
+        return int(config.session.default_cleanup_interval_minutes)
 
 
-validation_limits = ValidationLimits()
-session_limits = SessionLimits()
+# Create module-level instances that act like class attributes
+# This preserves the exact same API: ValidationLimits.MAX_TOPIC_LENGTH
+# but now returns actual int/float values instead of callable methods
+ValidationLimits = _ValidationLimitsProxy()
+SessionLimits = _SessionLimitsProxy()
+
+# Backward compatibility instances (deprecated, use ValidationLimits/SessionLimits directly)
+validation_limits = ValidationLimits
+session_limits = SessionLimits
