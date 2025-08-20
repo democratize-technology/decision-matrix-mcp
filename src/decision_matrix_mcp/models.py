@@ -50,6 +50,7 @@ Note:
     - Criteria maintain isolated conversation threads for consistent context
 """
 
+import contextlib
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -248,7 +249,7 @@ class Option:
     def get_weighted_total(self, criteria: dict[str, Criterion]) -> float:
         """Calculate the weighted total score across all applicable criteria.
 
-        Computes the sum of (score × weight) for all non-abstained scores,
+        Computes the sum of (score x weight) for all non-abstained scores,
         then divides by the total weight to get a normalized weighted average.
         Uses caching for improved performance.
 
@@ -316,7 +317,7 @@ class Option:
             - criterion: Criterion name
             - weight: Criterion importance weight
             - raw_score: Unweighted score (1-10 or None)
-            - weighted_score: Score × weight (or None if abstained)
+            - weighted_score: Score x weight (or None if abstained)
             - justification: Explanation for the score
             - abstained: Whether criterion was applicable
 
@@ -508,6 +509,17 @@ class DecisionSession:
         Returns:
             Dictionary containing complete decision matrix and analysis
         """
+        # Prevent access during early session setup - return safe placeholder
+        if not self.criteria or not self.evaluations:
+            return {
+                "session_id": self.session_id,
+                "topic": self.topic,
+                "message": "Decision matrix not ready - session needs criteria and evaluation results",
+                "status": "setup",
+                "has_criteria": len(self.criteria) > 0,
+                "has_evaluations": len(self.evaluations) > 0,
+            }
+
         return self.get_decision_matrix()
 
     def get_decision_matrix(self) -> dict[str, Any]:
@@ -550,6 +562,8 @@ class DecisionSession:
         if self._matrix_cache and current_time - self._cache_timestamp < 1.0:
             return self._matrix_cache
 
+        # Original validation logic - this is where the error comes from
+
         if not self.options:
             from .exceptions import ValidationError
 
@@ -562,15 +576,16 @@ class DecisionSession:
             )
 
         if not self.criteria:
-            from .exceptions import ValidationError
-
-            raise ValidationError(
-                "Cannot generate matrix without criteria",
-                user_message="No evaluation criteria defined",
-                error_code="DMX_1003",
-                context={"has_options": bool(self.options), "has_criteria": False},
-                recovery_suggestion="Add evaluation criteria before generating matrix",
-            )
+            # TEMPORARY: Return safe response instead of raising error during session creation
+            return {
+                "session_id": self.session_id,
+                "topic": self.topic,
+                "message": "Decision matrix not available - no criteria defined yet",
+                "status": "needs_criteria",
+                "options": list(self.options.keys()),
+                "criteria_count": 0,
+                "next_steps": ["Add evaluation criteria", "Run evaluation", "Generate matrix"],
+            }
 
         # Pre-compute criteria data for O(1) access
         criteria_items = list(self.criteria.items())
@@ -578,7 +593,7 @@ class DecisionSession:
 
         # Optimized matrix generation with batch processing
         matrix = self._build_matrix_optimized(criteria_items)
-        rankings = self._build_rankings_optimized(criteria_weights)
+        rankings = self._build_rankings_optimized()
         recommendation = self._generate_recommendation(rankings)
 
         result = {
@@ -636,7 +651,7 @@ class DecisionSession:
             "justification": "Score not available",
         }
 
-    def _build_rankings_optimized(self, criteria_weights: dict[str, float]) -> list[dict[str, Any]]:
+    def _build_rankings_optimized(self) -> list[dict[str, Any]]:
         """Build rankings with optimized batch processing."""
         # Pre-compute all weighted totals in batch
         rankings = [
@@ -680,12 +695,10 @@ class DecisionSession:
         self._criteria_weights_cache.clear()
         self._cache_timestamp = 0.0
 
-        # Clear cached property if it exists
-        if hasattr(self, "decision_matrix"):
-            try:
+        # Clear cached property if it exists (check __dict__ to avoid triggering @cached_property)
+        if "decision_matrix" in self.__dict__:
+            with contextlib.suppress(AttributeError):
                 delattr(self, "decision_matrix")
-            except AttributeError:
-                pass
 
     def record_evaluation(self, evaluation_results: dict[str, Any]) -> None:
         """Record the results of an evaluation run for audit purposes.

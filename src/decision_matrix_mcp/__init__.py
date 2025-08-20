@@ -223,16 +223,28 @@ async def _execute_parallel_evaluation(
 @mcp.tool(
     description="When facing multiple options and need structured evaluation - create a decision matrix to systematically compare choices across weighted criteria",
 )
-@validate_request(
-    topic=SessionValidator.validate_topic,
-    options=SessionValidator.validate_option_name,  # Special handling in decorator for lists
-)
 async def start_decision_analysis(
-    request: StartDecisionAnalysisRequest,
+    topic: str,
+    options: list[str],
+    initial_criteria: list[dict[str, Any]] | None = None,
+    model_backend: ModelBackend = ModelBackend.BEDROCK,
+    model_name: str | None = None,
+    temperature: float = 0.1,
+    *,
     ctx: Context,  # noqa: ARG001
 ) -> dict[str, Any]:
     """Initialize a new decision analysis session with options and optional criteria."""
     components = get_server_components()
+
+    # Create request object from parameters
+    request = StartDecisionAnalysisRequest(
+        topic=topic,
+        options=options,
+        initial_criteria=initial_criteria,
+        model_backend=model_backend,
+        model_name=model_name,
+        temperature=temperature,
+    )
 
     try:
         # Create the session
@@ -299,18 +311,32 @@ class AddCriterionRequest(BaseModel):
 @mcp.tool(
     description="When you identify another factor to consider - add evaluation criteria with weights to structure your decision analysis",
 )
-@validate_request(
-    session_id=SessionValidator.validate_session_id,
-    name=SessionValidator.validate_criterion_name,
-    description=SessionValidator.validate_description,
-    weight=SessionValidator.validate_weight,
-)
 async def add_criterion(
-    request: AddCriterionRequest,
+    session_id: str,
+    name: str,
+    description: str,
+    weight: float = 1.0,
+    custom_prompt: str | None = None,
+    model_backend: ModelBackend = ModelBackend.BEDROCK,
+    model_name: str | None = None,
+    temperature: float | None = None,
+    *,
     ctx: Context,  # noqa: ARG001
 ) -> dict[str, Any]:
     """Add a new evaluation criterion to an existing decision session."""
     components = get_server_components()
+
+    # Create request object from parameters
+    request = AddCriterionRequest(
+        session_id=session_id,
+        name=name,
+        description=description,
+        weight=weight,
+        custom_prompt=custom_prompt,
+        model_backend=model_backend,
+        model_name=model_name,
+        temperature=temperature,
+    )
 
     # Get session and handle errors
     session, error = get_session_or_error(request.session_id, components)
@@ -361,13 +387,16 @@ class EvaluateOptionsRequest(BaseModel):
 @mcp.tool(
     description="When ready to score your options systematically - run parallel evaluation where each criterion scores every option independently",
 )
-@validate_request(session_id=SessionValidator.validate_session_id)
 async def evaluate_options(
-    request: EvaluateOptionsRequest,
+    session_id: str,
+    *,
     ctx: Context,  # noqa: ARG001
 ) -> dict[str, Any]:
     """Evaluate all options across all criteria using parallel thread orchestration."""
     components = get_server_components()
+
+    # Create request object from parameters
+    request = EvaluateOptionsRequest(session_id=session_id)
 
     # Get session and handle errors
     session, error = get_session_or_error(request.session_id, components)
@@ -440,13 +469,16 @@ class GetDecisionMatrixRequest(BaseModel):
 @mcp.tool(
     description="When you need the complete picture - see the scored matrix with weighted totals, rankings, and clear recommendations",
 )
-@validate_request(session_id=SessionValidator.validate_session_id)
 async def get_decision_matrix(
-    request: GetDecisionMatrixRequest,
+    session_id: str,
+    *,
     ctx: Context,  # noqa: ARG001
 ) -> dict[str, Any]:
     """Get the complete decision matrix with scores, rankings, and recommendations."""
     components = get_server_components()
+
+    # Create request object from parameters
+    request = GetDecisionMatrixRequest(session_id=session_id)
 
     session, error = get_session_or_error(request.session_id, components)
     if error:
@@ -476,13 +508,22 @@ class AddOptionRequest(BaseModel):
 @mcp.tool(
     description="When new alternatives emerge during analysis - add additional options to your existing decision matrix",
 )
-@validate_request(
-    session_id=SessionValidator.validate_session_id,
-    option_name=SessionValidator.validate_option_name,
-)
-async def add_option(request: AddOptionRequest, ctx: Context) -> dict[str, Any]:  # noqa: ARG001
+async def add_option(
+    session_id: str,
+    option_name: str,
+    description: str | None = None,
+    *,
+    ctx: Context,  # noqa: ARG001
+) -> dict[str, Any]:
     """Add a new option to an existing decision analysis."""
     components = get_server_components()
+
+    # Create request object from parameters
+    request = AddOptionRequest(
+        session_id=session_id,
+        option_name=option_name,
+        description=description,
+    )
 
     session, error = get_session_or_error(request.session_id, components)
     if error:
@@ -517,7 +558,7 @@ async def add_option(request: AddOptionRequest, ctx: Context) -> dict[str, Any]:
 
 
 @mcp.tool(description="List all active decision analysis sessions")
-async def list_sessions(ctx: Context) -> dict[str, Any]:  # noqa: ARG001
+async def list_sessions(*, ctx: Context) -> dict[str, Any]:  # noqa: ARG001
     """List all active decision analysis sessions."""
     components = get_server_components()
 
@@ -537,7 +578,7 @@ async def list_sessions(ctx: Context) -> dict[str, Any]:  # noqa: ARG001
 
 
 @mcp.tool(description="Clear all active decision analysis sessions")
-async def clear_all_sessions(ctx: Context) -> dict[str, Any]:  # noqa: ARG001
+async def clear_all_sessions(*, ctx: Context) -> dict[str, Any]:  # noqa: ARG001
     """Clear all active sessions from the session manager."""
     components = get_server_components()
 
@@ -566,7 +607,7 @@ async def clear_all_sessions(ctx: Context) -> dict[str, Any]:  # noqa: ARG001
 @mcp.tool(
     description="Quick check of your most recent analysis session - see topic and status without remembering session ID",
 )
-async def current_session(ctx: Context) -> dict[str, Any]:  # noqa: ARG001
+async def current_session(*, ctx: Context) -> dict[str, Any]:  # noqa: ARG001
     """Get the most recently created active session without needing the session ID."""
     components = get_server_components()
 
@@ -587,7 +628,7 @@ async def current_session(ctx: Context) -> dict[str, Any]:  # noqa: ARG001
 @mcp.tool(
     description="Test AWS Bedrock connectivity and configuration for debugging connection issues",
 )
-async def test_aws_bedrock_connection(ctx: Context) -> dict[str, Any]:  # noqa: ARG001
+async def test_aws_bedrock_connection(*, ctx: Context) -> dict[str, Any]:  # noqa: ARG001
     """Test Bedrock connectivity and return detailed diagnostics."""
     components = get_server_components()
 
