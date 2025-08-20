@@ -46,7 +46,7 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "memory: Tests that check memory usage patterns")
 
 
-def pytest_collection_modifyitems(config, items):
+def pytest_collection_modifyitems(_config, items):
     """Modify test collection to add markers based on test location and content."""
     for item in items:
         # Add markers based on test file location

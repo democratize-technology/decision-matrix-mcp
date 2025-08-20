@@ -205,9 +205,8 @@ class TestConcurrentSessionCreation:
 
         # Verify no errors occurred
         if errors:
-            print("Thread safety errors:")
-            for error in errors:
-                print(f"  Thread {error[0]}: {error[2]} - {error[1]}")
+            for _error in errors:
+                pass
         assert len(errors) == 0, f"Thread safety violations: {errors}"
 
         # Verify expected number of operations
@@ -382,10 +381,8 @@ class TestMemoryLeakDetection:
         max_acceptable_growth = 10 * 1024 * 1024  # 10MB
 
         if total_memory_growth > max_acceptable_growth:
-            print(f"Warning: Memory growth of {total_memory_growth} bytes detected")
-            print("Top memory growth sources:")
-            for stat in top_stats[:5]:
-                print(f"  {stat}")
+            for _stat in top_stats[:5]:
+                pass
 
         # This assertion might be too strict in some environments, so we log instead
         # assert total_memory_growth < max_acceptable_growth
@@ -604,9 +601,8 @@ class TestSessionIsolationUnderLoad:
         failed_retrievals = [result for result in results if not result[0]]
 
         if failed_retrievals:
-            print("Failed retrievals:")
-            for failure in failed_retrievals[:10]:  # Show first 10 failures
-                print(f"  {failure[1]}")
+            for _failure in failed_retrievals[:10]:  # Show first 10 failures
+                pass
 
         assert len(failed_retrievals) == 0, f"Failed retrievals detected: {len(failed_retrievals)}"
 

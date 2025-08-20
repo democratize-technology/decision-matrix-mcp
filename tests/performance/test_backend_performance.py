@@ -72,23 +72,11 @@ class BackendPerformanceProfiler:
 
     def print_backend_comparison(self, backends: list[str]):
         """Print performance comparison across backends."""
-        print("\n" + "=" * 80)
-        print("BACKEND PERFORMANCE COMPARISON")
-        print("=" * 80)
-
-        print(
-            f"\n{'Backend':<15} {'Count':<8} {'Mean':<10} {'Median':<10} {'P95':<10} {'P99':<10} {'Std':<10}",
-        )
-        print("-" * 80)
 
         for backend in backends:
             stats = self.get_stats(backend, "generate")
             if stats:
-                print(
-                    f"{backend:<15} {stats['count']:<8} {stats['mean']*1000:<10.1f} "
-                    f"{stats['median']*1000:<10.1f} {stats['p95']*1000:<10.1f} "
-                    f"{stats['p99']*1000:<10.1f} {stats['std']*1000:<10.1f}",
-                )
+                pass
 
 
 class MockBackendFactory:
@@ -173,7 +161,7 @@ class TestBackendResponseTimes:
         return BackendPerformanceProfiler()
 
     @pytest.mark.parametrize(
-        "backend_type,expected_max_latency",
+        ("backend_type", "expected_max_latency"),
         [
             ("bedrock", 0.15),  # Bedrock should respond within 150ms (mock)
             ("litellm", 0.08),  # LiteLLM should be faster (mock)
@@ -239,16 +227,7 @@ class TestBackendResponseTimes:
         # Analyze response time statistics
         stats = profiler.get_stats(backend_type, "generate")
 
-        print(f"\n{backend_type.upper()} Response Time Statistics ({num_requests} requests):")
         if stats:
-            print(f"  Mean: {stats['mean']*1000:.1f}ms")
-            print(f"  Median: {stats['median']*1000:.1f}ms")
-            print(f"  Min: {stats['min']*1000:.1f}ms")
-            print(f"  Max: {stats['max']*1000:.1f}ms")
-            print(f"  P95: {stats['p95']*1000:.1f}ms")
-            print(f"  P99: {stats['p99']*1000:.1f}ms")
-            print(f"  Std Dev: {stats['std']*1000:.1f}ms")
-
             # Performance assertions
             assert (
                 stats["mean"] < expected_max_latency
@@ -284,19 +263,19 @@ class TestBackendResponseTimes:
 
                 try:
                     if backend_name == "litellm":
-                        response = await backend.generate(
+                        await backend.generate(
                             "System prompt",
                             f"User prompt {i}",
                             model="gpt-3.5-turbo",
                         )
                     elif backend_name == "ollama":
-                        response = await backend.generate(
+                        await backend.generate(
                             "System prompt",
                             f"User prompt {i}",
                             model="llama3.2:3b",
                         )
                     else:  # bedrock
-                        response = await backend.generate("System prompt", f"User prompt {i}")
+                        await backend.generate("System prompt", f"User prompt {i}")
 
                     end_time = time.perf_counter()
                     duration = end_time - start_time
@@ -351,9 +330,6 @@ class TestBackendThroughput:
         concurrent_requests = 10
 
         for backend_name, backend in backends.items():
-            print(
-                f"\nTesting {backend_name} throughput with {concurrent_requests} concurrent requests...",
-            )
 
             async def make_request(request_id):
                 """Make a single request."""
@@ -400,13 +376,8 @@ class TestBackendThroughput:
 
             if successful_requests:
                 response_times = [r[1] for r in successful_requests]
-                mean_response_time = mean(response_times)
+                mean(response_times)
                 throughput = len(successful_requests) / total_duration
-
-                print(f"  Successful requests: {len(successful_requests)}/{concurrent_requests}")
-                print(f"  Total time: {total_duration*1000:.1f}ms")
-                print(f"  Mean response time: {mean_response_time*1000:.1f}ms")
-                print(f"  Throughput: {throughput:.1f} requests/sec")
 
                 # Record metrics
                 for response_time in response_times:
@@ -436,21 +407,13 @@ class TestBackendThroughput:
                 pytest.fail(f"No successful requests for {backend_name}")
 
         # Print throughput comparison
-        print(f"\nThroughput Comparison ({concurrent_requests} concurrent requests):")
-        print(f"{'Backend':<15} {'Throughput':<12} {'Success Rate':<12} {'Mean Time':<12}")
-        print("-" * 55)
 
         for backend_name in backends:
             if backend_name in profiler.throughput_metrics:
                 metrics = profiler.throughput_metrics[backend_name]
                 success_rate = metrics["successful_requests"] / concurrent_requests
                 stats = profiler.get_stats(backend_name, "concurrent")
-                mean_time = stats["mean"] * 1000 if stats else 0
-
-                print(
-                    f"{backend_name:<15} {metrics['throughput']:<12.1f} "
-                    f"{success_rate:<12.2f} {mean_time:<12.1f}",
-                )
+                stats["mean"] * 1000 if stats else 0
 
     @pytest.mark.asyncio()
     async def test_sustained_load_performance(self):
@@ -464,8 +427,6 @@ class TestBackendThroughput:
         duration_seconds = 5
         requests_per_second = 8
         total_requests = duration_seconds * requests_per_second
-
-        print(f"\nSustained load test: {total_requests} requests over {duration_seconds}s...")
 
         async def sustained_request_batch():
             """Make requests at specified rate."""
@@ -484,7 +445,7 @@ class TestBackendThroughput:
                     async def make_sustained_request(req_id=request_count + i):
                         req_start = time.perf_counter()
                         try:
-                            response = await backend.generate(
+                            await backend.generate(
                                 f"Sustained system {req_id}",
                                 f"Sustained user {req_id}",
                                 model="gpt-3.5-turbo",
@@ -504,7 +465,7 @@ class TestBackendThroughput:
                     batch_tasks.append(make_sustained_request())
 
                 # Wait for batch to complete
-                batch_results = await asyncio.gather(*batch_tasks)
+                await asyncio.gather(*batch_tasks)
                 request_count += batch_size
 
                 # Rate limiting - wait to maintain target rate
@@ -525,15 +486,7 @@ class TestBackendThroughput:
         stats = profiler.get_stats("sustained", "generate")
 
         if stats and stats["count"] > 0:
-            actual_throughput = completed_requests / total_duration
-
-            print(f"  Completed requests: {completed_requests}/{total_requests}")
-            print(f"  Total duration: {total_duration:.2f}s")
-            print(f"  Target throughput: {requests_per_second:.1f} req/s")
-            print(f"  Actual throughput: {actual_throughput:.1f} req/s")
-            print(f"  Mean response time: {stats['mean']*1000:.1f}ms")
-            print(f"  P95 response time: {stats['p95']*1000:.1f}ms")
-            print(f"  Response time std: {stats['std']*1000:.1f}ms")
+            completed_requests / total_duration
 
             # Performance assertions for sustained load
             min_completion_rate = 0.9  # Complete at least 90% of requests
@@ -580,13 +533,11 @@ class TestBackendErrorHandling:
             successful_responses = []
             error_responses = []
 
-            print(f"\nTesting error handling with {error_rate*100:.0f}% error rate...")
-
             for i in range(num_requests):
                 start_time = time.perf_counter()
 
                 try:
-                    response = await backend.generate(
+                    await backend.generate(
                         f"Error test system {i}",
                         f"Error test user {i}",
                     )
@@ -611,21 +562,15 @@ class TestBackendErrorHandling:
                     profiler.record_error(f"error_{error_rate}", "llm_error")
 
             # Analyze error handling performance
-            success_count = len(successful_responses)
+            len(successful_responses)
             error_count = len(error_responses)
             actual_error_rate = error_count / num_requests
 
-            print(f"  Successful requests: {success_count}/{num_requests}")
-            print(f"  Error requests: {error_count}/{num_requests}")
-            print(f"  Actual error rate: {actual_error_rate:.2f}")
-
             if successful_responses:
-                mean_success_time = mean(successful_responses)
-                print(f"  Mean success time: {mean_success_time*1000:.1f}ms")
+                mean(successful_responses)
 
             if error_responses:
                 mean_error_time = mean(error_responses)
-                print(f"  Mean error time: {mean_error_time*1000:.1f}ms")
 
                 # Error handling should be reasonably fast
                 max_error_time = 0.1  # 100ms max for error handling
@@ -678,7 +623,7 @@ class TestBackendErrorHandling:
             initial_attempt_count = backend.attempt_count
 
             try:
-                response = await backend.generate(f"Retry test {i}", f"User prompt {i}")
+                await backend.generate(f"Retry test {i}", f"User prompt {i}")
                 end_time = time.perf_counter()
 
                 attempts_used = backend.attempt_count - initial_attempt_count
@@ -698,19 +643,11 @@ class TestBackendErrorHandling:
         success_stats = profiler.get_stats("retry_backend", "success")
         failure_stats = profiler.get_stats("retry_backend", "failure")
 
-        print("\nRetry Logic Performance:")
-        print(f"  Total requests: {num_requests}")
-        print(f"  Retry attempts: {retry_stats}")
-        print(f"  Mean attempts per request: {mean(retry_stats):.1f}")
-        print(f"  Max attempts: {max(retry_stats) if retry_stats else 0}")
-
         if success_stats:
-            print(f"  Successful requests: {success_stats['count']}")
-            print(f"  Mean success time: {success_stats['mean']*1000:.1f}ms")
+            pass
 
         if failure_stats:
-            print(f"  Failed requests: {failure_stats['count']}")
-            print(f"  Mean failure time: {failure_stats['mean']*1000:.1f}ms")
+            pass
 
         # Retry logic should be reasonably efficient
         if retry_stats:

@@ -102,17 +102,19 @@ class TestBedrockBackendIntegration:
     @pytest.mark.asyncio()
     async def test_bedrock_error_handling(self, bedrock_backend):
         """Test Bedrock error handling."""
-        with patch.object(
-            bedrock_backend,
-            "_make_bedrock_request",
-            side_effect=Exception("Connection timeout"),
+        with (
+            patch.object(
+                bedrock_backend,
+                "_make_bedrock_request",
+                side_effect=Exception("Connection timeout"),
+            ),
+            pytest.raises(LLMBackendError, match="Bedrock API error"),
         ):
-            with pytest.raises(LLMBackendError, match="Bedrock API error"):
-                await bedrock_backend.generate(
-                    system_prompt="Test",
-                    user_prompt="Test",
-                    temperature=0.1,
-                )
+            await bedrock_backend.generate(
+                system_prompt="Test",
+                user_prompt="Test",
+                temperature=0.1,
+            )
 
     @pytest.mark.asyncio()
     async def test_bedrock_response_parsing(self, bedrock_backend):
@@ -163,9 +165,9 @@ class TestLiteLLMBackendIntegration:
         mock_response = Mock(spec=ModelResponse)
         mock_response.choices = [Mock()]
         mock_response.choices[0].message = Mock()
-        mock_response.choices[
-            0
-        ].message.content = "7.5: This framework has a moderate learning curve."
+        mock_response.choices[0].message.content = (
+            "7.5: This framework has a moderate learning curve."
+        )
 
         with patch("litellm.acompletion", return_value=mock_response):
             result = await litellm_backend.generate(
@@ -460,13 +462,15 @@ class TestBackendErrorRecovery:
         for backend in backends:
             # Mock timeout exception
             if backend.name == "bedrock":
-                with patch.object(
-                    backend,
-                    "_make_bedrock_request",
-                    side_effect=asyncio.TimeoutError(),
+                with (
+                    patch.object(
+                        backend,
+                        "_make_bedrock_request",
+                        side_effect=asyncio.TimeoutError(),
+                    ),
+                    pytest.raises(LLMBackendError, match="timeout|Bedrock API error"),
                 ):
-                    with pytest.raises(LLMBackendError, match="timeout|Bedrock API error"):
-                        await backend.generate("system", "user")
+                    await backend.generate("system", "user")
             elif backend.name == "litellm":
                 with patch("litellm.acompletion", side_effect=asyncio.TimeoutError()):
                     with pytest.raises(LLMBackendError, match="timeout|LiteLLM API error"):

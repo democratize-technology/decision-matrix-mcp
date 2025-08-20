@@ -48,8 +48,9 @@ def format_messages_for_ollama(thread: CriterionThread) -> list[dict[str, str]]:
         List of formatted messages for Ollama API
     """
     messages = [{"role": "system", "content": thread.criterion.system_prompt}]
-    for msg in thread.conversation_history:
-        messages.append({"role": msg["role"], "content": msg["content"]})
+    messages.extend(
+        {"role": msg["role"], "content": msg["content"]} for msg in thread.conversation_history
+    )
     return messages
 
 
@@ -100,7 +101,8 @@ def parse_ollama_response(response: Any, status_code: int, model: str) -> str:
             error_data = response.json()
             if "error" in error_data:
                 error_msg = f"Ollama API error: {error_data['error']}"
-        except Exception:
+        except (ValueError, KeyError):
+            # Failed to parse JSON or missing error field
             pass
 
         # Provide specific error messages based on status code
@@ -123,7 +125,7 @@ def parse_ollama_response(response: Any, status_code: int, model: str) -> str:
         )
 
     result = response.json()
-    return result["message"]["content"]
+    return result["message"]["content"]  # type: ignore[no-any-return]
 
 
 def diagnose_ollama_error(error: Exception) -> str:

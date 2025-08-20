@@ -66,20 +66,8 @@ class TestMCPServerStartup:
     async def test_server_tool_registration(self, mcp_server):
         """Test that all required tools are registered with the server."""
         # Get the FastMCP app
-        app = mcp_server.mcp_server
 
         # Check that required tools are registered
-        expected_tools = [
-            "start_decision_analysis",
-            "add_criterion",
-            "evaluate_options",
-            "get_decision_matrix",
-            "add_option",
-            "list_sessions",
-            "clear_all_sessions",
-            "current_session",
-            "test_aws_bedrock_connection",
-        ]
 
         # Note: We can't directly access the tool registry in FastMCP,
         # but we can verify the handlers exist
@@ -467,7 +455,7 @@ class TestSessionManagementIntegration:
 
         # Initially no current session
         current_result = await current_session(mock_ctx)
-        initial_session_count = len(current_result.get("session", {}) or {})
+        len(current_result.get("session", {}) or {})
 
         # Create a session
         request = StartDecisionAnalysisRequest(

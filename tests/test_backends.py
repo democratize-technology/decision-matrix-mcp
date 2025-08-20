@@ -153,14 +153,16 @@ class TestLiteLLMBackend:
             MagicMock(message=MagicMock(content="SCORE: 7\nJUSTIFICATION: Good")),
         ]
 
-        with patch("decision_matrix_mcp.backends.litellm.LITELLM_AVAILABLE", True):
-            with patch(
+        with (
+            patch("decision_matrix_mcp.backends.litellm.LITELLM_AVAILABLE", True),
+            patch(
                 "decision_matrix_mcp.backends.litellm.litellm.acompletion",
                 return_value=mock_response,
-            ) as mock_litellm:
-                response = await backend.generate_response(sample_thread)
-                assert response == "SCORE: 7\nJUSTIFICATION: Good"
-                mock_litellm.assert_called_once()
+            ) as mock_litellm,
+        ):
+            response = await backend.generate_response(sample_thread)
+            assert response == "SCORE: 7\nJUSTIFICATION: Good"
+            mock_litellm.assert_called_once()
 
     @pytest.mark.asyncio()
     async def test_generate_response_not_available(self, backend, sample_thread):
@@ -173,15 +175,17 @@ class TestLiteLLMBackend:
     @pytest.mark.asyncio()
     async def test_generate_response_api_error(self, backend, sample_thread):
         """Test handling of LiteLLM API errors"""
-        with patch("decision_matrix_mcp.backends.litellm.LITELLM_AVAILABLE", True):
-            with patch(
+        with (
+            patch("decision_matrix_mcp.backends.litellm.LITELLM_AVAILABLE", True),
+            patch(
                 "decision_matrix_mcp.backends.litellm.litellm.acompletion",
                 side_effect=Exception("API key invalid"),
-            ):
-                with pytest.raises(LLMAPIError) as exc_info:
-                    await backend.generate_response(sample_thread)
-                assert exc_info.value.backend == "litellm"
-                assert "API authentication failed" in exc_info.value.user_message
+            ),
+        ):
+            with pytest.raises(LLMAPIError) as exc_info:
+                await backend.generate_response(sample_thread)
+            assert exc_info.value.backend == "litellm"
+            assert "API authentication failed" in exc_info.value.user_message
 
 
 class TestOllamaBackend:

@@ -26,7 +26,7 @@ This module defines the complete configuration schema using Pydantic models
 for type safety, validation, and auto-completion support.
 """
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 
 class ValidationLimitsConfig(BaseModel):
@@ -102,7 +102,7 @@ class ValidationLimitsConfig(BaseModel):
 
     @field_validator("max_options_allowed")
     @classmethod
-    def validate_max_options(cls, v, info):
+    def validate_max_options(cls, v: int, info: ValidationInfo) -> int:
         """Ensure max options is greater than min options."""
         if info.data:
             min_options = info.data.get("min_options_required", 2)
@@ -114,7 +114,7 @@ class ValidationLimitsConfig(BaseModel):
 
     @field_validator("max_criterion_weight")
     @classmethod
-    def validate_weight_range(cls, v, info):
+    def validate_weight_range(cls, v: float, info: ValidationInfo) -> float:
         """Ensure max weight is greater than min weight."""
         if info.data:
             min_weight = info.data.get("min_criterion_weight", 0.1)
@@ -166,7 +166,7 @@ class SessionLimitsConfig(BaseModel):
 
     @field_validator("lru_eviction_batch_size")
     @classmethod
-    def validate_batch_size(cls, v, info):
+    def validate_batch_size(cls, v: int, info: ValidationInfo) -> int:
         """Ensure batch size is reasonable compared to max active sessions."""
         if info.data:
             max_active = info.data.get("max_active_sessions", 100)
@@ -178,7 +178,7 @@ class SessionLimitsConfig(BaseModel):
 
     @field_validator("default_max_sessions")
     @classmethod
-    def validate_default_max(cls, v, info):
+    def validate_default_max(cls, v: int, info: ValidationInfo) -> int:
         """Ensure default max sessions is reasonable compared to max active."""
         if info.data:
             max_active = info.data.get("max_active_sessions", 100)

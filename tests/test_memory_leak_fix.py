@@ -94,7 +94,7 @@ class TestMemoryLeakFix:
 
         # Should have evicted at least LRU_EVICTION_BATCH_SIZE sessions
         expected_evictions = SessionLimits.LRU_EVICTION_BATCH_SIZE
-        expected_final_count = SessionLimits.MAX_ACTIVE_SESSIONS + 5 - expected_evictions
+        SessionLimits.MAX_ACTIVE_SESSIONS + 5 - expected_evictions
 
         # Verify we don't exceed the memory bound
         assert len(manager.sessions) <= SessionLimits.MAX_ACTIVE_SESSIONS
@@ -144,7 +144,7 @@ class TestMemoryLeakFix:
         """Test that statistics correctly track LRU evictions"""
         manager = SessionManager(max_sessions=200)
 
-        initial_stats = manager.get_stats()
+        manager.get_stats()
 
         # Create many sessions to trigger eviction
         sessions_to_create = SessionLimits.MAX_ACTIVE_SESSIONS + 15
@@ -198,7 +198,7 @@ class TestMemoryLeakFix:
 
         for i in range(sessions_to_attempt):
             try:
-                session = manager.create_session(f"Stress Topic {i}")
+                manager.create_session(f"Stress Topic {i}")
                 sessions_created += 1
 
                 # Verify we never exceed the bound
@@ -262,10 +262,6 @@ class TestMemoryLeakFix:
         assert SessionLimits.MAX_ACTIVE_SESSIONS >= SessionLimits.DEFAULT_MAX_SESSIONS
         assert SessionLimits.LRU_EVICTION_BATCH_SIZE > 0
         assert SessionLimits.LRU_EVICTION_BATCH_SIZE < SessionLimits.MAX_ACTIVE_SESSIONS
-
-        print(f"MAX_ACTIVE_SESSIONS: {SessionLimits.MAX_ACTIVE_SESSIONS}")
-        print(f"LRU_EVICTION_BATCH_SIZE: {SessionLimits.LRU_EVICTION_BATCH_SIZE}")
-        print(f"DEFAULT_MAX_SESSIONS: {SessionLimits.DEFAULT_MAX_SESSIONS}")
 
     def test_backwards_compatibility_preserved(self):
         """Test that all existing functionality still works as expected"""

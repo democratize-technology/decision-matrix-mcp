@@ -24,15 +24,17 @@
 
 import asyncio
 import logging
+import re
 from typing import Any
 
 try:
-    from chain_of_thought import TOOL_SPECS, AsyncChainOfThoughtProcessor
+    from chain_of_thought import TOOL_SPECS, AsyncChainOfThoughtProcessor  # type: ignore[import]
 
     COT_AVAILABLE = True
 except ImportError:
     COT_AVAILABLE = False
 
+from .convergence import ConvergenceManager, create_evaluation_id
 from .exceptions import ChainOfThoughtError, CoTProcessingError, CoTTimeoutError
 from .models import CriterionThread, Option
 
@@ -62,6 +64,13 @@ class DecisionReasoningOrchestrator:
             )
         self.cot_timeout = resolved_timeout
         self._cot_available = COT_AVAILABLE
+
+        # Initialize convergence manager for score stabilization
+        self.convergence_manager = ConvergenceManager(
+            convergence_threshold=0.1,  # Variance threshold for convergence
+            min_samples=3,  # Need at least 3 scores to check convergence
+            window_size=5,  # Track up to 5 recent scores
+        )
 
     @property
     def is_available(self) -> bool:
@@ -115,13 +124,13 @@ class DecisionReasoningOrchestrator:
             return []
         return TOOL_SPECS
 
-    async def evaluate_with_reasoning(
+    async def evaluate_with_reasoning(  # noqa: PLR0912
         self,
         thread: CriterionThread,
         option: Option,
         bedrock_client: Any,
     ) -> tuple[float | None, str, dict[str, Any]]:
-        """Evaluate an option using structured Chain of Thought reasoning.
+        """Evaluate an option using structured Chain of Thought reasoning with convergence detection.
 
         Returns:
             Tuple of (score, justification, reasoning_summary)
@@ -136,6 +145,9 @@ class DecisionReasoningOrchestrator:
             option.description or "No additional description provided",
         )
 
+        # Create evaluation ID for convergence tracking
+        evaluation_id = create_evaluation_id(thread.criterion.name, option_name)
+
         # Create a CoT processor for this evaluation with unique ID
         import uuid
 
@@ -144,13 +156,14 @@ class DecisionReasoningOrchestrator:
             conversation_id=f"{thread.id}-{option_name}-{unique_id}",
         )
 
-        # Prepare the enhanced system prompt
+        # Prepare the enhanced system prompt with convergence instructions
         enhanced_system_prompt = f"""{thread.criterion.system_prompt}
 
 You have access to Chain of Thought tools to structure your reasoning:
 - Use chain_of_thought_step to work through your evaluation systematically
 - Start with Problem Definition stage to understand what you're evaluating
 - Move through Analysis to examine the option against the criterion
+- Include intermediate score estimates during Analysis stages (format: "Current score estimate: X/10")
 - End with Conclusion stage to provide your final score
 - Set next_step_needed=false when you're ready to give the final score
 
@@ -162,8 +175,10 @@ JUSTIFICATION: [summary of your reasoning]"""
         messages = []
 
         # Add conversation history
-        for msg in thread.conversation_history:
-            messages.append({"role": msg["role"], "content": [{"text": msg["content"]}]})
+        messages = [
+            {"role": msg["role"], "content": [{"text": msg["content"]}]}
+            for msg in thread.conversation_history
+        ]
 
         # Add the evaluation prompt with sanitized inputs
         messages.append(
@@ -176,6 +191,7 @@ JUSTIFICATION: [summary of your reasoning]"""
 Option Description: {option_description}
 
 Use chain_of_thought_step to reason through your evaluation systematically.
+Include intermediate score estimates during your analysis (format: "Current score estimate: X/10").
 Remember to follow the scoring format at the end:
 SCORE: [1-10 or NO_RESPONSE if not applicable]
 JUSTIFICATION: [your reasoning summary]""",
@@ -196,12 +212,14 @@ JUSTIFICATION: [your reasoning summary]""",
         }
 
         try:
-            # Process the tool loop with CoT and timeout
+            # Use convergence-aware iterative evaluation
             result = await asyncio.wait_for(
-                processor.process_tool_loop(
+                self._process_with_convergence(
+                    processor=processor,
                     bedrock_client=bedrock_client,
                     initial_request=request,
-                    max_iterations=15,  # Allow sufficient reasoning steps
+                    evaluation_id=evaluation_id,
+                    max_iterations=15,
                 ),
                 timeout=self.cot_timeout,
             )
@@ -216,6 +234,9 @@ JUSTIFICATION: [your reasoning summary]""",
 
             # Get reasoning summary with timeout
             try:
+                # Import config here to avoid issues
+                from .config import config
+
                 reasoning_summary = await asyncio.wait_for(
                     processor.get_reasoning_summary(),
                     timeout=config.performance.cot_summary_timeout_seconds,
@@ -224,29 +245,201 @@ JUSTIFICATION: [your reasoning summary]""",
                 logger.warning("Timeout getting reasoning summary")
                 reasoning_summary = {}
 
+            # Add convergence metrics to reasoning summary
+            convergence_metrics = self.convergence_manager.get_tracker(
+                evaluation_id,
+            ).get_convergence_metrics()
+            reasoning_summary["convergence"] = convergence_metrics
+
             # Parse score and justification from final response
             score, justification = self._parse_evaluation_response(final_text)
 
-            return score, justification, reasoning_summary
+            # Clean up convergence tracker for this evaluation
+            self.convergence_manager.cleanup_tracker(evaluation_id)
 
         except asyncio.TimeoutError as e:
             logger.exception("CoT evaluation timed out after %ss", self.cot_timeout)
+            self.convergence_manager.cleanup_tracker(evaluation_id)
             raise CoTTimeoutError(self.cot_timeout) from e
         except ChainOfThoughtError:
             # Re-raise our custom exceptions
+            self.convergence_manager.cleanup_tracker(evaluation_id)
             raise
         except Exception as e:
-            logger.error("Unexpected error in CoT evaluation: %s", e, exc_info=True)
+            logger.exception("Unexpected error in CoT evaluation")
+            self.convergence_manager.cleanup_tracker(evaluation_id)
             raise CoTProcessingError(
-                f"Failed to process reasoning: {e!s}",
+                f"Failed to process reasoning: {e}",
                 stage="evaluation",
             ) from e
+        else:
+            return score, justification, reasoning_summary
         finally:
             # Always clean up the processor
             try:
                 processor.clear_reasoning()
-            except Exception as cleanup_error:
+            except (AttributeError, RuntimeError) as cleanup_error:
                 logger.warning("Error during processor cleanup: %s", cleanup_error)
+
+    async def _process_with_convergence(  # noqa: PLR0912
+        self,
+        processor: Any,
+        bedrock_client: Any,
+        initial_request: dict[str, Any],
+        evaluation_id: str,
+        max_iterations: int = 15,
+    ) -> dict[str, Any]:
+        """Process Chain of Thought with convergence detection.
+
+        Args:
+            processor: AsyncChainOfThoughtProcessor instance
+            bedrock_client: Bedrock client for API calls
+            initial_request: Initial request parameters
+            evaluation_id: Unique identifier for this evaluation
+            max_iterations: Maximum number of reasoning iterations
+
+        Returns:
+            Final result from Chain of Thought processing
+        """
+        logger.info("Starting convergence-aware evaluation for %s", evaluation_id)
+
+        # Initialize tracking variables
+        current_request = initial_request.copy()
+        iteration = 0
+        convergence_tracker = self.convergence_manager.get_tracker(evaluation_id)
+
+        while iteration < max_iterations:
+            iteration += 1
+
+            try:
+                # Execute single Chain of Thought iteration
+                response = await bedrock_client.converse(**current_request)
+
+                # Extract response content
+                response_text = ""
+                if "output" in response and "message" in response["output"]:
+                    content = response["output"]["message"].get("content", [])
+                    for item in content:
+                        if "text" in item:
+                            response_text += item["text"] + "\n"
+
+                # Look for intermediate score estimates in the response
+                intermediate_score = self._extract_intermediate_score(response_text)
+                if intermediate_score is not None:
+                    logger.debug(
+                        "Iteration %s: Found intermediate score %s",
+                        iteration,
+                        intermediate_score,
+                    )
+
+                    # Track convergence
+                    converged = convergence_tracker.add_score(intermediate_score)
+                    if converged:
+                        logger.info(
+                            "🎯 Score convergence detected for %s at iteration %s! Early termination triggered.",
+                            evaluation_id,
+                            iteration,
+                        )
+                        # Continue with final response generation
+                        break
+
+                # Check if Chain of Thought indicates completion
+                if "next_step_needed" in response_text.lower() and "false" in response_text.lower():
+                    logger.debug("Chain of Thought completion detected at iteration %s", iteration)
+                    break
+
+                # Handle tool use continuation
+                if "output" in response and "message" in response["output"]:
+                    output_message = response["output"]["message"]
+
+                    # Check for tool use
+                    if "content" in output_message:
+                        for content_item in output_message["content"]:
+                            if "toolUse" in content_item:
+                                # Process tool use with Chain of Thought processor
+                                try:
+                                    tool_result = await processor.handle_tool_use(
+                                        bedrock_client,
+                                        current_request,
+                                        response,
+                                    )
+                                    if tool_result:
+                                        current_request = tool_result.get(
+                                            "next_request",
+                                            current_request,
+                                        )
+                                        continue
+                                except (
+                                    ChainOfThoughtError,
+                                    CoTProcessingError,
+                                    asyncio.TimeoutError,
+                                ) as tool_error:
+                                    logger.warning("Tool processing error: %s", tool_error)
+                                    break
+
+                # If no tool use, we're done
+                if not any(
+                    "toolUse" in item
+                    for item in output_message.get("content", [])
+                    if isinstance(item, dict)
+                ):
+                    break
+
+            except Exception:
+                logger.exception("Error in iteration %s", iteration)
+                if iteration == 1:
+                    # If first iteration fails, re-raise
+                    raise
+                # Otherwise, use the last successful response
+                break
+
+        # Log final convergence status
+        final_metrics = convergence_tracker.get_convergence_metrics()
+        logger.info(
+            "Evaluation %s completed after %s iterations. Convergence: %s, Final variance: %.4f",
+            evaluation_id,
+            iteration,
+            final_metrics.get("converged", False),
+            final_metrics.get("current_variance", 0.0),
+        )
+
+        # Return the final response in expected format
+        return {"output": {"message": response["output"]["message"]}}
+
+    def _extract_intermediate_score(self, response_text: str) -> float | None:
+        """Extract intermediate score estimate from Chain of Thought response.
+
+        Args:
+            response_text: Text response from Chain of Thought step
+
+        Returns:
+            Extracted score (1-10) or None if no score found
+        """
+        if not response_text:
+            return None
+
+        # Look for patterns like "Current score estimate: 7/10" or "Score estimate: 8.5"
+        patterns = [
+            r"current\s+score\s+estimate:\s*([0-9]+(?:\.[0-9]+)?)",
+            r"score\s+estimate:\s*([0-9]+(?:\.[0-9]+)?)",
+            r"estimated\s+score:\s*([0-9]+(?:\.[0-9]+)?)",
+            r"tentative\s+score:\s*([0-9]+(?:\.[0-9]+)?)",
+            r"preliminary\s+score:\s*([0-9]+(?:\.[0-9]+)?)",
+            r"interim\s+score:\s*([0-9]+(?:\.[0-9]+)?)",
+            r"([0-9]+(?:\.[0-9]+)?)\s*/\s*10",  # X/10 format
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, response_text, re.IGNORECASE)
+            if match:
+                try:
+                    score = float(match.group(1))
+                    # Clamp to 1-10 range
+                    return max(1.0, min(10.0, score))
+                except (ValueError, IndexError):
+                    continue
+
+        return None
 
     def _parse_evaluation_response(self, response: str) -> tuple[float | None, str]:
         """Parse the evaluation response to extract score and justification.

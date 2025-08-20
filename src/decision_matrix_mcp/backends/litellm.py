@@ -57,8 +57,10 @@ class LiteLLMBackend(LLMBackend):
         try:
             # Prepare messages
             messages = [{"role": "system", "content": thread.criterion.system_prompt}]
-            for msg in thread.conversation_history:
-                messages.append({"role": msg["role"], "content": msg["content"]})
+            messages.extend(
+                {"role": msg["role"], "content": msg["content"]}
+                for msg in thread.conversation_history
+            )
 
             # Choose model
             # Import config for default model

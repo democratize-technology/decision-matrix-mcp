@@ -62,7 +62,7 @@ class TestPerformanceOptimizations:
 
         # Add scores for all option-criterion pairs
         for option_name, option in self.session.options.items():
-            for criterion_name in self.session.criteria.keys():
+            for criterion_name in self.session.criteria:
                 score = Score(
                     criterion_name=criterion_name,
                     option_name=option_name,
@@ -178,7 +178,7 @@ class TestPerformanceOptimizations:
         self.session.add_option("New_Option", "A newly added option")
 
         # Add score for new option
-        for criterion_name in self.session.criteria.keys():
+        for criterion_name in self.session.criteria:
             score = Score(
                 criterion_name=criterion_name,
                 option_name="New_Option",
@@ -197,7 +197,7 @@ class TestPerformanceOptimizations:
         """Test optimized weighted total calculation performance."""
         self.create_test_data(100, 20)
 
-        option = list(self.session.options.values())[0]
+        option = next(iter(self.session.options.values()))
 
         # Measure weighted total calculation performance
         execution_time, memory_usage, result = self.measure_performance(
@@ -215,7 +215,7 @@ class TestPerformanceOptimizations:
         """Test optimized score breakdown generation performance."""
         self.create_test_data(50, 15)
 
-        option = list(self.session.options.values())[0]
+        option = next(iter(self.session.options.values()))
 
         # Measure score breakdown performance
         execution_time, memory_usage, result = self.measure_performance(
@@ -280,7 +280,7 @@ class TestPerformanceOptimizations:
 
         # Verify weights are correct
         weights = matrix["criteria_weights"]
-        for i, (name, weight) in enumerate(weights.items()):
+        for i, (_name, weight) in enumerate(weights.items()):
             expected_weight = 1.0 + (i * 0.1)
             assert abs(weight - expected_weight) < 0.001
 
@@ -339,13 +339,6 @@ class TestPerformanceOptimizations:
         assert "error" not in result
         assert len(result["rankings"]) == 500
         assert len(result["criteria_weights"]) == 50
-
-        print("\nXL Dataset Performance:")
-        print(f"  Execution time: {execution_time:.3f} seconds")
-        print(f"  Memory usage: {memory_usage / (1024*1024):.1f} MB")
-        print("  Options processed: 500")
-        print("  Criteria processed: 50")
-        print("  Total evaluations: 25,000")
 
     def test_cached_property_performance(self):
         """Test that cached property provides additional performance benefits."""

@@ -28,7 +28,7 @@ including cross-field validation, security checks, and resource limit verificati
 
 from typing import Any
 
-import psutil
+import psutil  # type: ignore[import-untyped]
 from pydantic import ValidationError
 
 from .schema import ConfigSchema
@@ -78,9 +78,16 @@ class ConfigValidator:
             self._validate_performance_constraints(config)
 
         except ValidationError as e:
-            raise ConfigValidationError("Configuration validation failed", e.errors)
+            error_dicts = []
+            for error in e.errors():
+                if hasattr(error, "dict"):
+                    error_dicts.append(error.dict())  # type: ignore[attr-defined]
+                else:
+                    error_dicts.append({"error": str(error)})
+            raise ConfigValidationError("Configuration validation failed", error_dicts) from e
         except Exception as e:
-            raise ConfigValidationError(f"Unexpected validation error: {e}")
+            msg = f"Unexpected validation error: {e}"
+            raise ConfigValidationError(msg) from e
 
     def _validate_cross_field_constraints(self, config: ConfigSchema) -> None:
         """Validate constraints that span multiple configuration fields."""
@@ -145,7 +152,7 @@ class ConfigValidator:
                     f"exceeds 2x CPU cores ({cpu_count}). Consider reducing for optimal performance.",
                 )
 
-        except Exception as e:
+        except (OSError, ImportError, AttributeError) as e:
             # System resource checks are best-effort
             self.warnings.append(f"Could not validate system resources: {e}")
 

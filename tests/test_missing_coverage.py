@@ -79,7 +79,7 @@ class TestSessionManagerEdgeCases:
 
         # Create and remove some sessions
         session1 = manager.create_session("Test 1")
-        session2 = manager.create_session("Test 2")
+        manager.create_session("Test 2")
         manager.remove_session(session1.session_id)
 
         stats = manager.get_stats()

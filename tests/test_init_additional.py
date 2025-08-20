@@ -50,7 +50,8 @@ class TestInitAdditionalCoverage:
 
         assert "error" in result
         assert "Invalid weight" in result["error"]
-        assert "0.1" in result["error"] and "10" in result["error"]
+        assert "0.1" in result["error"]
+        assert "10" in result["error"]
 
         # Cleanup
         session_manager.remove_session(session_id)

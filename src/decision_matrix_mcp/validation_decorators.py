@@ -42,7 +42,7 @@ class ValidationErrorFormatter:
     _formatter = None
 
     @classmethod
-    def initialize(cls, formatter) -> None:
+    def initialize(cls, formatter: Any) -> None:
         """Initialize the formatter service with a DecisionFormatter instance."""
         cls._formatter = formatter
 

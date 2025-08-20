@@ -50,10 +50,10 @@ def format_messages_for_converse(thread: CriterionThread) -> list[dict[str, Any]
     Returns:
         List of formatted messages for converse API
     """
-    messages = []
-    for msg in thread.conversation_history:
-        messages.append({"role": msg["role"], "content": [{"text": msg["content"]}]})
-    return messages
+    return [
+        {"role": msg["role"], "content": [{"text": msg["content"]}]}
+        for msg in thread.conversation_history
+    ]
 
 
 def build_converse_request(
@@ -97,7 +97,7 @@ def extract_response_text(response: dict[str, Any]) -> str:
     if "output" in response and "message" in response["output"]:
         message_content = response["output"]["message"]["content"]
         if message_content and len(message_content) > 0:
-            return message_content[0]["text"]
+            return message_content[0]["text"]  # type: ignore[no-any-return]
 
     raise LLMAPIError(
         backend="bedrock",

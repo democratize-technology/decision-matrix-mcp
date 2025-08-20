@@ -369,7 +369,7 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
     @pytest.mark.asyncio()
     async def test_call_bedrock_success(self, orchestrator, sample_thread):
         """Test successful Bedrock API call"""
-        mock_response = {
+        {
             "body": MagicMock(
                 read=lambda: b'{"content": [{"text": "SCORE: 8\\nJUSTIFICATION: Good"}]}',
             ),
@@ -435,7 +435,7 @@ JUSTIFICATION: Performance criteria not applicable to this option."""
     @pytest.mark.asyncio()
     async def test_call_bedrock_invalid_response(self, orchestrator, sample_thread):
         """Test handling invalid Bedrock response format"""
-        mock_response = {"body": MagicMock(read=lambda: b'{"invalid": "format"}')}
+        {"body": MagicMock(read=lambda: b'{"invalid": "format"}')}
 
         with patch("boto3.Session") as mock_session:
             mock_client = MagicMock()

@@ -52,52 +52,52 @@ class ValidationLimits:
     @property
     def MAX_SESSION_ID_LENGTH(self) -> int:  # noqa: N802
         """Maximum length for session IDs."""
-        return config.validation.max_session_id_length
+        return config.validation.max_session_id_length  # type: ignore[no-any-return]
 
     @property
     def MAX_TOPIC_LENGTH(self) -> int:  # noqa: N802
         """Maximum length for decision topics."""
-        return config.validation.max_topic_length
+        return config.validation.max_topic_length  # type: ignore[no-any-return]
 
     @property
     def MAX_OPTION_NAME_LENGTH(self) -> int:  # noqa: N802
         """Maximum length for option names."""
-        return config.validation.max_option_name_length
+        return config.validation.max_option_name_length  # type: ignore[no-any-return]
 
     @property
     def MAX_CRITERION_NAME_LENGTH(self) -> int:  # noqa: N802
         """Maximum length for criterion names."""
-        return config.validation.max_criterion_name_length
+        return config.validation.max_criterion_name_length  # type: ignore[no-any-return]
 
     @property
     def MAX_DESCRIPTION_LENGTH(self) -> int:  # noqa: N802
         """Maximum length for descriptions."""
-        return config.validation.max_description_length
+        return config.validation.max_description_length  # type: ignore[no-any-return]
 
     @property
     def MIN_OPTIONS_REQUIRED(self) -> int:  # noqa: N802
         """Minimum number of options required for decision analysis."""
-        return config.validation.min_options_required
+        return config.validation.min_options_required  # type: ignore[no-any-return]
 
     @property
     def MAX_OPTIONS_ALLOWED(self) -> int:  # noqa: N802
         """Maximum number of options allowed per decision."""
-        return config.validation.max_options_allowed
+        return config.validation.max_options_allowed  # type: ignore[no-any-return]
 
     @property
     def MAX_CRITERIA_ALLOWED(self) -> int:  # noqa: N802
         """Maximum number of criteria allowed per decision."""
-        return config.validation.max_criteria_allowed
+        return config.validation.max_criteria_allowed  # type: ignore[no-any-return]
 
     @property
     def MIN_CRITERION_WEIGHT(self) -> float:  # noqa: N802
         """Minimum weight value for criteria."""
-        return config.validation.min_criterion_weight
+        return config.validation.min_criterion_weight  # type: ignore[no-any-return]
 
     @property
     def MAX_CRITERION_WEIGHT(self) -> float:  # noqa: N802
         """Maximum weight value for criteria."""
-        return config.validation.max_criterion_weight
+        return config.validation.max_criterion_weight  # type: ignore[no-any-return]
 
 
 class SessionLimits:
@@ -110,28 +110,28 @@ class SessionLimits:
     @property
     def MAX_ACTIVE_SESSIONS(self) -> int:  # noqa: N802
         """Maximum active sessions before LRU eviction kicks in."""
-        return config.session.max_active_sessions
+        return config.session.max_active_sessions  # type: ignore[no-any-return]
 
     @property
     def LRU_EVICTION_BATCH_SIZE(self) -> int:  # noqa: N802
         """Number of sessions to evict when reaching limit (batch eviction)."""
-        return config.session.lru_eviction_batch_size
+        return config.session.lru_eviction_batch_size  # type: ignore[no-any-return]
 
     @property
     def DEFAULT_MAX_SESSIONS(self) -> int:  # noqa: N802
         """Default maximum sessions per SessionManager instance."""
-        return config.session.default_max_sessions
+        return config.session.default_max_sessions  # type: ignore[no-any-return]
 
     @property
     def DEFAULT_SESSION_TTL_HOURS(self) -> int:  # noqa: N802
         """Default session time-to-live in hours."""
-        return config.session.default_session_ttl_hours
+        return config.session.default_session_ttl_hours  # type: ignore[no-any-return]
 
     @property
     def DEFAULT_CLEANUP_INTERVAL_MINUTES(self) -> int:  # noqa: N802
         """Default cleanup interval in minutes."""
-        return config.session.default_cleanup_interval_minutes
+        return config.session.default_cleanup_interval_minutes  # type: ignore[no-any-return]
 
 
-ValidationLimits = ValidationLimits()
-SessionLimits = SessionLimits()
+validation_limits = ValidationLimits()
+session_limits = SessionLimits()

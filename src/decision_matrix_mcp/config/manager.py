@@ -125,7 +125,7 @@ class ConfigManager:
 
             except Exception as e:
                 logger.exception("Configuration validation failed")
-                raise ConfigValidationError(f"Invalid configuration: {e}")
+                raise ConfigValidationError(f"Invalid configuration: {e}") from e
 
     def _load_from_files(self, config_data: dict[str, Any]) -> None:
         """Load configuration from JSON/YAML files."""
@@ -144,7 +144,7 @@ class ConfigManager:
         for config_path in config_paths:
             if config_path.exists():
                 try:
-                    with open(config_path) as f:
+                    with config_path.open() as f:
                         if config_path.suffix in [".yaml", ".yml"]:
                             if yaml is None:
                                 logger.warning(
@@ -162,7 +162,7 @@ class ConfigManager:
                         logger.info("Loaded configuration from %s", config_path)
                         break
 
-                except Exception as e:
+                except (FileNotFoundError, json.JSONDecodeError, PermissionError, OSError) as e:
                     logger.warning("Failed to load config from %s: %s", config_path, e)
 
     def _load_from_environment(self, config_data: dict[str, Any]) -> None:
@@ -175,7 +175,7 @@ class ConfigManager:
                 try:
                     # Convert to appropriate type
                     var_type = ENV_VAR_TYPES.get(env_var, str)
-                    if var_type == bool:
+                    if var_type is bool:
                         # Handle boolean environment variables
                         converted_value = env_value.lower() in ("true", "1", "yes", "on")
                     else:
@@ -238,26 +238,26 @@ class ConfigManager:
             return self._config.copy(deep=True)
 
     @property
-    def validation(self):
+    def validation(self) -> Any:
         """Get validation limits configuration."""
         return self._config.validation
 
     @property
-    def session(self):
+    def session(self) -> Any:
         """Get session limits configuration."""
         return self._config.session
 
     @property
-    def performance(self):
+    def performance(self) -> Any:
         """Get performance limits configuration."""
         return self._config.performance
 
     @property
-    def backend(self):
+    def backend(self) -> Any:
         """Get backend configuration."""
         return self._config.backend
 
-    def update_config(self, **kwargs) -> None:
+    def update_config(self, **kwargs: Any) -> None:
         """Update configuration at runtime (thread-safe).
 
         Args:
@@ -286,7 +286,7 @@ class ConfigManager:
 
             except Exception as e:
                 logger.exception("Configuration update failed")
-                raise ConfigValidationError(f"Invalid configuration update: {e}")
+                raise ConfigValidationError(f"Invalid configuration update: {e}") from e
 
     def reload_configuration(self) -> None:
         """Reload configuration from environment and files."""

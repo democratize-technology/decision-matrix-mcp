@@ -11,7 +11,7 @@ These tests measure:
 
 import asyncio
 import gc
-from statistics import mean, median, stdev
+from statistics import mean, stdev
 import time
 import tracemalloc
 
@@ -126,7 +126,7 @@ class TestEvaluationPerformanceScaling:
             manager.remove_session(session_id)
 
     @pytest.mark.parametrize(
-        "options_count,criteria_count",
+        ("options_count", "criteria_count"),
         [
             (2, 2),  # 2x2 matrix (4 evaluations)
             (5, 3),  # 5x3 matrix (15 evaluations)
@@ -193,20 +193,10 @@ class TestEvaluationPerformanceScaling:
         max_expected_memory = total_evaluations * max_memory_per_eval
 
         if memory_growth > max_expected_memory:
-            print(f"Warning: High memory usage for {options_count}x{criteria_count} matrix:")
-            print(f"  Memory growth: {memory_growth / 1024 / 1024:.2f} MB")
-            print(f"  Per evaluation: {memory_growth / total_evaluations / 1024:.2f} KB")
-            print("  Top memory sources:")
-            for source in memory.get_top_growth_sources():
-                print(f"    {source}")
+            for _source in memory.get_top_growth_sources():
+                pass
 
         # Log performance metrics for analysis
-        print(f"\nPerformance metrics for {options_count}x{criteria_count} matrix:")
-        print(f"  Total evaluations: {total_evaluations}")
-        print(f"  Duration: {timer.duration:.4f}s")
-        print(f"  Evaluations/second: {total_evaluations / timer.duration:.1f}")
-        print(f"  Memory growth: {memory_growth / 1024:.1f} KB")
-        print(f"  Memory per evaluation: {memory_growth / total_evaluations:.0f} bytes")
 
     @pytest.mark.asyncio()
     async def test_concurrent_evaluation_performance(self, session_manager):
@@ -249,25 +239,14 @@ class TestEvaluationPerformanceScaling:
 
         # Measure concurrent evaluation performance
         with PerformanceTimer("Concurrent Evaluations") as timer:
-            with MemoryProfiler("Concurrent Memory") as memory:
+            with MemoryProfiler("Concurrent Memory"):
                 # Run evaluations concurrently
                 tasks = [evaluate_session(session) for session in sessions]
                 evaluation_results = await asyncio.gather(*tasks)
 
         # Analyze results
         durations = [result[1] for result in evaluation_results]
-        total_evaluations = num_sessions * matrix_size[0] * matrix_size[1]
-
-        print("\nConcurrent evaluation performance:")
-        print(f"  Sessions: {num_sessions}")
-        print(f"  Matrix size: {matrix_size[0]}x{matrix_size[1]}")
-        print(f"  Total evaluations: {total_evaluations}")
-        print(f"  Total time: {timer.duration:.4f}s")
-        print(f"  Individual session times: {[f'{d:.4f}s' for d in durations]}")
-        print(f"  Mean session time: {mean(durations):.4f}s")
-        print(f"  Median session time: {median(durations):.4f}s")
-        print(f"  Overall throughput: {total_evaluations / timer.duration:.1f} eval/s")
-        print(f"  Memory growth: {memory.get_memory_growth() / 1024:.1f} KB")
+        num_sessions * matrix_size[0] * matrix_size[1]
 
         # Performance assertions
         # Concurrent execution should be faster than sequential
@@ -280,7 +259,7 @@ class TestEvaluationPerformanceScaling:
         # All evaluations should complete successfully
         assert len(evaluation_results) == num_sessions
 
-        for session_id, duration, criteria_count in evaluation_results:
+        for _session_id, duration, criteria_count in evaluation_results:
             assert criteria_count == matrix_size[1]
             assert duration > 0
 
@@ -313,8 +292,6 @@ class TestEvaluationThroughput:
 
         with MemoryProfiler("Sustained Throughput") as memory:
             for batch_id in range(num_batches):
-                print(f"\nProcessing batch {batch_id + 1}/{num_batches}")
-
                 # Create batch of sessions
                 batch_sessions = []
                 for i in range(batch_size):
@@ -346,7 +323,7 @@ class TestEvaluationThroughput:
                         )
 
                     batch_tasks = [evaluate_batch_session(s) for s in batch_sessions]
-                    batch_evaluation_results = await asyncio.gather(*batch_tasks)
+                    await asyncio.gather(*batch_tasks)
 
                 # Record batch metrics
                 batch_evaluations = len(batch_sessions) * matrix_size[0] * matrix_size[1]
@@ -360,11 +337,6 @@ class TestEvaluationThroughput:
                         "throughput": batch_throughput,
                     },
                 )
-
-                print(
-                    f"  Batch {batch_id}: {batch_evaluations} evaluations in {batch_timer.duration:.4f}s",
-                )
-                print(f"  Throughput: {batch_throughput:.1f} eval/s")
 
                 # Cleanup batch sessions
                 for session in batch_sessions:
@@ -380,18 +352,6 @@ class TestEvaluationThroughput:
         total_evaluations = sum(batch["evaluations"] for batch in batch_results)
         total_duration = sum(durations)
         overall_throughput = total_evaluations / total_duration
-
-        print("\nSustained throughput analysis:")
-        print(f"  Total batches: {num_batches}")
-        print(f"  Sessions per batch: {batch_size}")
-        print(f"  Matrix size: {matrix_size[0]}x{matrix_size[1]}")
-        print(f"  Total evaluations: {total_evaluations}")
-        print(f"  Total duration: {total_duration:.4f}s")
-        print(f"  Overall throughput: {overall_throughput:.1f} eval/s")
-        print(f"  Batch throughputs: {[f'{t:.1f}' for t in throughputs]}")
-        print(f"  Mean throughput: {mean(throughputs):.1f} eval/s")
-        print(f"  Throughput std dev: {stdev(throughputs):.1f} eval/s")
-        print(f"  Memory growth: {memory.get_memory_growth() / 1024:.1f} KB")
 
         # Performance assertions
         min_expected_throughput = 50  # evaluations per second
@@ -410,10 +370,8 @@ class TestEvaluationThroughput:
         max_memory_growth = 5 * 1024 * 1024  # 5MB total
         memory_growth = memory.get_memory_growth()
         if memory_growth > max_memory_growth:
-            print(f"Warning: High memory growth detected: {memory_growth / 1024 / 1024:.2f} MB")
-            print("Top memory sources:")
-            for source in memory.get_top_growth_sources():
-                print(f"  {source}")
+            for _source in memory.get_top_growth_sources():
+                pass
 
     @pytest.mark.asyncio()
     async def test_peak_load_handling(self, performance_session_manager):
@@ -423,7 +381,7 @@ class TestEvaluationThroughput:
 
         # Create many sessions simultaneously
         sessions = []
-        with PerformanceTimer("Session Creation") as creation_timer:
+        with PerformanceTimer("Session Creation"):
             for i in range(peak_sessions):
                 options = [f"PeakOpt{i}_{j}" for j in range(matrix_size[0])]
                 session = performance_session_manager.create_session(
@@ -463,15 +421,6 @@ class TestEvaluationThroughput:
         total_evaluations = peak_sessions * matrix_size[0] * matrix_size[1]
         peak_throughput = total_evaluations / eval_timer.duration
 
-        print("\nPeak load performance:")
-        print(f"  Concurrent sessions: {peak_sessions}")
-        print(f"  Matrix size: {matrix_size[0]}x{matrix_size[1]}")
-        print(f"  Total evaluations: {total_evaluations}")
-        print(f"  Session creation time: {creation_timer.duration:.4f}s")
-        print(f"  Evaluation time: {eval_timer.duration:.4f}s")
-        print(f"  Peak throughput: {peak_throughput:.1f} eval/s")
-        print(f"  Memory growth: {memory.get_memory_growth() / 1024 / 1024:.2f} MB")
-
         # Verify all evaluations completed successfully
         assert len(peak_results) == peak_sessions
         for result in peak_results:
@@ -487,7 +436,7 @@ class TestEvaluationThroughput:
         max_peak_memory = 20 * 1024 * 1024  # 20MB for peak load
         memory_growth = memory.get_memory_growth()
         if memory_growth > max_peak_memory:
-            print(f"Warning: High peak memory usage: {memory_growth / 1024 / 1024:.2f} MB")
+            pass
 
         # Cleanup
         for session in sessions:
@@ -569,25 +518,9 @@ class TestPerformanceRegression:
             session_manager.remove_session(session.session_id)
 
         # Print baseline metrics for documentation
-        print("\n" + "=" * 60)
-        print("PERFORMANCE BASELINE METRICS")
-        print("=" * 60)
 
         for test_name, metrics in baselines.items():
-            print(
-                f"\n{test_name.upper()} MATRIX ({metrics['matrix_size'][0]}x{metrics['matrix_size'][1]}):",
-            )
-            print(f"  Total evaluations: {metrics['total_evaluations']}")
-            print(
-                f"  Mean duration: {metrics['mean_duration']:.4f}s ± {metrics['duration_std']:.4f}s",
-            )
-            print(f"  Throughput: {metrics['throughput']:.1f} eval/s")
-            print(
-                f"  Memory per evaluation: {metrics['mean_memory'] / metrics['total_evaluations']:.0f} bytes",
-            )
-            print(f"  Memory std dev: {metrics['memory_std'] / 1024:.1f} KB")
-
-        print("\n" + "=" * 60)
+            pass
 
         # Store baselines for potential future regression testing
         # In a real CI environment, these could be stored as artifacts
@@ -606,7 +539,7 @@ class TestPerformanceRegression:
 
         # Larger matrices should generally take longer
         small_duration = baselines["small"]["mean_duration"]
-        medium_duration = baselines["medium"]["mean_duration"]
+        baselines["medium"]["mean_duration"]
         large_duration = baselines["large"]["mean_duration"]
 
         assert small_duration < large_duration, "Small matrix should be faster than large"

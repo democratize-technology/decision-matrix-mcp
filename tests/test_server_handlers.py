@@ -333,7 +333,7 @@ class TestAddCriterion:
             # No temperature specified
         )
 
-        result = await add_criterion(request, mock_ctx)
+        await add_criterion(request, mock_ctx)
 
         # Verify criterion inherited session defaults
         criterion = test_session.criteria["TestCriterion"]

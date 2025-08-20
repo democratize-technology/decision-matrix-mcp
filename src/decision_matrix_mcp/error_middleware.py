@@ -149,10 +149,10 @@ class MCPErrorHandler:
         """
 
         def decorator(func: F) -> F:
-            def wrapper(*args, **kwargs) -> Any:
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
                 try:
                     return func(*args, **kwargs)
-                except Exception as e:
+                except (ValueError, TypeError, RuntimeError) as e:
                     return self.handle_exception(e, operation)
 
             return wrapper

@@ -231,7 +231,7 @@ async def start_decision_analysis(
     model_name: str | None = None,
     temperature: float = 0.1,
     *,
-    ctx: Context,  # noqa: ARG001
+    ctx: Context,  # type: ignore[type-arg] # noqa: ARG001
 ) -> dict[str, Any]:
     """Initialize a new decision analysis session with options and optional criteria."""
     components = get_server_components()
@@ -321,7 +321,7 @@ async def add_criterion(
     model_name: str | None = None,
     temperature: float | None = None,
     *,
-    ctx: Context,  # noqa: ARG001
+    ctx: Context,  # type: ignore[type-arg] # noqa: ARG001
 ) -> dict[str, Any]:
     """Add a new evaluation criterion to an existing decision session."""
     components = get_server_components()
@@ -347,7 +347,9 @@ async def add_criterion(
         )
 
     # Session validation guard
-    assert session is not None, "Session should not be None after successful get_session_or_error"
+    assert (
+        session is not None
+    ), "Session should not be None after successful get_session_or_error"  # nosec B101
 
     # Check if criterion already exists
     if components.validation_service.validate_criterion_exists(session, request.name):
@@ -390,7 +392,7 @@ class EvaluateOptionsRequest(BaseModel):
 async def evaluate_options(
     session_id: str,
     *,
-    ctx: Context,  # noqa: ARG001
+    ctx: Context,  # type: ignore[type-arg] # noqa: ARG001
 ) -> dict[str, Any]:
     """Evaluate all options across all criteria using parallel thread orchestration."""
     components = get_server_components()
@@ -407,7 +409,9 @@ async def evaluate_options(
         )
 
     # Session validation guard
-    assert session is not None, "Session should not be None after successful get_session_or_error"
+    assert (
+        session is not None
+    ), "Session should not be None after successful get_session_or_error"  # nosec B101
 
     # Validate prerequisites
     try:
@@ -472,7 +476,7 @@ class GetDecisionMatrixRequest(BaseModel):
 async def get_decision_matrix(
     session_id: str,
     *,
-    ctx: Context,  # noqa: ARG001
+    ctx: Context,  # type: ignore[type-arg] # noqa: ARG001
 ) -> dict[str, Any]:
     """Get the complete decision matrix with scores, rankings, and recommendations."""
     components = get_server_components()
@@ -485,7 +489,9 @@ async def get_decision_matrix(
         return components.response_service.create_error_response(error["error"])
 
     # Session validation guard
-    assert session is not None, "Session should not be None after successful get_session_or_error"
+    assert (
+        session is not None
+    ), "Session should not be None after successful get_session_or_error"  # nosec B101
 
     try:
         matrix_result = components.decision_service.get_decision_matrix(session)
@@ -513,7 +519,7 @@ async def add_option(
     option_name: str,
     description: str | None = None,
     *,
-    ctx: Context,  # noqa: ARG001
+    ctx: Context,  # type: ignore[type-arg] # noqa: ARG001
 ) -> dict[str, Any]:
     """Add a new option to an existing decision analysis."""
     components = get_server_components()
@@ -530,7 +536,9 @@ async def add_option(
         return components.response_service.create_error_response(error["error"])
 
     # Session validation guard
-    assert session is not None, "Session should not be None after successful get_session_or_error"
+    assert (
+        session is not None
+    ), "Session should not be None after successful get_session_or_error"  # nosec B101
 
     # Check if option already exists
     if components.validation_service.validate_option_exists(session, request.option_name):

@@ -291,7 +291,10 @@ class Option:
 
         # Calculate using list comprehension for better performance
         if valid_scores:
-            total = sum(score.score * criterion.weight for score, criterion in valid_scores)
+            # Type assertion: score.score is guaranteed to be not None due to filtering above
+            total = sum(
+                (score.score or 0.0) * criterion.weight for score, criterion in valid_scores
+            )
             total_weight = sum(criterion.weight for _, criterion in valid_scores)
 
         result = total / total_weight if total_weight > 0 else 0.0
@@ -663,8 +666,10 @@ class DecisionSession:
             for option_name, option in self.options.items()
         ]
 
-        # Single sort operation
-        rankings.sort(key=lambda x: x["weighted_total"], reverse=True)
+        # Single sort operation with proper type annotation
+        from typing import cast
+
+        rankings.sort(key=lambda x: cast("float", x["weighted_total"]), reverse=True)
         return rankings
 
     def _generate_recommendation(self, rankings: list[dict[str, Any]]) -> str:

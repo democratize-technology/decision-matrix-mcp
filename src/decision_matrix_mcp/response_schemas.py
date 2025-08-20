@@ -114,7 +114,7 @@ class EvaluationResponse:
             return cls.from_dict(data)
         except (json.JSONDecodeError, TypeError) as e:
             logger.warning("Failed to parse JSON response: %s", e)
-            raise ValueError(f"Invalid JSON format: {e}")
+            raise ValueError(f"Invalid JSON format: {e}") from e
 
     def is_abstention(self) -> bool:
         """Check if this is an abstention response."""
@@ -122,7 +122,10 @@ class EvaluationResponse:
 
     def get_legacy_format(self) -> tuple[float | None, str]:
         """Get response in legacy (score, justification) format for compatibility."""
-        return (self.score, self.reasoning)
+        # Type assertion needed since we know score is either float or None, not str
+        from typing import cast
+
+        return (cast("float | None", self.score), self.reasoning)
 
 
 def generate_json_prompt_suffix() -> str:
@@ -184,7 +187,7 @@ def _parse_json_response(response: str) -> EvaluationResponse:
         data = json.loads(json_str)
         return EvaluationResponse.from_dict(data)
     except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid JSON: {e}")
+        raise ValueError(f"Invalid JSON: {e}") from e
 
 
 def _extract_json_from_response(response: str) -> str | None:
@@ -259,16 +262,17 @@ def _parse_legacy_regex(response: str) -> tuple[float | None, str]:
             )
             return (None, "Could not parse evaluation from response")
 
-        return (score, justification)
-
     except Exception:
         logger.exception("Error parsing evaluation response")
         # Return partial parse if possible
         try:
             justification = _extract_justification_legacy(response)
-            return (None, justification)
-        except Exception:
+        except (ValueError, AttributeError, IndexError):
             return (None, "Parse error: Unable to extract evaluation")
+        else:
+            return (None, justification)
+    else:
+        return (score, justification)
 
 
 def _extract_score_legacy(response: str) -> float | None:
@@ -330,10 +334,9 @@ def _extract_justification_legacy(response: str) -> str:
 
     # Fallback: If response has multiple lines, take everything after first line
     lines = response.strip().split("\n")
-    if len(lines) > 1:
+    if len(lines) > 1 and re.search(r"(score|rating|^\d+)", lines[0], re.IGNORECASE):
         # Skip first line if it contains score
-        if re.search(r"(score|rating|^\d+)", lines[0], re.IGNORECASE):
-            return "\n".join(lines[1:]).strip()
+        return "\n".join(lines[1:]).strip()
 
     # Last fallback: Return trimmed response if it's descriptive
     if len(response.strip()) > 20 and not re.match(r"^\d+(\.\d+)?$", response.strip()):
@@ -353,11 +356,16 @@ def validate_response_schema(data: dict[str, Any]) -> bool:
 
         # Score validation
         score = data["score"]
-        if score is not None and not isinstance(score, (int, float)):
-            if not isinstance(score, str) or score.upper() not in ["NO_RESPONSE", "N/A", "ABSTAIN"]:
-                return False
+        if (
+            score is not None
+            and not isinstance(score, (int, float))
+            and (
+                not isinstance(score, str) or score.upper() not in ["NO_RESPONSE", "N/A", "ABSTAIN"]
+            )
+        ):
+            return False
 
         # Status validation
         return data["status"] in ["success", "abstain", "error"]
-    except Exception:
+    except (KeyError, TypeError, AttributeError):
         return False

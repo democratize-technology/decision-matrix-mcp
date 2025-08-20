@@ -91,7 +91,7 @@ class BackendFactory:
         try:
             backend = self.create_backend(backend_type)
             return backend.is_available()
-        except Exception as e:
+        except (ConfigurationError, ImportError, AttributeError, ModuleNotFoundError) as e:
             logger.warning("Backend %s not available: %s", backend_type.value, e)
             return False
 
@@ -101,11 +101,11 @@ class BackendFactory:
         Returns:
             List of backend types that have their dependencies available
         """
-        available = []
-        for backend_type in self._backends:
-            if self.validate_backend_availability(backend_type):
-                available.append(backend_type)
-        return available
+        return [
+            backend_type
+            for backend_type in self._backends
+            if self.validate_backend_availability(backend_type)
+        ]
 
     def cleanup(self) -> None:
         """Clean up all backend instances."""
@@ -114,7 +114,7 @@ class BackendFactory:
                 try:
                     instance.cleanup()
                     logger.debug("Cleaned up %s backend", backend_type.value)
-                except Exception as e:
+                except (AttributeError, RuntimeError) as e:
                     logger.warning("Error cleaning up %s backend: %s", backend_type.value, e)
 
         self._instances.clear()

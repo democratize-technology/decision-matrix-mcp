@@ -60,8 +60,7 @@ class DecisionFormatter:
                     "## ⚖️ Initial Criteria",
                 ],
             )
-            for criterion in session_data["criteria_added"]:
-                lines.append(f"- {criterion}")
+            lines.extend(f"- {criterion}" for criterion in session_data["criteria_added"])
 
         lines.extend(
             [
@@ -95,8 +94,7 @@ class DecisionFormatter:
                     "**All criteria**:",
                 ],
             )
-            for criterion in criterion_data["all_criteria"]:
-                lines.append(f"- {criterion}")
+            lines.extend(f"- {criterion}" for criterion in criterion_data["all_criteria"])
 
         lines.extend(["", "💡 **Ready to evaluate** once you've added all relevant criteria"])
 
@@ -127,8 +125,7 @@ class DecisionFormatter:
                     "### ⚠️ Evaluation Errors",
                 ],
             )
-            for error in eval_data["errors"][:5]:  # Show first 5
-                lines.append(f"- {error}")
+            lines.extend(f"- {error}" for error in eval_data["errors"][:5])  # Show first 5
             if len(eval_data["errors"]) > 5:
                 lines.append(f"- *...and {len(eval_data['errors']) - 5} more*")
 
@@ -142,7 +139,7 @@ class DecisionFormatter:
 
         return "\n".join(lines)
 
-    def format_decision_matrix(self, matrix_data: dict[str, Any]) -> str:
+    def format_decision_matrix(self, matrix_data: dict[str, Any]) -> str:  # noqa: PLR0912
         """Format the complete decision matrix for optimal LLM parsing."""
         rankings = matrix_data["rankings"]
 
@@ -207,7 +204,7 @@ class DecisionFormatter:
                             f"{item['weighted_score']:.1f}" if item["weighted_score"] else "N/A"
                         )
                         lines.append(
-                            f"   {item['criterion']}: {score_str} × {item['weight']} = {weighted_str}",
+                            f"   {item['criterion']}: {score_str} x {item['weight']} = {weighted_str}",
                         )
                         if self.verbosity == self.DETAILED:
                             lines.append(f"     → {item['justification'][:80]}...")
@@ -284,8 +281,7 @@ class DecisionFormatter:
                     "### 📋 All Options",
                 ],
             )
-            for option in option_data["all_options"]:
-                lines.append(f"- {option}")
+            lines.extend(f"- {option}" for option in option_data["all_options"])
 
         lines.extend(["", "⚡ **Action Required**: Re-run evaluation to score the new option"])
 

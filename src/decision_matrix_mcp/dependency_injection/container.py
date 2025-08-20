@@ -26,7 +26,10 @@ Provides centralized service creation and management.
 """
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
 from ..error_middleware import MCPErrorHandler
 from ..formatting import DecisionFormatter
@@ -79,37 +82,37 @@ class ServiceContainer:
     def get_orchestrator(self) -> DecisionOrchestrator:
         """Get the DecisionOrchestrator instance."""
         self._ensure_initialized()
-        return self._services["orchestrator"]
+        return self._services["orchestrator"]  # type: ignore[no-any-return]
 
     def get_session_manager(self) -> SessionManager:
         """Get the SessionManager instance."""
         self._ensure_initialized()
-        return self._services["session_manager"]
+        return self._services["session_manager"]  # type: ignore[no-any-return]
 
     def get_formatter(self) -> DecisionFormatter:
         """Get the DecisionFormatter instance."""
         self._ensure_initialized()
-        return self._services["formatter"]
+        return self._services["formatter"]  # type: ignore[no-any-return]
 
     def get_decision_service(self) -> DecisionService:
         """Get the DecisionService instance."""
         self._ensure_initialized()
-        return self._services["decision_service"]
+        return self._services["decision_service"]  # type: ignore[no-any-return]
 
     def get_validation_service(self) -> ValidationService:
         """Get the ValidationService instance."""
         self._ensure_initialized()
-        return self._services["validation_service"]
+        return self._services["validation_service"]  # type: ignore[no-any-return]
 
     def get_response_service(self) -> ResponseService:
         """Get the ResponseService instance."""
         self._ensure_initialized()
-        return self._services["response_service"]
+        return self._services["response_service"]  # type: ignore[no-any-return]
 
     def get_error_handler(self) -> MCPErrorHandler:
         """Get the MCPErrorHandler instance."""
         self._ensure_initialized()
-        return self._services["error_handler"]
+        return self._services["error_handler"]  # type: ignore[no-any-return]
 
     def cleanup(self) -> None:
         """Clean up all services and resources."""
@@ -137,11 +140,11 @@ class ServiceContainer:
         if not self._initialized:
             self.initialize()
 
-    def __enter__(self):
+    def __enter__(self) -> "Self":
         """Context manager entry."""
         self.initialize()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Context manager exit with cleanup."""
         self.cleanup()

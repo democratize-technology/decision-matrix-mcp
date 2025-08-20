@@ -219,7 +219,7 @@ class TestLoggingConfiguration:
 
         # Root logger should be WARNING level
         root_logger = logging.getLogger()
-        assert root_logger.level == logging.WARNING or root_logger.level == 0
+        assert root_logger.level in (logging.WARNING, 0)
 
     def test_logging_format(self):
         """Test logging format configuration"""

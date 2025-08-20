@@ -97,21 +97,11 @@ class SessionPerformanceProfiler:
 
     def print_summary(self):
         """Print performance summary."""
-        print("\n" + "=" * 50)
-        print("SESSION PERFORMANCE SUMMARY")
-        print("=" * 50)
 
         for operation_name in sorted(self.operation_times.keys()):
             stats = self.get_operation_stats(operation_name)
             if stats:
-                print(f"\n{operation_name.upper()}:")
-                print(f"  Count: {stats['count']}")
-                print(f"  Mean: {stats['mean']*1000:.2f}ms")
-                print(f"  Median: {stats['median']*1000:.2f}ms")
-                print(f"  Min: {stats['min']*1000:.2f}ms")
-                print(f"  Max: {stats['max']*1000:.2f}ms")
-                print(f"  Std Dev: {stats['std']*1000:.2f}ms")
-                print(f"  Total: {stats['total']*1000:.1f}ms")
+                pass
 
 
 class TestSessionCreationPerformance:
@@ -174,16 +164,6 @@ class TestSessionCreationPerformance:
         mean_creation_time = mean(creation_times)
         mean_retrieval_time = mean(retrieval_times)
 
-        print(f"\nSession Creation Performance ({num_sessions} sessions):")
-        print(f"  Mean creation time: {mean_creation_time*1000:.2f}ms")
-        print(
-            f"  Creation time range: {min(creation_times)*1000:.2f}ms - {max(creation_times)*1000:.2f}ms",
-        )
-        print(f"  Mean retrieval time: {mean_retrieval_time*1000:.2f}ms")
-        print(f"  Listing time: {listing_time*1000:.2f}ms")
-        print(f"  Memory per session: {memory_per_session/1024:.2f} KB")
-        print(f"  Total memory: {memory_growth/1024/1024:.2f} MB")
-
         # Performance assertions
         max_creation_time = 0.010  # 10ms max per session
         assert (
@@ -202,7 +182,7 @@ class TestSessionCreationPerformance:
 
         max_memory_per_session = 50 * 1024  # 50KB max per session
         if memory_per_session > max_memory_per_session:
-            print(f"Warning: High memory usage per session: {memory_per_session/1024:.2f} KB")
+            pass
 
         # Cleanup
         for session in created_sessions:
@@ -238,7 +218,7 @@ class TestSessionCreationPerformance:
 
         # Verify all sessions were created
         assert len(concurrent_sessions) == num_concurrent
-        assert len(set(s.session_id for s in concurrent_sessions)) == num_concurrent
+        assert len({s.session_id for s in concurrent_sessions}) == num_concurrent
 
         # Measure concurrent retrieval
         async def retrieve_session(session_id):
@@ -255,16 +235,9 @@ class TestSessionCreationPerformance:
         assert all(s is not None for s in retrieved_sessions)
 
         # Calculate metrics
-        memory_growth = profiler.get_memory_diff("before_concurrent", "after_concurrent")
+        profiler.get_memory_diff("before_concurrent", "after_concurrent")
         creation_rate = num_concurrent / concurrent_creation_time
         retrieval_rate = num_concurrent / concurrent_retrieval_time
-
-        print(f"\nConcurrent Session Performance ({num_concurrent} sessions):")
-        print(f"  Concurrent creation time: {concurrent_creation_time*1000:.2f}ms")
-        print(f"  Creation rate: {creation_rate:.1f} sessions/sec")
-        print(f"  Concurrent retrieval time: {concurrent_retrieval_time*1000:.2f}ms")
-        print(f"  Retrieval rate: {retrieval_rate:.1f} retrievals/sec")
-        print(f"  Memory growth: {memory_growth/1024:.2f} KB")
 
         # Performance assertions
         min_creation_rate = 50  # At least 50 sessions/sec
@@ -365,22 +338,12 @@ class TestSessionCleanupPerformance:
             "before_cleanup_test",
             "after_creation_for_cleanup",
         )
-        memory_after_individual = profiler.get_memory_diff(
+        profiler.get_memory_diff(
             "before_cleanup_test",
             "after_individual_removal",
         )
-        memory_after_batch = profiler.get_memory_diff("before_cleanup_test", "after_batch_removal")
+        profiler.get_memory_diff("before_cleanup_test", "after_batch_removal")
         memory_after_gc = profiler.get_memory_diff("before_cleanup_test", "after_gc")
-
-        print("\nSession Cleanup Performance:")
-        print(f"  Sessions created: {num_sessions}")
-        print(f"  Mean individual removal time: {mean_removal_time*1000:.2f}ms")
-        print(f"  Batch cleanup rate: {batch_removal_rate:.1f} sessions/sec")
-        print(f"  Memory after creation: {memory_after_creation/1024:.1f} KB")
-        print(f"  Memory after individual removal: {memory_after_individual/1024:.1f} KB")
-        print(f"  Memory after batch removal: {memory_after_batch/1024:.1f} KB")
-        print(f"  Memory after GC: {memory_after_gc/1024:.1f} KB")
-        print(f"  Memory recovery: {(memory_after_creation - memory_after_gc)/1024:.1f} KB")
 
         # Performance assertions
         max_removal_time = 0.005  # 5ms max per removal
@@ -453,16 +416,9 @@ class TestSessionCleanupPerformance:
         ), f"TTL cleanup failed: {len(active_sessions)} sessions remain"
 
         # Calculate memory metrics
-        memory_after_creation = profiler.get_memory_diff("before_ttl_test", "after_ttl_creation")
-        memory_after_cleanup = profiler.get_memory_diff("before_ttl_test", "after_ttl_cleanup")
-        memory_after_gc = profiler.get_memory_diff("before_ttl_test", "after_ttl_gc")
-
-        print("\nTTL Cleanup Performance:")
-        print(f"  Expired sessions: {len(expired_sessions)}")
-        print(f"  TTL cleanup time: {cleanup_time*1000:.2f}ms")
-        print(f"  Memory after creation: {memory_after_creation/1024:.1f} KB")
-        print(f"  Memory after cleanup: {memory_after_cleanup/1024:.1f} KB")
-        print(f"  Memory after GC: {memory_after_gc/1024:.1f} KB")
+        profiler.get_memory_diff("before_ttl_test", "after_ttl_creation")
+        profiler.get_memory_diff("before_ttl_test", "after_ttl_cleanup")
+        profiler.get_memory_diff("before_ttl_test", "after_ttl_gc")
 
         # TTL cleanup should be reasonably fast
         max_ttl_cleanup_time = 0.050  # 50ms max for TTL cleanup
@@ -520,7 +476,7 @@ class TestSessionMemoryPatterns:
                 criterion_name = f"MemoryCriterion{j}"
                 eval_data[criterion_name] = {
                     opt: f"Evaluation data for {opt} on {criterion_name} iteration {i}"
-                    for opt in session.options.keys()
+                    for opt in session.options
                 }
 
             session.record_evaluation(eval_data)
@@ -532,7 +488,7 @@ class TestSessionMemoryPatterns:
         # Add scores progressively
         score_count = 0
         for criterion_name in list(session.criteria.keys())[:5]:  # First 5 criteria
-            for option_name in session.options.keys():
+            for option_name in session.options:
                 score = Score(
                     criterion_name=criterion_name,
                     option_name=option_name,
@@ -555,9 +511,8 @@ class TestSessionMemoryPatterns:
                 memory_growth = sum(stat.size_diff for stat in diff)
                 memory_progression[snapshot_name] = memory_growth
 
-        print("\nSession Memory Growth Patterns:")
-        for stage, growth in memory_progression.items():
-            print(f"  {stage}: {growth/1024:.1f} KB")
+        for stage in memory_progression:
+            pass
 
         # Analyze growth pattern
         criteria_stages = [("criteria_3", 3), ("criteria_6", 6), ("criteria_10", 10)]
@@ -570,9 +525,6 @@ class TestSessionMemoryPatterns:
             prev_growth = memory_progression[prev_stage]
 
             growth_per_criterion = (current_growth - prev_growth) / (count - prev_count)
-            print(
-                f"  Memory per criterion ({prev_count}->{count}): {growth_per_criterion:.0f} bytes",
-            )
 
             # Should be reasonable per criterion (less than 10KB each)
             max_memory_per_criterion = 10 * 1024
@@ -587,7 +539,6 @@ class TestSessionMemoryPatterns:
             )
             eval_count_diff = eval_stages[1][1] - eval_stages[0][1]
             growth_per_evaluation = eval_growth_diff / eval_count_diff
-            print(f"  Memory per evaluation: {growth_per_evaluation:.0f} bytes")
 
             # Should be reasonable per evaluation (less than 50KB each)
             max_memory_per_evaluation = 50 * 1024
@@ -599,7 +550,7 @@ class TestSessionMemoryPatterns:
         total_growth = memory_progression["with_scores"]
         max_total_growth = 1024 * 1024  # 1MB max for this test session
         if total_growth > max_total_growth:
-            print(f"Warning: High total memory growth: {total_growth/1024:.1f} KB")
+            pass
 
         # Cleanup
         session_manager.remove_session(session.session_id)
@@ -610,12 +561,10 @@ class TestSessionMemoryPatterns:
         final_diff = final_snapshot.compare_to(baseline, "lineno")
         final_growth = sum(stat.size_diff for stat in final_diff)
 
-        print(f"  Memory after cleanup: {final_growth/1024:.1f} KB")
-
         # Most memory should be recovered (allow some overhead)
         max_residual_memory = total_growth * 0.2  # 20% residual is acceptable
         if final_growth > max_residual_memory:
-            print(f"Warning: Poor memory recovery: {final_growth/1024:.1f} KB residual")
+            pass
 
         tracemalloc.stop()
 
@@ -680,15 +629,11 @@ class TestSessionLookupPerformance:
             assert len(all_sessions) == target_count
 
         # Analyze scaling behavior
-        print("\nSession Lookup Performance Scaling:")
-        print(f"{'Sessions':<10} {'Mean Lookup':<12} {'Max Lookup':<12} {'Listing':<12}")
-        print("-" * 50)
 
         for count, results in lookup_results.items():
-            mean_ms = results["mean_lookup_time"] * 1000
-            max_ms = results["max_lookup_time"] * 1000
-            list_ms = results["listing_time"] * 1000
-            print(f"{count:<10} {mean_ms:<12.2f} {max_ms:<12.2f} {list_ms:<12.2f}")
+            results["mean_lookup_time"] * 1000
+            results["max_lookup_time"] * 1000
+            results["listing_time"] * 1000
 
         # Performance assertions
         for count, results in lookup_results.items():

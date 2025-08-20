@@ -190,7 +190,7 @@ class TestSessionValidationGuards:
         """Test that add_criterion properly handles invalid session"""
         from decision_matrix_mcp import AddCriterionRequest, add_criterion, get_server_components
 
-        components = get_server_components()
+        get_server_components()
 
         # Test with non-existent session
         request = AddCriterionRequest(
@@ -245,7 +245,7 @@ class TestSessionValidationGuards:
             get_server_components,
         )
 
-        components = get_server_components()
+        get_server_components()
         invalid_session_id = "non-existent-session"
 
         # Test add_criterion

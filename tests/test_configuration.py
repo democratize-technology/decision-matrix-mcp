@@ -470,7 +470,7 @@ class TestConfigManager:
         assert "DMM_MAX_ACTIVE_SESSIONS" in help_text
 
         # Check that help includes type information
-        for env_var, help_str in help_text.items():
+        for help_str in help_text.values():
             assert "Type:" in help_str
             assert "Path:" in help_str
 

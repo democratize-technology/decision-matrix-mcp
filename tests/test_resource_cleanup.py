@@ -1,5 +1,6 @@
 """Test resource cleanup functionality."""
 
+import contextlib
 from unittest.mock import MagicMock, patch
 
 from decision_matrix_mcp import ServerComponents
@@ -88,10 +89,8 @@ class TestResourceCleanup:
         with patch("decision_matrix_mcp.create_server_components", return_value=mock_components):
             with patch("decision_matrix_mcp.mcp.run", side_effect=KeyboardInterrupt):
                 # Run main and catch the expected exit
-                try:
+                with contextlib.suppress(SystemExit):
                     decision_matrix_mcp.main()
-                except SystemExit:
-                    pass
 
                 # Verify cleanup was called
                 mock_components.cleanup.assert_called_once()
@@ -111,10 +110,8 @@ class TestResourceCleanup:
             with patch("decision_matrix_mcp.mcp.run", side_effect=KeyboardInterrupt):
                 with patch("decision_matrix_mcp.logger") as mock_logger:
                     # Run main
-                    try:
+                    with contextlib.suppress(SystemExit):
                         decision_matrix_mcp.main()
-                    except SystemExit:
-                        pass
 
                     # Verify error was logged
                     mock_logger.error.assert_any_call("Error during cleanup: Cleanup failed")

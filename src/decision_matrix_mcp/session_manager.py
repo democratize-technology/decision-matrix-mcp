@@ -44,9 +44,9 @@ class SessionManager:
 
     def __init__(
         self,
-        max_sessions: int = SessionLimits.DEFAULT_MAX_SESSIONS,
-        session_ttl_hours: int = SessionLimits.DEFAULT_SESSION_TTL_HOURS,
-        cleanup_interval_minutes: int = SessionLimits.DEFAULT_CLEANUP_INTERVAL_MINUTES,
+        max_sessions: int = 10,  # type: ignore[assignment]
+        session_ttl_hours: int = 24,  # type: ignore[assignment]
+        cleanup_interval_minutes: int = 60,  # type: ignore[assignment]
     ) -> None:
         self.max_sessions = max_sessions
         self.session_ttl = timedelta(hours=session_ttl_hours)

@@ -163,9 +163,7 @@ class TestSessionManagerEdgeCases:
         manager = SessionManager()
 
         # Create 3 sessions
-        sessions = []
-        for i in range(3):
-            sessions.append(manager.create_session(f"Topic {i}"))
+        sessions = [manager.create_session(f"Topic {i}") for i in range(3)]
 
         assert manager.get_stats()["max_concurrent"] == 3
 
@@ -301,9 +299,7 @@ class TestSessionManagerConcurrency:
         manager = SessionManager(max_sessions=5, session_ttl_hours=1)
 
         # Create max sessions
-        sessions = []
-        for i in range(5):
-            sessions.append(manager.create_session(f"Topic {i}"))
+        sessions = [manager.create_session(f"Topic {i}") for i in range(5)]
 
         # Make all but last expired
         expired_time = datetime.now(timezone.utc) - timedelta(hours=2)
@@ -373,11 +369,11 @@ class TestGetCurrentSession:
         manager = SessionManager()
 
         # Create sessions with small delays to ensure different timestamps
-        session1 = manager.create_session("First Topic")
+        manager.create_session("First Topic")
         import time
 
         time.sleep(0.01)  # Small delay to ensure different timestamps
-        session2 = manager.create_session("Second Topic")
+        manager.create_session("Second Topic")
         time.sleep(0.01)
         session3 = manager.create_session("Third Topic")
 
@@ -391,7 +387,7 @@ class TestGetCurrentSession:
         """Test getting current session after removing the most recent one"""
         manager = SessionManager()
 
-        session1 = manager.create_session("First Topic")
+        manager.create_session("First Topic")
         import time
 
         time.sleep(0.01)

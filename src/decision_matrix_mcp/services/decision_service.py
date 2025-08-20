@@ -187,7 +187,7 @@ class DecisionService:
             Evaluation results dict mapping criterion->option->score_tuple
         """
         logger.info(
-            "Starting evaluation: %d options × %d criteria",
+            "Starting evaluation: %d options x %d criteria",
             len(session.options),
             len(session.criteria),
         )
