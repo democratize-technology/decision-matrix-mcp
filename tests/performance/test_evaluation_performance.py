@@ -77,7 +77,7 @@ class MemoryProfiler:
         return [str(stat) for stat in self.memory_diff[:limit]]
 
 
-class MockEvaluationOrchestrator:
+class MockDecisionOrchestrator:
     """Mock orchestrator with configurable delays for performance testing."""
 
     def __init__(self, base_delay: float = 0.01, per_evaluation_delay: float = 0.005):
@@ -160,7 +160,7 @@ class TestEvaluationPerformanceScaling:
             session.add_criterion(criterion)
 
         # Create mock orchestrator with realistic delays
-        mock_orchestrator = MockEvaluationOrchestrator(
+        mock_orchestrator = MockDecisionOrchestrator(
             base_delay=0.001,  # Very small base delay for performance testing
             per_evaluation_delay=0.002,  # Small per-evaluation delay
         )
@@ -222,7 +222,7 @@ class TestEvaluationPerformanceScaling:
             sessions.append(session)
 
         # Create mock orchestrator
-        mock_orchestrator = MockEvaluationOrchestrator(base_delay=0.005, per_evaluation_delay=0.001)
+        mock_orchestrator = MockDecisionOrchestrator(base_delay=0.005, per_evaluation_delay=0.001)
 
         async def evaluate_session(session):
             """Evaluate a single session."""
@@ -283,7 +283,7 @@ class TestEvaluationThroughput:
         num_batches = 5
         matrix_size = (4, 3)  # 4 options, 3 criteria
 
-        mock_orchestrator = MockEvaluationOrchestrator(
+        mock_orchestrator = MockDecisionOrchestrator(
             base_delay=0.001,
             per_evaluation_delay=0.0005,
         )
@@ -400,7 +400,7 @@ class TestEvaluationThroughput:
 
                 sessions.append(session)
 
-        mock_orchestrator = MockEvaluationOrchestrator(base_delay=0.002, per_evaluation_delay=0.001)
+        mock_orchestrator = MockDecisionOrchestrator(base_delay=0.002, per_evaluation_delay=0.001)
 
         # Evaluate all sessions simultaneously
         with PerformanceTimer("Peak Load Evaluation") as eval_timer:
@@ -456,7 +456,7 @@ class TestPerformanceRegression:
         ]
 
         session_manager = SessionManager(max_sessions=50, session_ttl_hours=1)
-        mock_orchestrator = MockEvaluationOrchestrator(
+        mock_orchestrator = MockDecisionOrchestrator(
             base_delay=0.001,
             per_evaluation_delay=0.0008,
         )

@@ -18,18 +18,18 @@ class TestBedrockConnectivityOrchestrator:
     @pytest.mark.asyncio()
     async def test_bedrock_connection_success(self, orchestrator):
         """Test successful Bedrock connection"""
-        mock_response = {"output": {"message": {"content": [{"text": "Hello!"}]}}}
-
+        # Mock the backend factory methods to avoid real AWS calls
         with (
-            patch("decision_matrix_mcp.orchestrator.BOTO3_AVAILABLE", True),
-            patch("decision_matrix_mcp.orchestrator.boto3") as mock_boto3,
+            patch.object(
+                orchestrator.backend_factory, "validate_backend_availability", return_value=True
+            ),
+            patch.object(orchestrator.backend_factory, "create_backend") as mock_create_backend,
             patch.dict("os.environ", {"AWS_REGION": "us-west-2"}),
         ):
-            mock_session = MagicMock()
-            mock_bedrock = MagicMock()
-            mock_bedrock.converse.return_value = mock_response
-            mock_session.client.return_value = mock_bedrock
-            mock_boto3.Session.return_value = mock_session
+            # Mock backend response
+            mock_backend = AsyncMock()
+            mock_backend.generate_response.return_value = "Hello!"
+            mock_create_backend.return_value = mock_backend
 
             result = await orchestrator.test_bedrock_connection()
 
@@ -40,12 +40,9 @@ class TestBedrockConnectivityOrchestrator:
             assert result["message"] == "Bedrock connection successful"
             assert result["api_version"] == "converse"
 
-            # Verify the request was made correctly
-            mock_bedrock.converse.assert_called_once()
-            call_args = mock_bedrock.converse.call_args
-            assert call_args[1]["modelId"] == "anthropic.claude-3-haiku-20240307-v1:0"
-            assert call_args[1]["inferenceConfig"]["maxTokens"] == 10
-            assert call_args[1]["inferenceConfig"]["temperature"] == 0.1
+            # Verify the backend was called correctly
+            mock_create_backend.assert_called_once()
+            mock_backend.generate_response.assert_called_once()
 
     @pytest.mark.asyncio()
     async def test_bedrock_connection_boto3_unavailable(self, orchestrator):

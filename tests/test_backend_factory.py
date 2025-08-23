@@ -74,9 +74,12 @@ class TestBackendFactory:
 
     def test_validate_backend_availability_error(self, factory):
         """Test validation when backend creation raises error"""
-        with patch.object(factory, "create_backend", side_effect=Exception("Backend error")):
+        # Mock create_backend to raise an exception, and verify it's caught properly
+        with patch.object(factory, "create_backend") as mock_create:
+            mock_create.side_effect = Exception("Backend error")
             result = factory.validate_backend_availability(ModelBackend.BEDROCK)
             assert result is False
+            mock_create.assert_called_once_with(ModelBackend.BEDROCK)
 
     def test_get_available_backends(self, factory):
         """Test getting list of available backends"""

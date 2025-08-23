@@ -225,10 +225,10 @@ class TestConcurrentSessionEvaluation:
     def orchestrator_mock(self):
         """Create a mock orchestrator for testing."""
 
-        from decision_matrix_mcp.orchestrator import EvaluationOrchestrator
+        from decision_matrix_mcp.orchestrator import DecisionOrchestrator
 
         # Create mock orchestrator
-        mock_orchestrator = Mock(spec=EvaluationOrchestrator)
+        mock_orchestrator = Mock(spec=DecisionOrchestrator)
 
         # Mock evaluation results
         def mock_evaluate(session, options, criteria):
