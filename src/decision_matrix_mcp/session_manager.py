@@ -25,6 +25,7 @@
 from collections import OrderedDict
 from datetime import datetime, timedelta, timezone
 import logging
+import threading
 from typing import Any
 from uuid import uuid4
 
@@ -56,6 +57,9 @@ class SessionManager:
         self.sessions: OrderedDict[str, DecisionSession] = OrderedDict()
         self.last_cleanup = datetime.now(timezone.utc)
 
+        # Thread safety for concurrent session creation
+        self._session_lock = threading.RLock()
+
         self.stats = {
             "sessions_created": 0,
             "sessions_expired": 0,
@@ -70,72 +74,77 @@ class SessionManager:
         temperature: float = 0.1,
     ) -> DecisionSession:
         """Create a new decision analysis session with the given topic and options."""
-        # Always run cleanup first (includes both TTL and LRU eviction)
-        self._cleanup_if_needed()
+        with self._session_lock:
+            # Always run cleanup first (includes both TTL and LRU eviction)
+            self._cleanup_if_needed()
 
-        # Check if we're at the creation limit (max_sessions)
-        if len(self.sessions) >= self.max_sessions:
-            # Try TTL cleanup first
-            self._cleanup_expired_sessions()
-
-            # If still at creation limit, try LRU eviction to make room
+            # Check if we're at the creation limit (max_sessions)
             if len(self.sessions) >= self.max_sessions:
-                self._evict_lru_sessions()
+                # Try TTL cleanup first
+                self._cleanup_expired_sessions()
 
-                # If still at creation limit after all cleanup attempts, reject
+                # If still at creation limit, try LRU eviction to make room
                 if len(self.sessions) >= self.max_sessions:
-                    raise ResourceLimitError(
-                        f"Session limit of {self.max_sessions} exceeded",
-                        f"Maximum number of active sessions ({self.max_sessions}) reached. Please try again later.",
-                    )
+                    self._evict_lru_sessions()
 
-        session_id = str(uuid4())
-        session = DecisionSession(
-            session_id=session_id,
-            created_at=datetime.now(timezone.utc),
-            topic=topic,
-            default_temperature=temperature,
-        )
+                    # If still at creation limit after all cleanup attempts, reject
+                    if len(self.sessions) >= self.max_sessions:
+                        raise ResourceLimitError(
+                            f"Session limit of {self.max_sessions} exceeded",
+                            f"Maximum number of active sessions ({self.max_sessions}) reached. Please try again later.",
+                        )
 
-        if initial_options:
-            for option_name in initial_options:
-                session.add_option(option_name)
+            session_id = str(uuid4())
+            session = DecisionSession(
+                session_id=session_id,
+                created_at=datetime.now(timezone.utc),
+                topic=topic,
+                default_temperature=temperature,
+            )
 
-        self.sessions[session_id] = session
+            if initial_options:
+                for option_name in initial_options:
+                    session.add_option(option_name)
 
-        self.stats["sessions_created"] += 1
-        self.stats["max_concurrent"] = max(self.stats["max_concurrent"], len(self.sessions))
+            self.sessions[session_id] = session
 
-        logger.info("Created session %s for topic: %s", session_id[:8], topic)
-        return session
+            self.stats["sessions_created"] += 1
+            self.stats["max_concurrent"] = max(self.stats["max_concurrent"], len(self.sessions))
+
+            logger.info("Created session %s for topic: %s", session_id[:8], topic)
+            return session
 
     def get_session(self, session_id: str) -> DecisionSession | None:
         """Retrieve an active session by ID, updating access time."""
-        self._cleanup_if_needed()
+        with self._session_lock:
+            self._cleanup_if_needed()
 
-        session = self.sessions.get(session_id)
-        if session and self._is_session_expired(session):
-            self._remove_session(session_id)
-            return None
+            session = self.sessions.get(session_id)
+            if session and self._is_session_expired(session):
+                self._remove_session(session_id)
+                return None
 
-        # Track access for LRU - move to end (most recently used)
-        if session:
-            self._touch_session(session_id)
+            # Track access for LRU - move to end (most recently used)
+            if session:
+                self._touch_session(session_id)
 
-        return session
+            return session
 
     def remove_session(self, session_id: str) -> bool:
         """Remove a session from active management."""
-        return self._remove_session(session_id)
+        with self._session_lock:
+            return self._remove_session(session_id)
 
     def list_active_sessions(self) -> dict[str, DecisionSession]:
         """Get dictionary of all active sessions."""
-        self._cleanup_if_needed()
-        return self.sessions.copy()
+        with self._session_lock:
+            self._cleanup_if_needed()
+            return self.sessions.copy()
 
     def clear_all_sessions(self) -> None:
         """Clear all sessions and reset statistics."""
-        self.sessions.clear()
+        with self._session_lock:
+            self.sessions.clear()
 
     def get_stats(self) -> dict[str, Any]:
         """Get session management statistics and current state."""
@@ -147,14 +156,17 @@ class SessionManager:
 
     def get_current_session(self) -> DecisionSession | None:
         """Get the most recently accessed session."""
-        self._cleanup_if_needed()
+        with self._session_lock:
+            self._cleanup_if_needed()
 
-        if not self.sessions:
-            return None
+            if not self.sessions:
+                return None
 
-        sorted_sessions = sorted(self.sessions.items(), key=lambda x: x[1].created_at, reverse=True)
+            sorted_sessions = sorted(
+                self.sessions.items(), key=lambda x: x[1].created_at, reverse=True
+            )
 
-        return sorted_sessions[0][1]
+            return sorted_sessions[0][1]
 
     def _cleanup_expired_sessions(self) -> None:
         now = datetime.now(timezone.utc)

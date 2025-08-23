@@ -1,6 +1,6 @@
 """Tests for Bedrock connectivity testing functionality"""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
@@ -47,7 +47,9 @@ class TestBedrockConnectivityOrchestrator:
     @pytest.mark.asyncio()
     async def test_bedrock_connection_boto3_unavailable(self, orchestrator):
         """Test when boto3 is not available"""
-        with patch("decision_matrix_mcp.orchestrator.BOTO3_AVAILABLE", False):
+        with patch.object(
+            orchestrator.backend_factory, "validate_backend_availability", return_value=False
+        ):
             result = await orchestrator.test_bedrock_connection()
 
             assert result["status"] == "error"
@@ -59,24 +61,34 @@ class TestBedrockConnectivityOrchestrator:
         """Test access denied error"""
         from botocore.exceptions import ClientError
 
+        from decision_matrix_mcp.exceptions import LLMAPIError
+
         error_response = {
             "Error": {
                 "Code": "AccessDeniedException",
                 "Message": "You don't have access to the model with the specified model ID.",
             },
         }
-        mock_error = ClientError(error_response, "InvokeModel")
+        client_error = ClientError(error_response, "InvokeModel")
+        backend_error = LLMAPIError(
+            backend="bedrock",
+            message="Bedrock API call failed: An error occurred (AccessDeniedException) when calling the InvokeModel operation: You don't have access to the model with the specified model ID.",
+            user_message="Access denied to Bedrock model. Enable model access in AWS Console: Bedrock > Model access > Manage model access",
+            original_error=client_error,
+        )
+        backend_error.original_error = client_error
 
         with (
-            patch("decision_matrix_mcp.orchestrator.BOTO3_AVAILABLE", True),
-            patch("decision_matrix_mcp.orchestrator.boto3") as mock_boto3,
+            patch.object(
+                orchestrator.backend_factory, "validate_backend_availability", return_value=True
+            ),
+            patch.object(orchestrator.backend_factory, "create_backend") as mock_create_backend,
             patch.dict("os.environ", {"AWS_REGION": "us-east-1"}),
         ):
-            mock_session = MagicMock()
-            mock_bedrock = MagicMock()
-            mock_bedrock.converse.side_effect = mock_error
-            mock_session.client.return_value = mock_bedrock
-            mock_boto3.Session.return_value = mock_session
+            # Mock backend to raise the API error
+            mock_backend = AsyncMock()
+            mock_backend.generate_response.side_effect = backend_error
+            mock_create_backend.return_value = mock_backend
 
             result = await orchestrator.test_bedrock_connection()
 
@@ -91,23 +103,33 @@ class TestBedrockConnectivityOrchestrator:
         """Test region not available error"""
         from botocore.exceptions import ClientError
 
+        from decision_matrix_mcp.exceptions import LLMAPIError
+
         error_response = {
             "Error": {
                 "Code": "ValidationException",
                 "Message": "The requested region is not supported",
             },
         }
-        mock_error = ClientError(error_response, "InvokeModel")
+        client_error = ClientError(error_response, "InvokeModel")
+        backend_error = LLMAPIError(
+            backend="bedrock",
+            message="Bedrock API call failed: An error occurred (ValidationException) when calling the InvokeModel operation: The requested region is not supported",
+            user_message="Region not supported for Bedrock. Try us-east-1 or us-west-2 regions where Bedrock is available",
+            original_error=client_error,
+        )
+        backend_error.original_error = client_error
 
         with (
-            patch("decision_matrix_mcp.orchestrator.BOTO3_AVAILABLE", True),
-            patch("decision_matrix_mcp.orchestrator.boto3") as mock_boto3,
+            patch.object(
+                orchestrator.backend_factory, "validate_backend_availability", return_value=True
+            ),
+            patch.object(orchestrator.backend_factory, "create_backend") as mock_create_backend,
         ):
-            mock_session = MagicMock()
-            mock_bedrock = MagicMock()
-            mock_bedrock.converse.side_effect = mock_error
-            mock_session.client.return_value = mock_bedrock
-            mock_boto3.Session.return_value = mock_session
+            # Mock backend to raise the API error
+            mock_backend = AsyncMock()
+            mock_backend.generate_response.side_effect = backend_error
+            mock_create_backend.return_value = mock_backend
 
             result = await orchestrator.test_bedrock_connection()
 
@@ -120,20 +142,30 @@ class TestBedrockConnectivityOrchestrator:
         """Test credentials error"""
         from botocore.exceptions import ClientError
 
+        from decision_matrix_mcp.exceptions import LLMAPIError
+
         error_response = {
             "Error": {"Code": "UnauthorizedOperation", "Message": "Unable to locate credentials"},
         }
-        mock_error = ClientError(error_response, "InvokeModel")
+        client_error = ClientError(error_response, "InvokeModel")
+        backend_error = LLMAPIError(
+            backend="bedrock",
+            message="Bedrock API call failed: An error occurred (UnauthorizedOperation) when calling the InvokeModel operation: Unable to locate credentials",
+            user_message="AWS credentials not configured. Configure AWS credentials: aws configure or set AWS_PROFILE environment variable",
+            original_error=client_error,
+        )
+        backend_error.original_error = client_error
 
         with (
-            patch("decision_matrix_mcp.orchestrator.BOTO3_AVAILABLE", True),
-            patch("decision_matrix_mcp.orchestrator.boto3") as mock_boto3,
+            patch.object(
+                orchestrator.backend_factory, "validate_backend_availability", return_value=True
+            ),
+            patch.object(orchestrator.backend_factory, "create_backend") as mock_create_backend,
         ):
-            mock_session = MagicMock()
-            mock_bedrock = MagicMock()
-            mock_bedrock.converse.side_effect = mock_error
-            mock_session.client.return_value = mock_bedrock
-            mock_boto3.Session.return_value = mock_session
+            # Mock backend to raise the API error
+            mock_backend = AsyncMock()
+            mock_backend.generate_response.side_effect = backend_error
+            mock_create_backend.return_value = mock_backend
 
             result = await orchestrator.test_bedrock_connection()
 
@@ -146,18 +178,28 @@ class TestBedrockConnectivityOrchestrator:
         """Test throttling error"""
         from botocore.exceptions import ClientError
 
+        from decision_matrix_mcp.exceptions import LLMAPIError
+
         error_response = {"Error": {"Code": "ThrottlingException", "Message": "Rate exceeded"}}
-        mock_error = ClientError(error_response, "InvokeModel")
+        client_error = ClientError(error_response, "InvokeModel")
+        backend_error = LLMAPIError(
+            backend="bedrock",
+            message="Bedrock API call failed: An error occurred (ThrottlingException) when calling the InvokeModel operation: Rate exceeded",
+            user_message="Bedrock API rate limit exceeded. Request rate limit exceeded. Wait a moment and try again",
+            original_error=client_error,
+        )
+        backend_error.original_error = client_error
 
         with (
-            patch("decision_matrix_mcp.orchestrator.BOTO3_AVAILABLE", True),
-            patch("decision_matrix_mcp.orchestrator.boto3") as mock_boto3,
+            patch.object(
+                orchestrator.backend_factory, "validate_backend_availability", return_value=True
+            ),
+            patch.object(orchestrator.backend_factory, "create_backend") as mock_create_backend,
         ):
-            mock_session = MagicMock()
-            mock_bedrock = MagicMock()
-            mock_bedrock.converse.side_effect = mock_error
-            mock_session.client.return_value = mock_bedrock
-            mock_boto3.Session.return_value = mock_session
+            # Mock backend to raise the API error
+            mock_backend = AsyncMock()
+            mock_backend.generate_response.side_effect = backend_error
+            mock_create_backend.return_value = mock_backend
 
             result = await orchestrator.test_bedrock_connection()
 
@@ -168,37 +210,47 @@ class TestBedrockConnectivityOrchestrator:
     @pytest.mark.asyncio()
     async def test_bedrock_connection_unexpected_error(self, orchestrator):
         """Test unexpected error"""
+        from decision_matrix_mcp.exceptions import LLMBackendError
+
+        unexpected_error = Exception("Unexpected error")
+        backend_error = LLMBackendError(
+            backend="bedrock",
+            message="Unexpected error in Bedrock call: Unexpected error",
+            user_message="An unexpected error occurred",
+            original_error=unexpected_error,
+        )
+
         with (
-            patch("decision_matrix_mcp.orchestrator.BOTO3_AVAILABLE", True),
-            patch("decision_matrix_mcp.orchestrator.boto3") as mock_boto3,
+            patch.object(
+                orchestrator.backend_factory, "validate_backend_availability", return_value=True
+            ),
+            patch.object(orchestrator.backend_factory, "create_backend") as mock_create_backend,
         ):
-            mock_session = MagicMock()
-            mock_bedrock = MagicMock()
-            mock_bedrock.converse.side_effect = Exception("Unexpected error")
-            mock_session.client.return_value = mock_bedrock
-            mock_boto3.Session.return_value = mock_session
+            # Mock backend to raise unexpected error
+            mock_backend = AsyncMock()
+            mock_backend.generate_response.side_effect = backend_error
+            mock_create_backend.return_value = mock_backend
 
             result = await orchestrator.test_bedrock_connection()
 
             assert result["status"] == "error"
             assert "Unexpected error" in result["error"]
-            assert "Check AWS credentials and region configuration" in result["suggestion"]
+            assert "Check AWS Bedrock service status" in result["suggestion"]
 
     @pytest.mark.asyncio()
     async def test_bedrock_connection_default_region(self, orchestrator):
         """Test default region is used when no environment variable set"""
-        mock_response = {"output": {"message": {"content": [{"text": "Hi"}]}}}
-
         with (
-            patch("decision_matrix_mcp.orchestrator.BOTO3_AVAILABLE", True),
-            patch("decision_matrix_mcp.orchestrator.boto3") as mock_boto3,
+            patch.object(
+                orchestrator.backend_factory, "validate_backend_availability", return_value=True
+            ),
+            patch.object(orchestrator.backend_factory, "create_backend") as mock_create_backend,
             patch.dict("os.environ", {}, clear=True),
         ):
-            mock_session = MagicMock()
-            mock_bedrock = MagicMock()
-            mock_bedrock.converse.return_value = mock_response
-            mock_session.client.return_value = mock_bedrock
-            mock_boto3.Session.return_value = mock_session
+            # Mock backend response
+            mock_backend = AsyncMock()
+            mock_backend.generate_response.return_value = "Hello!"
+            mock_create_backend.return_value = mock_backend
 
             result = await orchestrator.test_bedrock_connection()
 
@@ -243,16 +295,21 @@ class TestBedrockConnectivityOrchestrator:
 class TestBedrockConnectivityMCPTool:
     """Test the MCP tool wrapper for Bedrock connectivity testing"""
 
+    @pytest.fixture()
+    def mock_ctx(self):
+        """Mock context for MCP tool calls"""
+        return Mock()
+
     @pytest.mark.asyncio()
-    async def test_mcp_tool_success(self):
+    async def test_mcp_tool_success(self, mock_ctx):
         """Test successful MCP tool call"""
         with patch("decision_matrix_mcp.get_server_components") as mock_get_components:
             # Mock the server components
             mock_components = MagicMock()
-            mock_orchestrator = AsyncMock()
-            mock_formatter = MagicMock()
+            mock_decision_service = AsyncMock()
+            mock_response_service = MagicMock()
 
-            mock_orchestrator.test_bedrock_connection.return_value = {
+            test_result = {
                 "status": "ok",
                 "region": "us-west-2",
                 "model_tested": "anthropic.claude-3-haiku-20240307-v1:0",
@@ -260,68 +317,75 @@ class TestBedrockConnectivityMCPTool:
                 "message": "Bedrock connection successful",
             }
 
-            mock_components.orchestrator = mock_orchestrator
-            mock_components.formatter = mock_formatter
+            mock_decision_service.test_bedrock_connection.return_value = test_result
+            mock_response_service.create_bedrock_test_response.return_value = test_result
+
+            mock_components.decision_service = mock_decision_service
+            mock_components.response_service = mock_response_service
             mock_get_components.return_value = mock_components
 
-            result = await bedrock_connection_tool()
+            result = await bedrock_connection_tool(ctx=mock_ctx)
 
             assert result["status"] == "ok"
             assert result["region"] == "us-west-2"
             assert result["model_tested"] == "anthropic.claude-3-haiku-20240307-v1:0"
-            assert "formatted_output" in result
-            assert "✅ Bedrock Connection Test: SUCCESS" in result["formatted_output"]
+            assert result["message"] == "Bedrock connection successful"
 
     @pytest.mark.asyncio()
-    async def test_mcp_tool_error(self):
+    async def test_mcp_tool_error(self, mock_ctx):
         """Test MCP tool with Bedrock error"""
         with patch("decision_matrix_mcp.get_server_components") as mock_get_components:
             # Mock the server components
             mock_components = MagicMock()
-            mock_orchestrator = AsyncMock()
-            mock_formatter = MagicMock()
+            mock_decision_service = AsyncMock()
+            mock_response_service = MagicMock()
 
-            mock_orchestrator.test_bedrock_connection.return_value = {
+            test_result = {
                 "status": "error",
                 "region": "us-east-1",
                 "error": "Access denied",
                 "suggestion": "Check your AWS permissions",
             }
 
-            mock_formatter.format_error.return_value = "❌ Error: Access denied"
+            mock_decision_service.test_bedrock_connection.return_value = test_result
+            mock_response_service.create_bedrock_test_response.return_value = test_result
 
-            mock_components.orchestrator = mock_orchestrator
-            mock_components.formatter = mock_formatter
+            mock_components.decision_service = mock_decision_service
+            mock_components.response_service = mock_response_service
             mock_get_components.return_value = mock_components
 
-            result = await bedrock_connection_tool()
+            result = await bedrock_connection_tool(ctx=mock_ctx)
 
             assert result["status"] == "error"
             assert result["error"] == "Access denied"
             assert result["suggestion"] == "Check your AWS permissions"
-            assert "formatted_output" in result
-            mock_formatter.format_error.assert_called_once()
 
     @pytest.mark.asyncio()
-    async def test_mcp_tool_exception(self):
+    async def test_mcp_tool_exception(self, mock_ctx):
         """Test MCP tool with unexpected exception"""
         with patch("decision_matrix_mcp.get_server_components") as mock_get_components:
             # Mock the server components to raise an exception
             mock_components = MagicMock()
-            mock_orchestrator = AsyncMock()
-            mock_formatter = MagicMock()
+            mock_decision_service = AsyncMock()
+            mock_response_service = MagicMock()
 
-            mock_orchestrator.test_bedrock_connection.side_effect = Exception("Test error")
-            mock_formatter.format_error.return_value = "❌ Test failed"
+            # Make the decision service raise an exception
+            mock_decision_service.test_bedrock_connection.side_effect = Exception("Test error")
 
-            mock_components.orchestrator = mock_orchestrator
-            mock_components.formatter = mock_formatter
+            # Mock the error response
+            error_response = {
+                "status": "error",
+                "error": "Test failed: Test error",
+                "user_message": "Bedrock test error",
+            }
+            mock_response_service.create_error_response.return_value = error_response
+
+            mock_components.decision_service = mock_decision_service
+            mock_components.response_service = mock_response_service
             mock_get_components.return_value = mock_components
 
-            result = await bedrock_connection_tool()
+            result = await bedrock_connection_tool(ctx=mock_ctx)
 
             assert result["status"] == "error"
-            assert "Test failed: Test error" in result["error"]
-            assert "Check server configuration and dependencies" in result["suggestion"]
-            assert "formatted_output" in result
-            mock_formatter.format_error.assert_called_once()
+            assert result["error"] == "Test failed: Test error"
+            assert result["user_message"] == "Bedrock test error"

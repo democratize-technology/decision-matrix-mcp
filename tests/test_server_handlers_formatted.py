@@ -6,10 +6,6 @@ from mcp.server.fastmcp import Context
 import pytest
 
 from decision_matrix_mcp import (
-    AddCriterionRequest,
-    AddOptionRequest,
-    EvaluateOptionsRequest,
-    GetDecisionMatrixRequest,
     StartDecisionAnalysisRequest,
     add_criterion,
     add_option,
@@ -68,14 +64,13 @@ class TestFormattedResponses:
         session_id = start_result["session_id"]
 
         # Add criterion
-        request = AddCriterionRequest(
+        result = await add_criterion(
             session_id=session_id,
             name="Scalability",
             description="How well it scales",
             weight=2.5,
+            ctx=mock_ctx,
         )
-
-        result = await add_criterion(request, mock_ctx)
 
         # Check formatted output
         assert "formatted_output" in result
@@ -126,8 +121,7 @@ class TestFormattedResponses:
             mock_formatter.format_error.return_value = "## ❌ Error"
             mock_components.formatter = mock_formatter
 
-            request = EvaluateOptionsRequest(session_id=session_id)
-            result = await evaluate_options(request, mock_ctx)
+            result = await evaluate_options(session_id=session_id, ctx=mock_ctx)
 
             # Check formatted output
             assert "formatted_output" in result
@@ -178,8 +172,7 @@ class TestFormattedResponses:
             mock_formatter.format_error.return_value = "## ❌ Error"
             mock_components.formatter = mock_formatter
 
-            request = GetDecisionMatrixRequest(session_id=session_id)
-            result = await get_decision_matrix(request, mock_ctx)
+            result = await get_decision_matrix(session_id=session_id, ctx=mock_ctx)
 
             # Check formatted output
             assert "formatted_output" in result
@@ -189,7 +182,7 @@ class TestFormattedResponses:
     @pytest.mark.asyncio()
     async def test_list_sessions_with_formatted_output(self):
         """Test list_sessions includes formatted output"""
-        result = await list_sessions(mock_ctx)
+        result = await list_sessions(ctx=mock_ctx)
 
         # Check formatted output exists
         assert "formatted_output" in result
@@ -235,13 +228,9 @@ class TestFormattedResponses:
         session_id = start_result["session_id"]
 
         # Add new option
-        request = AddOptionRequest(
-            session_id=session_id,
-            option_name="Option C",
-            description="Third option",
+        result = await add_option(
+            session_id=session_id, option_name="Option C", description="Third option", ctx=mock_ctx
         )
-
-        result = await add_option(request, mock_ctx)
 
         # Check formatted output
         assert "formatted_output" in result
@@ -253,13 +242,9 @@ class TestFormattedResponses:
     @pytest.mark.asyncio()
     async def test_session_not_found_error_formatting(self):
         """Test session not found error has helpful formatting"""
-        request = AddCriterionRequest(
-            session_id="invalid-session-id",
-            name="Test",
-            description="Test",
+        result = await add_criterion(
+            session_id="invalid-session-id", name="Test", description="Test", ctx=mock_ctx
         )
-
-        result = await add_criterion(request, mock_ctx)
 
         assert "error" in result
         assert "formatted_output" in result
@@ -294,8 +279,7 @@ class TestFormattedResponses:
             )
             mock_components.formatter = mock_formatter
 
-            request = EvaluateOptionsRequest(session_id="test")
-            result = await evaluate_options(request, mock_ctx)
+            result = await evaluate_options(session_id="test", ctx=mock_ctx)
 
             assert "error" in result
             assert "formatted_output" in result
@@ -309,8 +293,7 @@ class TestFormattedResponses:
         start_result = await start_decision_analysis(start_request, mock_ctx)
         session_id = start_result["session_id"]
 
-        request = EvaluateOptionsRequest(session_id=session_id)
-        result = await evaluate_options(request, mock_ctx)
+        result = await evaluate_options(session_id=session_id, ctx=mock_ctx)
 
         assert "error" in result
         assert "formatted_output" in result

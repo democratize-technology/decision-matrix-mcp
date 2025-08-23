@@ -7,10 +7,6 @@ import pytest
 
 from decision_matrix_mcp import (
     AddCriterionRequest,
-    AddOptionRequest,
-    EvaluateOptionsRequest,
-    GetDecisionMatrixRequest,
-    StartDecisionAnalysisRequest,
     add_criterion,
     add_option,
     clear_all_sessions,
@@ -52,14 +48,14 @@ class TestSessionHelpers:
         # Use empty string which is invalid
         session, error = get_session_or_error("", server_components)
         assert session is None
-        assert error == {"error": "Invalid session ID format"}
+        assert error["error"] == "Session ID format is invalid"
 
     def test_get_session_or_error_not_found(self):
         """Test get_session_or_error with non-existent session"""
         valid_uuid = "12345678-1234-5678-1234-567812345678"
         session, error = get_session_or_error(valid_uuid, server_components)
         assert session is None
-        assert error == {"error": f"Session {valid_uuid} not found or expired"}
+        assert error["error"] == "Session not found or has expired"
 
     def test_get_session_or_error_success(self):
         """Test get_session_or_error with valid session"""
@@ -82,13 +78,12 @@ class TestStartDecisionAnalysis:
     @pytest.mark.asyncio()
     async def test_start_decision_analysis_success(self):
         """Test successful session creation"""
-        request = StartDecisionAnalysisRequest(
+        result = await start_decision_analysis(
             topic="Choose a database",
             options=["PostgreSQL", "MongoDB", "Redis"],
             model_backend=ModelBackend.BEDROCK,
+            ctx=mock_ctx,
         )
-
-        result = await start_decision_analysis(request, mock_ctx)
 
         assert "session_id" in result
         assert result["topic"] == "Choose a database"
@@ -103,13 +98,12 @@ class TestStartDecisionAnalysis:
     @pytest.mark.asyncio()
     async def test_start_decision_analysis_with_llm_params(self):
         """Test session creation with custom LLM parameters"""
-        request = StartDecisionAnalysisRequest(
+        result = await start_decision_analysis(
             topic="Choose a model",
             options=["GPT-4", "Claude", "Llama"],
             temperature=0.7,
+            ctx=mock_ctx,
         )
-
-        result = await start_decision_analysis(request, mock_ctx)
 
         assert "session_id" in result
 
@@ -123,16 +117,15 @@ class TestStartDecisionAnalysis:
     @pytest.mark.asyncio()
     async def test_start_decision_analysis_with_initial_criteria(self):
         """Test session creation with initial criteria"""
-        request = StartDecisionAnalysisRequest(
+        result = await start_decision_analysis(
             topic="Choose a framework",
             options=["React", "Vue", "Angular"],
             initial_criteria=[
                 {"name": "Performance", "description": "Speed and efficiency", "weight": 2.0},
                 {"name": "Learning Curve", "description": "Ease of learning", "weight": 1.5},
             ],
+            ctx=mock_ctx,
         )
-
-        result = await start_decision_analysis(request, mock_ctx)
 
         assert result["criteria_added"] == ["Performance", "Learning Curve"]
         assert "2 criteria" in result["message"]
@@ -144,15 +137,13 @@ class TestStartDecisionAnalysis:
     async def test_start_decision_analysis_invalid_topic(self):
         """Test validation of topic"""
         # Empty topic
-        request = StartDecisionAnalysisRequest(topic="", options=["A", "B"])
-        result = await start_decision_analysis(request, mock_ctx)
+        result = await start_decision_analysis(topic="", options=["A", "B"], ctx=mock_ctx)
         assert "error" in result
         assert result["error"] == "Invalid topic: must be a non-empty string under 500 characters"
         assert "formatted_output" in result
 
         # Too long topic
-        request = StartDecisionAnalysisRequest(topic="x" * 501, options=["A", "B"])
-        result = await start_decision_analysis(request, mock_ctx)
+        result = await start_decision_analysis(topic="x" * 501, options=["A", "B"], ctx=mock_ctx)
         assert "error" in result
         assert result["error"] == "Invalid topic: must be a non-empty string under 500 characters"
         assert "formatted_output" in result
@@ -161,55 +152,51 @@ class TestStartDecisionAnalysis:
     async def test_start_decision_analysis_invalid_options(self):
         """Test validation of options"""
         # Too few options
-        request = StartDecisionAnalysisRequest(topic="Test", options=["Only one"])
-        result = await start_decision_analysis(request, mock_ctx)
+        result = await start_decision_analysis(topic="Test", options=["Only one"], ctx=mock_ctx)
         assert "error" in result
         assert result["error"] == "Need at least 2 options to create a meaningful decision matrix"
         assert "formatted_output" in result
 
         # Too many options
-        request = StartDecisionAnalysisRequest(
-            topic="Test",
-            options=[f"Option{i}" for i in range(21)],
+        result = await start_decision_analysis(
+            topic="Test", options=[f"Option{i}" for i in range(21)], ctx=mock_ctx
         )
-        result = await start_decision_analysis(request, mock_ctx)
         assert "error" in result
         assert result["error"] == "Too many options (max 20). Consider grouping similar options."
         assert "formatted_output" in result
 
         # Invalid option name
-        request = StartDecisionAnalysisRequest(topic="Test", options=["Valid", ""])
-        result = await start_decision_analysis(request, mock_ctx)
+        result = await start_decision_analysis(topic="Test", options=["Valid", ""], ctx=mock_ctx)
         assert "Invalid option name" in result["error"]
 
     @pytest.mark.asyncio()
     async def test_start_decision_analysis_invalid_initial_criteria(self):
         """Test validation of initial criteria"""
         # Invalid criterion name
-        request = StartDecisionAnalysisRequest(
+        result = await start_decision_analysis(
             topic="Test",
             options=["A", "B"],
             initial_criteria=[{"name": "", "description": "Test", "weight": 1.0}],
+            ctx=mock_ctx,
         )
-        result = await start_decision_analysis(request, mock_ctx)
         assert "Invalid criterion name" in result["error"]
 
         # Invalid description
-        request = StartDecisionAnalysisRequest(
+        result = await start_decision_analysis(
             topic="Test",
             options=["A", "B"],
             initial_criteria=[{"name": "Cost", "description": "", "weight": 1.0}],
+            ctx=mock_ctx,
         )
-        result = await start_decision_analysis(request, mock_ctx)
         assert "Invalid criterion description" in result["error"]
 
         # Invalid weight
-        request = StartDecisionAnalysisRequest(
+        result = await start_decision_analysis(
             topic="Test",
             options=["A", "B"],
             initial_criteria=[{"name": "Cost", "description": "Test", "weight": 15.0}],
+            ctx=mock_ctx,
         )
-        result = await start_decision_analysis(request, mock_ctx)
         assert "Invalid weight" in result["error"]
 
     @pytest.mark.asyncio()
@@ -220,8 +207,7 @@ class TestStartDecisionAnalysis:
             "create_session",
             side_effect=ValidationError("Invalid input", "Please check your input"),
         ):
-            request = StartDecisionAnalysisRequest(topic="Test", options=["A", "B"])
-            result = await start_decision_analysis(request, mock_ctx)
+            result = await start_decision_analysis(topic="Test", options=["A", "B"], ctx=mock_ctx)
             assert "error" in result
         assert result["error"] == "Please check your input"
         assert "formatted_output" in result
@@ -234,8 +220,7 @@ class TestStartDecisionAnalysis:
             "create_session",
             side_effect=ResourceLimitError("Too many sessions", "Session limit reached"),
         ):
-            request = StartDecisionAnalysisRequest(topic="Test", options=["A", "B"])
-            result = await start_decision_analysis(request, mock_ctx)
+            result = await start_decision_analysis(topic="Test", options=["A", "B"], ctx=mock_ctx)
             assert "error" in result
         assert result["error"] == "Session limit reached"
         assert "formatted_output" in result
@@ -248,8 +233,7 @@ class TestStartDecisionAnalysis:
             "create_session",
             side_effect=Exception("Unexpected error"),
         ):
-            request = StartDecisionAnalysisRequest(topic="Test", options=["A", "B"])
-            result = await start_decision_analysis(request, mock_ctx)
+            result = await start_decision_analysis(topic="Test", options=["A", "B"], ctx=mock_ctx)
             assert "error" in result
         assert result["error"] == "Failed to create session due to an unexpected error"
         assert "formatted_output" in result
@@ -268,16 +252,15 @@ class TestAddCriterion:
     @pytest.mark.asyncio()
     async def test_add_criterion_success(self, test_session):
         """Test successful criterion addition"""
-        request = AddCriterionRequest(
+        result = await add_criterion(
             session_id=test_session.session_id,
             name="Performance",
             description="Evaluate performance characteristics",
             weight=2.5,
             model_backend=ModelBackend.LITELLM,
             model_name="gpt-4",
+            ctx=mock_ctx,
         )
-
-        result = await add_criterion(request, mock_ctx)
 
         assert result["criterion_added"] == "Performance"
         assert result["weight"] == 2.5
@@ -287,14 +270,13 @@ class TestAddCriterion:
     @pytest.mark.asyncio()
     async def test_add_criterion_with_custom_prompt(self, test_session):
         """Test adding criterion with custom prompt"""
-        request = AddCriterionRequest(
+        result = await add_criterion(
             session_id=test_session.session_id,
             name="Security",
             description="Evaluate security aspects",
             custom_prompt="You are a security expert. Focus on vulnerabilities.",
+            ctx=mock_ctx,
         )
-
-        result = await add_criterion(request, mock_ctx)
 
         assert result["criterion_added"] == "Security"
 
@@ -306,14 +288,13 @@ class TestAddCriterion:
     @pytest.mark.asyncio()
     async def test_add_criterion_with_llm_params(self, test_session):
         """Test adding criterion with custom LLM parameters"""
-        request = AddCriterionRequest(
+        result = await add_criterion(
             session_id=test_session.session_id,
             name="Reliability",
             description="Evaluate reliability and uptime",
             temperature=0.3,
+            ctx=mock_ctx,
         )
-
-        result = await add_criterion(request, mock_ctx)
         assert result["criterion_added"] == "Reliability"
 
         # Verify criterion has custom parameters
@@ -326,14 +307,12 @@ class TestAddCriterion:
         # Create session with custom defaults
         test_session = session_manager.create_session("Test", ["A", "B"], temperature=0.8)
 
-        request = AddCriterionRequest(
+        await add_criterion(
             session_id=test_session.session_id,
             name="TestCriterion",
             description="Test description",
-            # No temperature specified
+            ctx=mock_ctx,
         )
-
-        await add_criterion(request, mock_ctx)
 
         # Verify criterion inherited session defaults
         criterion = test_session.criteria["TestCriterion"]
@@ -345,13 +324,7 @@ class TestAddCriterion:
     @pytest.mark.asyncio()
     async def test_add_criterion_invalid_session_id(self):
         """Test invalid session ID"""
-        request = AddCriterionRequest(
-            session_id="",  # Empty string is invalid
-            name="Test",
-            description="Test",
-        )
-
-        result = await add_criterion(request, mock_ctx)
+        result = await add_criterion(session_id="", name="Test", description="Test", ctx=mock_ctx)
         assert "error" in result
         assert result["error"] == "Invalid session ID"
         assert "formatted_output" in result
@@ -359,13 +332,12 @@ class TestAddCriterion:
     @pytest.mark.asyncio()
     async def test_add_criterion_session_not_found(self):
         """Test non-existent session"""
-        request = AddCriterionRequest(
+        result = await add_criterion(
             session_id="12345678-1234-5678-1234-567812345678",
             name="Test",
             description="Test",
+            ctx=mock_ctx,
         )
-
-        result = await add_criterion(request, mock_ctx)
         assert "not found or expired" in result["error"]
 
     @pytest.mark.asyncio()
@@ -395,31 +367,25 @@ class TestAddCriterion:
     async def test_add_criterion_validation_errors(self, test_session):
         """Test input validation"""
         # Invalid name
-        request = AddCriterionRequest(
-            session_id=test_session.session_id,
-            name="x" * 101,
-            description="Test",
+        result = await add_criterion(
+            session_id=test_session.session_id, name="x" * 101, description="Test", ctx=mock_ctx
         )
-        result = await add_criterion(request, mock_ctx)
         assert "Invalid criterion name" in result["error"]
 
         # Invalid description
-        request = AddCriterionRequest(
-            session_id=test_session.session_id,
-            name="Test",
-            description="x" * 1001,
+        result = await add_criterion(
+            session_id=test_session.session_id, name="Test", description="x" * 1001, ctx=mock_ctx
         )
-        result = await add_criterion(request, mock_ctx)
         assert "Invalid description" in result["error"]
 
         # Invalid weight
-        request = AddCriterionRequest(
+        result = await add_criterion(
             session_id=test_session.session_id,
             name="Test",
             description="Test",
             weight=0.05,
+            ctx=mock_ctx,
         )
-        result = await add_criterion(request, mock_ctx)
         assert "Invalid weight" in result["error"]
 
     @pytest.mark.asyncio()
@@ -430,14 +396,13 @@ class TestAddCriterion:
             "add_criterion",
             side_effect=SessionError("Session error", "Cannot add criterion"),
         ):
-            request = AddCriterionRequest(
-                session_id=test_session.session_id,
-                name="Test",
-                description="Test",
-            )
-
             with patch.object(session_manager, "get_session", return_value=test_session):
-                result = await add_criterion(request, mock_ctx)
+                result = await add_criterion(
+                    session_id=test_session.session_id,
+                    name="TestCriterion",
+                    description="Test description",
+                    ctx=mock_ctx,
+                )
                 assert "error" in result
         assert result["error"] == "Cannot add criterion"
         assert "formatted_output" in result
@@ -446,14 +411,13 @@ class TestAddCriterion:
     async def test_add_criterion_unexpected_error(self, test_session):
         """Test handling unexpected errors"""
         with patch.object(test_session, "add_criterion", side_effect=Exception("Unexpected")):
-            request = AddCriterionRequest(
-                session_id=test_session.session_id,
-                name="Test",
-                description="Test",
-            )
-
             with patch.object(session_manager, "get_session", return_value=test_session):
-                result = await add_criterion(request, mock_ctx)
+                result = await add_criterion(
+                    session_id=test_session.session_id,
+                    name="TestCriterion",
+                    description="Test description",
+                    ctx=mock_ctx,
+                )
                 assert "error" in result
         assert result["error"] == "Failed to add criterion due to an unexpected error"
         assert "formatted_output" in result
@@ -495,8 +459,9 @@ class TestEvaluateOptions:
             "evaluate_options_across_criteria",
             return_value=mock_results,
         ):
-            request = EvaluateOptionsRequest(session_id=test_session_with_criteria.session_id)
-            result = await evaluate_options(request, mock_ctx)
+            result = await evaluate_options(
+                session_id=test_session_with_criteria.session_id, ctx=mock_ctx
+            )
 
             assert result["evaluation_complete"] is True
             assert result["summary"]["options_evaluated"] == 2
@@ -524,8 +489,9 @@ class TestEvaluateOptions:
             "evaluate_options_across_criteria",
             return_value=mock_results,
         ):
-            request = EvaluateOptionsRequest(session_id=test_session_with_criteria.session_id)
-            result = await evaluate_options(request, mock_ctx)
+            result = await evaluate_options(
+                session_id=test_session_with_criteria.session_id, ctx=mock_ctx
+            )
 
             assert result["summary"]["successful_scores"] == 3
             assert result["summary"]["abstentions"] == 1
@@ -549,8 +515,9 @@ class TestEvaluateOptions:
             "evaluate_options_across_criteria",
             return_value=mock_results,
         ):
-            request = EvaluateOptionsRequest(session_id=test_session_with_criteria.session_id)
-            result = await evaluate_options(request, mock_ctx)
+            result = await evaluate_options(
+                session_id=test_session_with_criteria.session_id, ctx=mock_ctx
+            )
 
             assert result["summary"]["successful_scores"] == 2
             assert result["summary"]["errors"] == 2
@@ -559,8 +526,7 @@ class TestEvaluateOptions:
     @pytest.mark.asyncio()
     async def test_evaluate_options_invalid_session(self):
         """Test evaluation with invalid session ID"""
-        request = EvaluateOptionsRequest(session_id="")
-        result = await evaluate_options(request, mock_ctx)
+        result = await evaluate_options(session_id="", ctx=mock_ctx)
         assert "error" in result
         assert result["error"] == "Invalid session ID"
         assert "formatted_output" in result
@@ -570,8 +536,7 @@ class TestEvaluateOptions:
         """Test evaluation with no options"""
         session = session_manager.create_session("Test", [])
 
-        request = EvaluateOptionsRequest(session_id=session.session_id)
-        result = await evaluate_options(request, mock_ctx)
+        result = await evaluate_options(session_id=session.session_id, ctx=mock_ctx)
         assert "error" in result
         assert result["error"] == "No options to evaluate. Add options first."
         assert "formatted_output" in result
@@ -583,8 +548,7 @@ class TestEvaluateOptions:
         """Test evaluation with no criteria"""
         session = session_manager.create_session("Test", ["Option A", "Option B"])
 
-        request = EvaluateOptionsRequest(session_id=session.session_id)
-        result = await evaluate_options(request, mock_ctx)
+        result = await evaluate_options(session_id=session.session_id, ctx=mock_ctx)
         assert "error" in result
         assert result["error"] == "No criteria defined. Add criteria first."
         assert "formatted_output" in result
@@ -599,8 +563,9 @@ class TestEvaluateOptions:
             "evaluate_options_across_criteria",
             side_effect=Exception("Orchestrator failed"),
         ):
-            request = EvaluateOptionsRequest(session_id=test_session_with_criteria.session_id)
-            result = await evaluate_options(request, mock_ctx)
+            result = await evaluate_options(
+                session_id=test_session_with_criteria.session_id, ctx=mock_ctx
+            )
             assert "error" in result
         assert result["error"] == "Evaluation failed: Orchestrator failed"
         assert "formatted_output" in result
@@ -640,8 +605,7 @@ class TestGetDecisionMatrix:
     @pytest.mark.asyncio()
     async def test_get_decision_matrix_success(self, evaluated_session):
         """Test successful matrix retrieval"""
-        request = GetDecisionMatrixRequest(session_id=evaluated_session.session_id)
-        result = await get_decision_matrix(request, mock_ctx)
+        result = await get_decision_matrix(session_id=evaluated_session.session_id, ctx=mock_ctx)
 
         assert "matrix" in result
         assert "rankings" in result
@@ -652,8 +616,7 @@ class TestGetDecisionMatrix:
     @pytest.mark.asyncio()
     async def test_get_decision_matrix_invalid_session(self):
         """Test matrix retrieval with invalid session"""
-        request = GetDecisionMatrixRequest(session_id="")
-        result = await get_decision_matrix(request, mock_ctx)
+        result = await get_decision_matrix(session_id="", ctx=mock_ctx)
         assert "error" in result
         assert result["error"] == "Invalid session ID"
         assert "formatted_output" in result
@@ -666,10 +629,10 @@ class TestGetDecisionMatrix:
             "get_decision_matrix",
             return_value={"error": "No evaluations run yet"},
         ):
-            request = GetDecisionMatrixRequest(session_id=evaluated_session.session_id)
-
             with patch.object(session_manager, "get_session", return_value=evaluated_session):
-                result = await get_decision_matrix(request, mock_ctx)
+                result = await get_decision_matrix(
+                    session_id=evaluated_session.session_id, ctx=mock_ctx
+                )
                 assert "error" in result
         assert result["error"] == "No evaluations run yet"
         assert "formatted_output" in result
@@ -682,10 +645,10 @@ class TestGetDecisionMatrix:
             "get_decision_matrix",
             side_effect=Exception("Matrix generation failed"),
         ):
-            request = GetDecisionMatrixRequest(session_id=evaluated_session.session_id)
-
             with patch.object(session_manager, "get_session", return_value=evaluated_session):
-                result = await get_decision_matrix(request, mock_ctx)
+                result = await get_decision_matrix(
+                    session_id=evaluated_session.session_id, ctx=mock_ctx
+                )
                 assert "error" in result
         assert result["error"] == "Failed to generate matrix: Matrix generation failed"
         assert "formatted_output" in result
@@ -704,13 +667,12 @@ class TestAddOption:
     @pytest.mark.asyncio()
     async def test_add_option_success(self, test_session):
         """Test successful option addition"""
-        request = AddOptionRequest(
+        result = await add_option(
             session_id=test_session.session_id,
             option_name="Option B",
             description="Second option",
+            ctx=mock_ctx,
         )
-
-        result = await add_option(request, mock_ctx)
 
         assert result["option_added"] == "Option B"
         assert result["total_options"] == 2
@@ -719,12 +681,7 @@ class TestAddOption:
     @pytest.mark.asyncio()
     async def test_add_option_invalid_session(self):
         """Test adding option to invalid session"""
-        request = AddOptionRequest(
-            session_id="",  # Empty string is invalid
-            option_name="Test",
-        )
-
-        result = await add_option(request, mock_ctx)
+        result = await add_option(session_id="", option_name="Test", ctx=mock_ctx)
         assert "error" in result
         assert result["error"] == "Invalid session ID"
         assert "formatted_output" in result
@@ -732,23 +689,15 @@ class TestAddOption:
     @pytest.mark.asyncio()
     async def test_add_option_invalid_name(self, test_session):
         """Test validation of option name"""
-        request = AddOptionRequest(
-            session_id=test_session.session_id,
-            option_name="",
-        )
-
-        result = await add_option(request, mock_ctx)
+        result = await add_option(session_id=test_session.session_id, option_name="", ctx=mock_ctx)
         assert "Invalid option name" in result["error"]
 
     @pytest.mark.asyncio()
     async def test_add_option_duplicate(self, test_session):
         """Test adding duplicate option"""
-        request = AddOptionRequest(
-            session_id=test_session.session_id,
-            option_name="Option A",  # Already exists
+        result = await add_option(
+            session_id=test_session.session_id, option_name="Option A", ctx=mock_ctx
         )
-
-        result = await add_option(request, mock_ctx)
         assert "error" in result
         assert result["error"] == "Option 'Option A' already exists"
         assert "formatted_output" in result
@@ -757,13 +706,10 @@ class TestAddOption:
     async def test_add_option_error_handling(self, test_session):
         """Test error handling"""
         with patch.object(test_session, "add_option", side_effect=Exception("Add failed")):
-            request = AddOptionRequest(
-                session_id=test_session.session_id,
-                option_name="New Option",
-            )
-
             with patch.object(session_manager, "get_session", return_value=test_session):
-                result = await add_option(request, mock_ctx)
+                result = await add_option(
+                    session_id=test_session.session_id, option_name="Test Option", ctx=mock_ctx
+                )
                 assert "error" in result
         assert result["error"] == "Failed to add option: Add failed"
         assert "formatted_output" in result
@@ -779,7 +725,7 @@ class TestListSessions:
         for sid in list(session_manager.list_active_sessions().keys()):
             session_manager.remove_session(sid)
 
-        result = await list_sessions(mock_ctx)
+        result = await list_sessions(ctx=mock_ctx)
 
         assert result["sessions"] == []
         assert result["total_active"] == 0
@@ -798,7 +744,7 @@ class TestListSessions:
         # Add evaluation to session2
         session2.record_evaluation({"test": "data"})
 
-        result = await list_sessions(mock_ctx)
+        result = await list_sessions(ctx=mock_ctx)
 
         assert result["total_active"] >= 2
 
@@ -825,7 +771,7 @@ class TestListSessions:
             "list_active_sessions",
             side_effect=Exception("List failed"),
         ):
-            result = await list_sessions(mock_ctx)
+            result = await list_sessions(ctx=mock_ctx)
             assert "error" in result
         assert result["error"] == "Failed to list sessions: List failed"
         assert "formatted_output" in result
@@ -841,7 +787,7 @@ class TestClearAllSessions:
         session1 = session_manager.create_session("Test1", ["A", "B"])
         session2 = session_manager.create_session("Test2", ["C", "D"])
 
-        result = await clear_all_sessions(mock_ctx)
+        result = await clear_all_sessions(ctx=mock_ctx)
 
         assert result["cleared"] >= 2
         assert "Cleared" in result["message"]
@@ -858,7 +804,7 @@ class TestClearAllSessions:
         for sid in list(session_manager.list_active_sessions().keys()):
             session_manager.remove_session(sid)
 
-        result = await clear_all_sessions(mock_ctx)
+        result = await clear_all_sessions(ctx=mock_ctx)
 
         assert result["cleared"] == 0
         assert "Cleared 0 active sessions" in result["message"]
@@ -871,7 +817,7 @@ class TestClearAllSessions:
             "list_active_sessions",
             side_effect=Exception("Clear failed"),
         ):
-            result = await clear_all_sessions(mock_ctx)
+            result = await clear_all_sessions(ctx=mock_ctx)
             assert "error" in result
         assert result["error"] == "Failed to clear sessions: Clear failed"
         assert "formatted_output" in result
@@ -887,7 +833,7 @@ class TestCurrentSession:
         for sid in list(session_manager.list_active_sessions().keys()):
             session_manager.remove_session(sid)
 
-        result = await current_session(mock_ctx)
+        result = await current_session(ctx=mock_ctx)
 
         assert result["session"] is None
         assert result["message"] == "No active sessions found"
@@ -905,7 +851,7 @@ class TestCurrentSession:
         criterion = Criterion(name="Cost", description="Price comparison", weight=1.5)
         session.add_criterion(criterion)
 
-        result = await current_session(mock_ctx)
+        result = await current_session(ctx=mock_ctx)
 
         assert result["session_id"] == session.session_id
         assert result["topic"] == "Test Decision"
@@ -935,7 +881,7 @@ class TestCurrentSession:
         time.sleep(0.01)
         session3 = session_manager.create_session("Third Decision", ["E", "F"])
 
-        result = await current_session(mock_ctx)
+        result = await current_session(ctx=mock_ctx)
 
         assert result["session_id"] == session3.session_id
         assert result["topic"] == "Third Decision"
@@ -958,7 +904,7 @@ class TestCurrentSession:
         session = session_manager.create_session("Evaluated Decision", ["X", "Y"])
         session.record_evaluation({"test": "data"})
 
-        result = await current_session(mock_ctx)
+        result = await current_session(ctx=mock_ctx)
 
         assert result["session_id"] == session.session_id
         assert result["evaluations_run"] == 1
@@ -975,7 +921,7 @@ class TestCurrentSession:
             "get_current_session",
             side_effect=Exception("Get current failed"),
         ):
-            result = await current_session(mock_ctx)
+            result = await current_session(ctx=mock_ctx)
             assert "error" in result
             assert "Failed to get current session" in result["error"]
             assert "formatted_output" in result

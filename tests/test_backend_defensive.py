@@ -80,37 +80,26 @@ class TestBackendDefensivePatterns:
         litellm_backend = Mock()
         ollama_backend = Mock()
 
-        # Mock factory to return these instances
-        def mock_create_backend(backend_type):
-            if backend_type == ModelBackend.BEDROCK:
-                return bedrock_backend
-            if backend_type == ModelBackend.LITELLM:
-                return litellm_backend
-            if backend_type == ModelBackend.OLLAMA:
-                return ollama_backend
-            return None
+        # Add the instances directly to the factory's _instances dict
+        factory._instances[ModelBackend.BEDROCK] = bedrock_backend
+        factory._instances[ModelBackend.LITELLM] = litellm_backend
+        factory._instances[ModelBackend.OLLAMA] = ollama_backend
 
-        with patch.object(factory, "create_backend", side_effect=mock_create_backend):
-            # Create instances
-            factory.create_backend(ModelBackend.BEDROCK)
-            factory.create_backend(ModelBackend.LITELLM)
-            factory.create_backend(ModelBackend.OLLAMA)
+        # Make some cleanup methods fail
+        bedrock_backend.cleanup.side_effect = RuntimeError("Bedrock cleanup failed")
+        litellm_backend.cleanup.return_value = None  # Succeeds
+        ollama_backend.cleanup.side_effect = ConnectionError("Ollama cleanup failed")
 
-            # Make some cleanup methods fail
-            bedrock_backend.cleanup.side_effect = RuntimeError("Bedrock cleanup failed")
-            litellm_backend.cleanup.return_value = None  # Succeeds
-            ollama_backend.cleanup.side_effect = ConnectionError("Ollama cleanup failed")
+        # Cleanup should handle all failures gracefully
+        factory.cleanup()  # Should not raise any exceptions
 
-            # Cleanup should handle all failures gracefully
-            factory.cleanup()  # Should not raise any exceptions
+        # All backends should have been attempted
+        bedrock_backend.cleanup.assert_called_once()
+        litellm_backend.cleanup.assert_called_once()
+        ollama_backend.cleanup.assert_called_once()
 
-            # All backends should have been attempted
-            bedrock_backend.cleanup.assert_called_once()
-            litellm_backend.cleanup.assert_called_once()
-            ollama_backend.cleanup.assert_called_once()
-
-            # Factory should clear instances despite partial failures
-            assert len(factory._instances) == 0
+        # Factory should clear instances despite partial failures
+        assert len(factory._instances) == 0
 
     def test_backend_no_cleanup_method_defensive(self, factory):
         """Test cleanup when backend doesn't implement cleanup method."""

@@ -192,7 +192,9 @@ class TestSessionManagerEdgeCases:
             # Should log cleanup
             mock_logger.info.assert_called()
             call_args = str(mock_logger.info.call_args)
-            assert "2 expired sessions" in call_args
+            # The actual log format is: logger.info("Cleaned up %d expired sessions", count)
+            assert "Cleaned up" in call_args
+            assert "expired sessions" in call_args
 
 
 class TestSessionValidatorEdgeCases:

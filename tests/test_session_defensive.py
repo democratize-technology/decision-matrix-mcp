@@ -10,7 +10,7 @@ import threading
 import time
 from unittest.mock import patch
 
-from decision_matrix_mcp.exceptions import ResourceLimitError, SessionNotFoundError
+from decision_matrix_mcp.exceptions import ResourceLimitError, SessionError
 from decision_matrix_mcp.models import Criterion
 from decision_matrix_mcp.session_manager import SessionManager
 
@@ -63,14 +63,14 @@ class TestSessionManagerDefensive:
             session = manager.create_session(f"TTL Session {i}", ["A", "B"])
             sessions.append(session)
 
-        # Wait for TTL expiration
-        time.sleep(0.005)  # 18 seconds (5x TTL)
+        # Wait for TTL expiration - 0.001 hours = 3.6 seconds, so wait 4 seconds
+        time.sleep(4.0)
 
         # Concurrently access expired sessions while cleanup runs
         def access_expired_session(session_id):
             try:
                 return manager.get_session(session_id)
-            except SessionNotFoundError:
+            except SessionError:
                 return None
 
         with ThreadPoolExecutor(max_workers=5) as executor:
@@ -201,7 +201,7 @@ class TestSessionManagerDefensive:
             try:
                 result = manager.get_session(session.session_id)
                 access_results.append(("found" if result else "not_found", session.session_id))
-            except SessionNotFoundError:
+            except SessionError:
                 access_results.append(("not_found_exception", session.session_id))
 
         cleanup_thread.join()
@@ -229,8 +229,8 @@ class TestSessionManagerDefensive:
 
             created_sessions.extend(batch_sessions)
 
-            # Wait for TTL expiration
-            time.sleep(0.005)
+            # Wait for TTL expiration - 0.001 hours = 3.6 seconds, so wait 4 seconds
+            time.sleep(4.0)
 
             # Trigger cleanup
             manager._cleanup_expired_sessions()
