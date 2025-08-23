@@ -91,7 +91,7 @@ class BackendFactory:
         try:
             backend = self.create_backend(backend_type)
             return backend.is_available()
-        except (ConfigurationError, ImportError, AttributeError, ModuleNotFoundError) as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning("Backend %s not available: %s", backend_type.value, e)
             return False
 
@@ -114,7 +114,7 @@ class BackendFactory:
                 try:
                     instance.cleanup()
                     logger.debug("Cleaned up %s backend", backend_type.value)
-                except (AttributeError, RuntimeError) as e:
+                except Exception as e:  # noqa: BLE001
                     logger.warning("Error cleaning up %s backend: %s", backend_type.value, e)
 
         self._instances.clear()

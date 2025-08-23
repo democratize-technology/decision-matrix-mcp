@@ -350,7 +350,9 @@ JUSTIFICATION: [your reasoning]"""
             # Fall back to legacy regex parsing
             return self._parse_evaluation_response_legacy(response)
 
-    def _parse_evaluation_response_legacy(self, response: str) -> tuple[float | None, str]:
+    def _parse_evaluation_response_legacy(  # noqa: PLR0911, PLR0912
+        self, response: str
+    ) -> tuple[float | None, str]:
         """Legacy regex-based response parsing for backward compatibility."""
         try:
             # Normalize response for consistent parsing
@@ -369,8 +371,20 @@ JUSTIFICATION: [your reasoning]"""
             if any(
                 pattern.lower() in normalized_response.lower() for pattern in abstention_patterns
             ):
-                # Extract justification even for abstentions
+                # For abstentions, try to extract justification, but fall back to original text if no formal pattern found
                 justification = self._extract_justification(normalized_response)
+                if justification == "No justification provided":
+                    # Special case: formal abstention tokens should return "No justification provided"
+                    formal_abstentions = ["[NO_RESPONSE]", "NO_RESPONSE"]
+                    if any(
+                        formal.lower() == normalized_response.strip().lower()
+                        for formal in formal_abstentions
+                    ):
+                        justification = "No justification provided"
+                    else:
+                        justification = normalized_response[
+                            :500
+                        ]  # Use original text for informal abstentions
                 return (None, justification)
 
             # Extract score with multiple patterns
@@ -379,8 +393,19 @@ JUSTIFICATION: [your reasoning]"""
             # Extract justification
             justification = self._extract_justification(normalized_response)
 
-            # Validate that we have at least a score or justification
+            # Enhanced validation: handle descriptive responses without scores
             if score is None and justification == "No justification provided":
+                # Special case: pure numbers should be treated as abstention with "No justification provided"
+                if re.match(r"^[+-]?\d+(\.\d+)?$", normalized_response.strip()):
+                    return (None, "No justification provided")
+
+                # For other descriptive responses without formal structure, use the original text
+                if len(normalized_response) > 3:
+                    return (
+                        None,
+                        normalized_response[:500],
+                    )  # Return original text capped at 500 chars
+
                 logger.warning(
                     "Could not parse meaningful content from response: %s...",
                     response[:200],
@@ -400,17 +425,16 @@ JUSTIFICATION: [your reasoning]"""
             return (score, justification)
 
     def _extract_score(self, response: str) -> float | None:
-        # Pattern 1: SCORE: X
+        # Pattern 1: SCORE: X (now handles negative numbers correctly)
         score_patterns = [
-            (r"SCORE:\s*([0-9]+(?:\.[0-9]+)?)", 1),
-            (r"SCORE:\s*([0-9]+)/10", 1),
-            (r"SCORE:.*?([0-9]+(?:\.[0-9]+)?)", 1),  # SCORE: with text before number
-            (r"Rating:\s*([0-9]+(?:\.[0-9]+)?)", 1),
-            (r"([0-9]+(?:\.[0-9]+)?)/10", 1),
-            (r"Score\s*=\s*([0-9]+(?:\.[0-9]+)?)", 1),
-            (r"score\s+is\s+([0-9]+(?:\.[0-9]+)?)", 1),  # "score is X"
-            (r"rate\s+this\s+([0-9]+(?:\.[0-9]+)?)", 1),  # "rate this X"
-            (r"^([0-9]+(?:\.[0-9]+)?)\s*$", 1),  # Just a number
+            (r"SCORE:\s*([+-]?[0-9]+(?:\.[0-9]+)?)", 1),  # Fixed: handles negative numbers
+            (r"SCORE:\s*([+-]?[0-9]+)/10", 1),  # Fixed: handles negative numbers
+            (r"Rating:\s*([+-]?[0-9]+(?:\.[0-9]+)?)", 1),  # Fixed: handles negative numbers
+            (r"([+-]?[0-9]+(?:\.[0-9]+)?)/10", 1),  # Fixed: handles negative numbers
+            (r"Score\s*=\s*([+-]?[0-9]+(?:\.[0-9]+)?)", 1),  # Fixed: handles negative numbers
+            (r"score\s+is\s+([+-]?[0-9]+(?:\.[0-9]+)?)", 1),  # "score is X" - fixed
+            (r"rate\s+this\s+([+-]?[0-9]+(?:\.[0-9]+)?)", 1),  # "rate this X" - fixed
+            # Removed pure number pattern - numbers without context should not be treated as scores
         ]
 
         for pattern, group in score_patterns:
