@@ -223,7 +223,7 @@ async def _execute_parallel_evaluation(
 @mcp.tool(
     description="When facing multiple options and need structured evaluation - create a decision matrix to systematically compare choices across weighted criteria",
 )
-async def start_decision_analysis(
+async def start_decision_analysis(  # noqa: PLR0911
     topic: str,
     options: list[str],
     initial_criteria: list[dict[str, Any]] | None = None,
@@ -245,6 +245,36 @@ async def start_decision_analysis(
         model_name=model_name,
         temperature=temperature,
     )
+
+    # Validate topic
+    if not components.validation_service.validate_topic(request.topic):
+        from decision_matrix_mcp.validation_decorators import ERROR_MESSAGES
+
+        return components.response_service.create_error_response(
+            ERROR_MESSAGES["topic"],
+            "Invalid topic",
+        )
+
+    # Validate options list
+    if not request.options or len(request.options) < ValidationLimits.MIN_OPTIONS_REQUIRED:
+        return components.response_service.create_error_response(
+            "Need at least 2 options to create a meaningful decision matrix",
+            "Invalid options",
+        )
+    if len(request.options) > ValidationLimits.MAX_OPTIONS_ALLOWED:
+        return components.response_service.create_error_response(
+            f"Too many options (max {ValidationLimits.MAX_OPTIONS_ALLOWED}). Consider grouping similar options.",
+            "Invalid options",
+        )
+    # Validate individual option names
+    for option_name in request.options:
+        if not components.validation_service.validate_option_name(option_name):
+            from decision_matrix_mcp.validation_decorators import ERROR_MESSAGES
+
+            return components.response_service.create_error_response(
+                ERROR_MESSAGES["option_name"],
+                "Invalid option name",
+            )
 
     try:
         # Create the session
@@ -530,6 +560,15 @@ async def add_option(
         option_name=option_name,
         description=description,
     )
+
+    # Validate option name
+    if not components.validation_service.validate_option_name(request.option_name):
+        from decision_matrix_mcp.validation_decorators import ERROR_MESSAGES
+
+        return components.response_service.create_error_response(
+            ERROR_MESSAGES["option_name"],
+            "Invalid option name",
+        )
 
     session, error = get_session_or_error(request.session_id, components)
     if error:

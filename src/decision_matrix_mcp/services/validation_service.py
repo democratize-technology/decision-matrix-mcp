@@ -75,7 +75,7 @@ class ValidationService:
         if not self.validate_session_id(session_id):
             raise ValidationError(
                 f"Invalid session ID format: {session_id}",
-                user_message="Session ID format is invalid",
+                user_message="Invalid session ID",
                 error_code="DMX_1001",
                 context={"session_id": session_id},
                 recovery_suggestion="Provide a valid UUID session ID",
