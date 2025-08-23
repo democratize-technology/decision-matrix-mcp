@@ -118,6 +118,7 @@ ENVIRONMENT_PROFILES: dict[str, dict[str, Any]] = {
         "debug_mode": True,
         "validation.max_options_allowed": 10,  # Smaller limits for dev
         "session.max_active_sessions": 20,
+        "session.default_max_sessions": 15,  # Must be less than max_active_sessions
         "performance.request_timeout_seconds": 60.0,  # Longer timeouts for debugging
         "performance.cot_timeout_seconds": 60.0,
     },
@@ -125,6 +126,7 @@ ENVIRONMENT_PROFILES: dict[str, dict[str, Any]] = {
         "debug_mode": False,
         "validation.max_options_allowed": 15,
         "session.max_active_sessions": 50,
+        "session.default_max_sessions": 40,  # Must be less than max_active_sessions
         "performance.request_timeout_seconds": 45.0,
         "performance.cot_timeout_seconds": 45.0,
     },
