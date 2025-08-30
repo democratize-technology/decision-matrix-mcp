@@ -30,6 +30,15 @@ from ..models import CriterionThread
 class LLMBackend(ABC):
     """Abstract base class for all LLM backend implementations."""
 
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """Get the backend name identifier.
+
+        Returns:
+            String identifier for this backend (e.g., "bedrock", "litellm", "ollama")
+        """
+
     @abstractmethod
     async def generate_response(self, thread: CriterionThread) -> str:
         """Generate response for evaluation request.

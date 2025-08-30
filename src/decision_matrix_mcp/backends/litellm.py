@@ -42,6 +42,24 @@ logger = logging.getLogger(__name__)
 class LiteLLMBackend(LLMBackend):
     """LiteLLM backend implementation for OpenAI, Anthropic, and other providers."""
 
+    @property
+    def name(self) -> str:
+        """Get the backend name identifier.
+
+        Returns:
+            The string "litellm" identifying this backend
+        """
+        return "litellm"
+
+    @property
+    def supports_streaming(self) -> bool:
+        """Whether this backend supports streaming responses.
+
+        Returns:
+            False - LiteLLM backend does not support streaming
+        """
+        return False
+
     def is_available(self) -> bool:
         """Check if LiteLLM dependencies are available."""
         return LITELLM_AVAILABLE

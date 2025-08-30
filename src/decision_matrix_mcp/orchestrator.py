@@ -350,7 +350,7 @@ JUSTIFICATION: [your reasoning]"""
             # Fall back to legacy regex parsing
             return self._parse_evaluation_response_legacy(response)
 
-    def _parse_evaluation_response_legacy(  # noqa: PLR0911, PLR0912
+    def _parse_evaluation_response_legacy(  # noqa: PLR0911
         self, response: str
     ) -> tuple[float | None, str]:
         """Legacy regex-based response parsing for backward compatibility."""

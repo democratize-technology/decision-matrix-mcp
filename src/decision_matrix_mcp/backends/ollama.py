@@ -42,6 +42,24 @@ logger = logging.getLogger(__name__)
 class OllamaBackend(LLMBackend):
     """Ollama backend implementation for local LLM models."""
 
+    @property
+    def name(self) -> str:
+        """Get the backend name identifier.
+
+        Returns:
+            The string "ollama" identifying this backend
+        """
+        return "ollama"
+
+    @property
+    def supports_streaming(self) -> bool:
+        """Whether this backend supports streaming responses.
+
+        Returns:
+            False - Ollama backend does not support streaming
+        """
+        return False
+
     def is_available(self) -> bool:
         """Check if Ollama dependencies are available."""
         return HTTPX_AVAILABLE

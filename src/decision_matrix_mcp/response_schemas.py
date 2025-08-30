@@ -228,7 +228,7 @@ def _parse_legacy_response(response: str) -> EvaluationResponse:
     return EvaluationResponse(score=score, reasoning=reasoning, status=status)
 
 
-def _parse_legacy_regex(response: str) -> tuple[float | None, str]:  # noqa: PLR0911, PLR0912
+def _parse_legacy_regex(response: str) -> tuple[float | None, str]:  # noqa: PLR0911
     """Legacy regex parsing logic extracted to avoid circular imports."""
     try:
         # Normalize response for consistent parsing

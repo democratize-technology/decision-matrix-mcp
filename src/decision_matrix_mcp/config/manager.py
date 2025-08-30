@@ -78,7 +78,7 @@ class ConfigManager:
             return
 
         self._config_lock = threading.RLock()
-        self._config: ConfigSchema = DEFAULT_CONFIG.copy(deep=True)
+        self._config: ConfigSchema = DEFAULT_CONFIG.model_copy(deep=True)
         self._validator = ConfigValidator()
         self._loaded_from_env = False
         self._loaded_from_file = False
@@ -97,7 +97,7 @@ class ConfigManager:
         """Load configuration from environment variables and files."""
         with self._config_lock:
             # Start with default configuration
-            config_data = self._config.dict()
+            config_data = self._config.model_dump()
 
             # Load from configuration files first
             self._load_from_files(config_data)
@@ -235,7 +235,7 @@ class ConfigManager:
     def config(self) -> ConfigSchema:
         """Get current configuration (thread-safe)."""
         with self._config_lock:
-            return self._config.copy(deep=True)
+            return self._config.model_copy(deep=True)
 
     @property
     def validation(self) -> Any:
@@ -270,7 +270,7 @@ class ConfigManager:
             )
         """
         with self._config_lock:
-            config_data = self._config.dict()
+            config_data = self._config.model_dump()
 
             for key, value in kwargs.items():
                 # Convert double underscore to dot notation
@@ -318,7 +318,7 @@ class ConfigManager:
 
     def export_config(self, format: str = "json") -> str:
         """Export current configuration to JSON or YAML format."""
-        config_dict = self._config.dict()
+        config_dict = self._config.model_dump()
 
         if format.lower() == "yaml":
             if yaml is None:

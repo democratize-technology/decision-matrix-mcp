@@ -27,23 +27,27 @@ class TestBackendFactory:
 
     def test_factory_creates_bedrock_backend(self):
         """Test factory creates Bedrock backend."""
-        backend = BackendFactory.create_backend(ModelBackend.BEDROCK)
+        factory = BackendFactory()
+        backend = factory.create_backend(ModelBackend.BEDROCK)
         assert isinstance(backend, BedrockBackend)
 
     def test_factory_creates_litellm_backend(self):
         """Test factory creates LiteLLM backend."""
-        backend = BackendFactory.create_backend(ModelBackend.LITELLM)
+        factory = BackendFactory()
+        backend = factory.create_backend(ModelBackend.LITELLM)
         assert isinstance(backend, LiteLLMBackend)
 
     def test_factory_creates_ollama_backend(self):
         """Test factory creates Ollama backend."""
-        backend = BackendFactory.create_backend(ModelBackend.OLLAMA)
+        backend = BackendFactory().create_backend(ModelBackend.OLLAMA)
         assert isinstance(backend, OllamaBackend)
 
     def test_factory_raises_for_invalid_backend(self):
         """Test factory raises error for invalid backend type."""
-        with pytest.raises(ValueError, match="Unsupported backend"):
-            BackendFactory.create_backend("invalid_backend")
+        from decision_matrix_mcp.exceptions import ConfigurationError
+
+        with pytest.raises(ConfigurationError, match="Unknown model backend"):
+            BackendFactory().create_backend("invalid_backend")
 
 
 class TestBedrockBackendIntegration:
@@ -357,7 +361,7 @@ class TestBackendContractValidation:
     )
     def test_backend_implements_interface(self, backend_type):
         """Test that each backend implements the required interface."""
-        backend = BackendFactory.create_backend(backend_type)
+        backend = BackendFactory().create_backend(backend_type)
 
         # Check required attributes
         assert hasattr(backend, "name")
@@ -378,7 +382,7 @@ class TestBackendContractValidation:
     )
     async def test_backend_generate_signature(self, backend_type):
         """Test that generate method has consistent signature across backends."""
-        backend = BackendFactory.create_backend(backend_type)
+        backend = BackendFactory().create_backend(backend_type)
 
         # Create appropriate mocks for each backend type
         if backend_type == ModelBackend.BEDROCK:
@@ -425,7 +429,7 @@ class TestBackendContractValidation:
     )
     async def test_backend_availability_check(self, backend_type):
         """Test that is_available method works for all backends."""
-        backend = BackendFactory.create_backend(backend_type)
+        backend = BackendFactory().create_backend(backend_type)
 
         # Mock successful availability check
         if backend_type == ModelBackend.BEDROCK:
@@ -454,9 +458,9 @@ class TestBackendErrorRecovery:
     async def test_backend_timeout_handling(self):
         """Test that backends handle timeouts gracefully."""
         backends = [
-            BackendFactory.create_backend(ModelBackend.BEDROCK),
-            BackendFactory.create_backend(ModelBackend.LITELLM),
-            BackendFactory.create_backend(ModelBackend.OLLAMA),
+            BackendFactory().create_backend(ModelBackend.BEDROCK),
+            BackendFactory().create_backend(ModelBackend.LITELLM),
+            BackendFactory().create_backend(ModelBackend.OLLAMA),
         ]
 
         for backend in backends:
@@ -484,9 +488,9 @@ class TestBackendErrorRecovery:
     async def test_backend_rate_limit_handling(self):
         """Test that backends handle rate limits appropriately."""
         backends = [
-            BackendFactory.create_backend(ModelBackend.BEDROCK),
-            BackendFactory.create_backend(ModelBackend.LITELLM),
-            BackendFactory.create_backend(ModelBackend.OLLAMA),
+            BackendFactory().create_backend(ModelBackend.BEDROCK),
+            BackendFactory().create_backend(ModelBackend.LITELLM),
+            BackendFactory().create_backend(ModelBackend.OLLAMA),
         ]
 
         for backend in backends:

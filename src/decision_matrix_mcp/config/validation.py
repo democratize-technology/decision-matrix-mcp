@@ -63,7 +63,7 @@ class ConfigValidator:
 
         try:
             # Basic Pydantic validation
-            config.dict()
+            config.model_dump()
 
             # Cross-field validation
             self._validate_cross_field_constraints(config)

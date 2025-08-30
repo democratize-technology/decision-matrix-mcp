@@ -567,27 +567,22 @@ class DecisionSession:
 
         # Original validation logic - this is where the error comes from
 
-        if not self.options:
-            from .exceptions import ValidationError
-
-            raise ValidationError(
-                "Cannot generate matrix without options",
-                user_message="No options available to evaluate",
-                error_code="DMX_1002",
-                context={"has_options": False, "has_criteria": bool(self.criteria)},
-                recovery_suggestion="Add options to the decision session before generating matrix",
-            )
-
-        if not self.criteria:
-            # TEMPORARY: Return safe response instead of raising error during session creation
+        if not self.options or not self.criteria:
             return {
                 "session_id": self.session_id,
                 "topic": self.topic,
-                "message": "Decision matrix not available - no criteria defined yet",
-                "status": "needs_criteria",
-                "options": list(self.options.keys()),
-                "criteria_count": 0,
-                "next_steps": ["Add evaluation criteria", "Run evaluation", "Generate matrix"],
+                "error": "Need both options and criteria to generate matrix",
+                "status": "insufficient_data",
+                "has_options": len(self.options) > 0,
+                "has_criteria": len(self.criteria) > 0,
+                "options_count": len(self.options),
+                "criteria_count": len(self.criteria),
+                "next_steps": [
+                    "Add options to evaluate" if not self.options else None,
+                    "Add evaluation criteria" if not self.criteria else None,
+                    "Run evaluation",
+                    "Generate matrix",
+                ],
             }
 
         # Pre-compute criteria data for O(1) access
@@ -606,7 +601,7 @@ class DecisionSession:
             "rankings": rankings,
             "recommendation": recommendation,
             "criteria_weights": criteria_weights,
-            "evaluation_timestamp": current_time,
+            "evaluation_timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
         # Cache the result

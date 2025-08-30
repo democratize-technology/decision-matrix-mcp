@@ -155,6 +155,24 @@ class BedrockBackend(LLMBackend):
         self._bedrock_client = None
         self._client_lock = threading.Lock()
 
+    @property
+    def name(self) -> str:
+        """Get the backend name identifier.
+
+        Returns:
+            The string "bedrock" identifying this backend
+        """
+        return "bedrock"
+
+    @property
+    def supports_streaming(self) -> bool:
+        """Whether this backend supports streaming responses.
+
+        Returns:
+            False - Bedrock backend does not support streaming
+        """
+        return False
+
     def is_available(self) -> bool:
         """Check if AWS Bedrock backend dependencies are available.
 

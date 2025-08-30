@@ -124,7 +124,7 @@ class DecisionReasoningOrchestrator:
             return []
         return TOOL_SPECS
 
-    async def evaluate_with_reasoning(  # noqa: PLR0912
+    async def evaluate_with_reasoning(
         self,
         thread: CriterionThread,
         option: Option,
@@ -281,7 +281,7 @@ JUSTIFICATION: [your reasoning summary]""",
             except (AttributeError, RuntimeError) as cleanup_error:
                 logger.warning("Error during processor cleanup: %s", cleanup_error)
 
-    async def _process_with_convergence(  # noqa: PLR0912
+    async def _process_with_convergence(
         self,
         processor: Any,
         bedrock_client: Any,

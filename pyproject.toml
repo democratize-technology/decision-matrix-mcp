@@ -139,6 +139,7 @@ ignore = [
     "ANN401", # dynamically typed expressions (Any)
     "S101",   # use of assert
     "S608",   # possible SQL injection
+    "PLR0912", # too many branches (temp: parsing complexity)
     "PLR0913", # too many arguments
     "PLR2004", # magic value used in comparison
     "TRY003", # avoid specifying long messages outside exception class
