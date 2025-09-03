@@ -403,7 +403,11 @@ wheels = [
 [[package]]
 name = "chain-of-thought-tool"
 version = "0.1.0"
-source = { git = "https://github.com/democratize-technology/chain-of-thought-tool.git?rev=178d2d5a96c35c8baf8c32052d2eccebc3ee6c61#178d2d5a96c35c8baf8c32052d2eccebc3ee6c61" }
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/36/11/8ee425f81b4740961a1f803368fe56f45e9c91af1de8abdd5b2e9d123a0d/chain_of_thought_tool-0.1.0.tar.gz", hash = "sha256:4b497d57cf3d24c070abbfa02f78a8f91f926860cf913a1cd5d18788996cd58d", size = 27031, upload-time = "2025-09-03T02:48:08.466Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c5/22/cb5b44db9f93ca3b34812bb0a831c6d72db8eb4ffca65f53329aef562bb9/chain_of_thought_tool-0.1.0-py3-none-any.whl", hash = "sha256:35248ef23fd7ee57d62f60f8e7537028264216dead008c21bd96aea59d2ab03f", size = 16251, upload-time = "2025-09-03T02:48:07.066Z" },
+]
 
 [[package]]
 name = "charset-normalizer"
@@ -675,7 +679,7 @@ requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=24.4.2" },
     { name = "boto3", specifier = ">=1.40.0" },
     { name = "boto3-stubs", extras = ["essential"], marker = "extra == 'dev'" },
-    { name = "chain-of-thought-tool", git = "https://github.com/democratize-technology/chain-of-thought-tool.git?rev=178d2d5a96c35c8baf8c32052d2eccebc3ee6c61" },
+    { name = "chain-of-thought-tool", specifier = "==0.1.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "isort", marker = "extra == 'dev'", specifier = ">=5.13.2" },
     { name = "litellm", specifier = ">=1.75.0" },

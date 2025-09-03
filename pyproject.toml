@@ -32,7 +32,7 @@ dependencies = [
     "pydantic>=2.9.0",
     "litellm>=1.75.0",
     "boto3>=1.40.0",
-    "chain-of-thought-tool @ git+https://github.com/democratize-technology/chain-of-thought-tool.git@178d2d5a96c35c8baf8c32052d2eccebc3ee6c61",
+    "chain-of-thought-tool==0.1.0",
     "psutil>=6.1.0",
 ]
 
