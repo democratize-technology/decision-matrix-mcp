@@ -679,7 +679,7 @@ requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=24.4.2" },
     { name = "boto3", specifier = ">=1.40.0" },
     { name = "boto3-stubs", extras = ["essential"], marker = "extra == 'dev'" },
-    { name = "chain-of-thought-tool", specifier = "==0.1.0" },
+    { name = "chain-of-thought-tool" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "isort", marker = "extra == 'dev'", specifier = ">=5.13.2" },
     { name = "litellm", specifier = ">=1.75.0" },
