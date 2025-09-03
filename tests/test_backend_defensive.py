@@ -115,6 +115,7 @@ class TestBackendDefensivePatterns:
             # Instances should still be cleared
             assert len(factory._instances) == 0
 
+    @pytest.mark.asyncio()
     async def test_async_backend_response_defensive_error_handling(self, factory):
         """Test async backend response handling with various error conditions."""
         criterion = Criterion(
@@ -213,6 +214,7 @@ class TestBackendDefensivePatterns:
             # Or reuse cached instances without duplicating
             assert len(factory._instances) <= 1
 
+    @pytest.mark.asyncio()
     async def test_backend_response_timeout_defensive_recovery(self):
         """Test backend response timeout handling and recovery."""
         factory = BackendFactory()

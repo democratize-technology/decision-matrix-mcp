@@ -320,7 +320,7 @@ class TestPerformanceOptimizations:
         for result in results[1:]:
             assert result == first_result
 
-    @pytest.mark.benchmark()
+    @pytest.mark.performance()
     def test_xl_dataset_benchmark(self):
         """Benchmark test with extra large dataset (500 options, 50 criteria)."""
         self.create_test_data(500, 50)
@@ -357,5 +357,5 @@ class TestPerformanceOptimizations:
         # Cached property should be much faster
         assert (
             time_2 < time_1 / 10
-        ), f"Cached property should be >10x faster, got {time_1/time_2:.1f}x"
+        ), f"Cached property should be >10x faster, got {time_1 / time_2:.1f}x"
         assert matrix_1 == matrix_2

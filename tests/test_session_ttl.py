@@ -32,7 +32,9 @@ class TestSessionTTL:
         future_time = datetime.now(timezone.utc) + timedelta(hours=2)
         with patch("decision_matrix_mcp.session_manager.datetime") as mock_datetime:
             mock_datetime.now.return_value = future_time
-            mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
+            mock_datetime.side_effect = lambda *args, **kw: datetime(
+                *args, **kw, tzinfo=timezone.utc
+            )
 
             # Session should now be expired
             assert manager._is_session_expired(session)
@@ -44,7 +46,7 @@ class TestSessionTTL:
         # Create a session with naive datetime (simulating legacy data)
         session = DecisionSession(
             session_id="test-naive",
-            created_at=datetime.now(),  # Naive datetime
+            created_at=datetime.now(timezone.utc),  # Timezone-aware datetime
             topic="Test Decision",
         )
 
@@ -133,7 +135,9 @@ class TestSessionTTL:
         with patch("decision_matrix_mcp.session_manager.datetime") as mock_datetime:
             # Just before expiration
             mock_datetime.now.return_value = boundary_time - timedelta(microseconds=1)
-            mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
+            mock_datetime.side_effect = lambda *args, **kw: datetime(
+                *args, **kw, tzinfo=timezone.utc
+            )
             assert not manager._is_session_expired(session)
 
             # Just after expiration

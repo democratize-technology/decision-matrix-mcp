@@ -168,17 +168,17 @@ class TestSessionCreationPerformance:
         max_creation_time = 0.010  # 10ms max per session
         assert (
             mean_creation_time < max_creation_time
-        ), f"Session creation too slow: {mean_creation_time*1000:.2f}ms > {max_creation_time*1000:.2f}ms"
+        ), f"Session creation too slow: {mean_creation_time * 1000:.2f}ms > {max_creation_time * 1000:.2f}ms"
 
         max_retrieval_time = 0.001  # 1ms max per retrieval
         assert (
             mean_retrieval_time < max_retrieval_time
-        ), f"Session retrieval too slow: {mean_retrieval_time*1000:.2f}ms > {max_retrieval_time*1000:.2f}ms"
+        ), f"Session retrieval too slow: {mean_retrieval_time * 1000:.2f}ms > {max_retrieval_time * 1000:.2f}ms"
 
         max_listing_time = 0.005  # 5ms max for listing
         assert (
             listing_time < max_listing_time
-        ), f"Session listing too slow: {listing_time*1000:.2f}ms > {max_listing_time*1000:.2f}ms"
+        ), f"Session listing too slow: {listing_time * 1000:.2f}ms > {max_listing_time * 1000:.2f}ms"
 
         max_memory_per_session = 50 * 1024  # 50KB max per session
         if memory_per_session > max_memory_per_session:
@@ -349,7 +349,7 @@ class TestSessionCleanupPerformance:
         max_removal_time = 0.005  # 5ms max per removal
         assert (
             mean_removal_time < max_removal_time
-        ), f"Session removal too slow: {mean_removal_time*1000:.2f}ms > {max_removal_time*1000:.2f}ms"
+        ), f"Session removal too slow: {mean_removal_time * 1000:.2f}ms > {max_removal_time * 1000:.2f}ms"
 
         min_batch_rate = 100  # At least 100 removals/sec
         assert (
@@ -424,7 +424,7 @@ class TestSessionCleanupPerformance:
         max_ttl_cleanup_time = 0.050  # 50ms max for TTL cleanup
         assert (
             cleanup_time < max_ttl_cleanup_time
-        ), f"TTL cleanup too slow: {cleanup_time*1000:.2f}ms > {max_ttl_cleanup_time*1000:.2f}ms"
+        ), f"TTL cleanup too slow: {cleanup_time * 1000:.2f}ms > {max_ttl_cleanup_time * 1000:.2f}ms"
 
         # Cleanup trigger session
         trigger_sessions = list(active_sessions.values())
@@ -467,7 +467,7 @@ class TestSessionMemoryPatterns:
 
             if i in [2, 5, 9]:  # Take snapshots at intervals
                 gc.collect()
-                snapshots[f"criteria_{i+1}"] = tracemalloc.take_snapshot()
+                snapshots[f"criteria_{i + 1}"] = tracemalloc.take_snapshot()
 
         # Add evaluation data progressively
         for i in range(5):
@@ -483,7 +483,7 @@ class TestSessionMemoryPatterns:
 
             if i in [1, 4]:  # Take snapshots
                 gc.collect()
-                snapshots[f"evaluations_{i+1}"] = tracemalloc.take_snapshot()
+                snapshots[f"evaluations_{i + 1}"] = tracemalloc.take_snapshot()
 
         # Add scores progressively
         score_count = 0
@@ -641,13 +641,13 @@ class TestSessionLookupPerformance:
             max_lookup_time = 0.005  # 5ms max
             assert (
                 results["mean_lookup_time"] < max_lookup_time
-            ), f"Lookup too slow at {count} sessions: {results['mean_lookup_time']*1000:.2f}ms"
+            ), f"Lookup too slow at {count} sessions: {results['mean_lookup_time'] * 1000:.2f}ms"
 
             # Listing time should scale reasonably
             max_listing_time = 0.001 * count / 50  # Scale with session count
             assert (
                 results["listing_time"] < max_listing_time
-            ), f"Listing too slow at {count} sessions: {results['listing_time']*1000:.2f}ms"
+            ), f"Listing too slow at {count} sessions: {results['listing_time'] * 1000:.2f}ms"
 
         # Cleanup all sessions
         for session in sessions_pool:

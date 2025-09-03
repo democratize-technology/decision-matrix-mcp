@@ -131,8 +131,8 @@ ENVIRONMENT_PROFILES: dict[str, dict[str, Any]] = {
         "performance.cot_timeout_seconds": 45.0,
     },
     "production": {
-        "debug_mode": False,
         # Use all default values for production
+        # Note: debug_mode can still be overridden via DMM_DEBUG_MODE env var
     },
 }
 

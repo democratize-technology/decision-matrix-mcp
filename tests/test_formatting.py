@@ -187,7 +187,7 @@ class TestDecisionFormatter:
         assert "🥈 **Rust** - 8.2 pts" in output
         assert "[████████████████████]" in output  # Progress bar
         assert "```" in output  # Code block for breakdown
-        assert "Ease of Use: 9.0 × 2.0 = 18.0" in output
+        assert "Ease of Use: 9.0 x 2.0 = 18.0" in output
         assert "## ⚖️ Criteria Weights" in output
         assert "## 💡 Key Insights" in output
         assert "- 🔍 **Very close decision**" in output  # Within 1 point

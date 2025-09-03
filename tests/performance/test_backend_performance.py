@@ -231,17 +231,17 @@ class TestBackendResponseTimes:
             # Performance assertions
             assert (
                 stats["mean"] < expected_max_latency
-            ), f"{backend_type} mean response time too high: {stats['mean']*1000:.1f}ms"
+            ), f"{backend_type} mean response time too high: {stats['mean'] * 1000:.1f}ms"
 
             assert (
                 stats["p95"] < expected_max_latency * 1.5
-            ), f"{backend_type} P95 response time too high: {stats['p95']*1000:.1f}ms"
+            ), f"{backend_type} P95 response time too high: {stats['p95'] * 1000:.1f}ms"
 
             # Response times should be reasonably consistent
             max_std_dev = expected_max_latency * 0.3
             assert (
                 stats["std"] < max_std_dev
-            ), f"{backend_type} response time too variable: {stats['std']*1000:.1f}ms std dev"
+            ), f"{backend_type} response time too variable: {stats['std'] * 1000:.1f}ms std dev"
         else:
             pytest.fail(f"No successful requests recorded for {backend_type}")
 
@@ -499,7 +499,7 @@ class TestBackendThroughput:
             max_mean_response_time = 0.05  # 50ms max mean response time
             assert (
                 stats["mean"] < max_mean_response_time
-            ), f"Response time degraded under sustained load: {stats['mean']*1000:.1f}ms"
+            ), f"Response time degraded under sustained load: {stats['mean'] * 1000:.1f}ms"
 
             # P95 shouldn't be too much higher than mean
             max_p95_ratio = 3.0  # P95 should be less than 3x mean
@@ -576,7 +576,7 @@ class TestBackendErrorHandling:
                 max_error_time = 0.1  # 100ms max for error handling
                 assert (
                     mean_error_time < max_error_time
-                ), f"Error handling too slow: {mean_error_time*1000:.1f}ms"
+                ), f"Error handling too slow: {mean_error_time * 1000:.1f}ms"
 
             # Verify error rate is as expected (within tolerance)
             error_rate_tolerance = 0.15
@@ -659,7 +659,7 @@ class TestBackendErrorHandling:
             max_success_time_with_retries = 0.15  # 150ms including retries
             assert (
                 success_stats["mean"] < max_success_time_with_retries
-            ), f"Success time with retries too high: {success_stats['mean']*1000:.1f}ms"
+            ), f"Success time with retries too high: {success_stats['mean'] * 1000:.1f}ms"
 
 
 if __name__ == "__main__":

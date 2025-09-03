@@ -139,7 +139,7 @@ class DecisionFormatter:
 
         return "\n".join(lines)
 
-    def format_decision_matrix(self, matrix_data: dict[str, Any]) -> str:  # noqa: PLR0912
+    def format_decision_matrix(self, matrix_data: dict[str, Any]) -> str:
         """Format the complete decision matrix for optimal LLM parsing."""
         rankings = matrix_data["rankings"]
 
