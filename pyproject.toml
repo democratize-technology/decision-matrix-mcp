@@ -32,7 +32,7 @@ dependencies = [
     "pydantic>=2.9.0",
     "litellm>=1.75.0",
     "boto3>=1.40.0",
-    "chain-of-thought-tool",
+    "chain-of-thought-tool==0.1.1",
     "psutil>=6.1.0",
 ]
 

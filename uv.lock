@@ -402,11 +402,11 @@ wheels = [
 
 [[package]]
 name = "chain-of-thought-tool"
-version = "0.1.0"
+version = "0.1.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/36/11/8ee425f81b4740961a1f803368fe56f45e9c91af1de8abdd5b2e9d123a0d/chain_of_thought_tool-0.1.0.tar.gz", hash = "sha256:4b497d57cf3d24c070abbfa02f78a8f91f926860cf913a1cd5d18788996cd58d", size = 27031, upload-time = "2025-09-03T02:48:08.466Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/03/70/3193ad485d8f8f4313a6eb77d910d1dac984047013832111c3b109e93003/chain_of_thought_tool-0.1.1.tar.gz", hash = "sha256:155b643896198a7bf983d5cdb2b940787817e5fd68ccb1763ec3beaf6b838819", size = 30940, upload-time = "2025-09-03T14:55:56.622Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c5/22/cb5b44db9f93ca3b34812bb0a831c6d72db8eb4ffca65f53329aef562bb9/chain_of_thought_tool-0.1.0-py3-none-any.whl", hash = "sha256:35248ef23fd7ee57d62f60f8e7537028264216dead008c21bd96aea59d2ab03f", size = 16251, upload-time = "2025-09-03T02:48:07.066Z" },
+    { url = "https://files.pythonhosted.org/packages/7f/22/c5bbc9626123a078815597eaf66a06b68ce90203e20e2f528758430b7057/chain_of_thought_tool-0.1.1-py3-none-any.whl", hash = "sha256:3fcf997f6347f355bf4fb276e689621eb4c27ff75d919220ff90d70734121f2a", size = 18418, upload-time = "2025-09-03T14:55:55.541Z" },
 ]
 
 [[package]]
@@ -679,7 +679,7 @@ requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=24.4.2" },
     { name = "boto3", specifier = ">=1.40.0" },
     { name = "boto3-stubs", extras = ["essential"], marker = "extra == 'dev'" },
-    { name = "chain-of-thought-tool" },
+    { name = "chain-of-thought-tool", specifier = "==0.1.1" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "isort", marker = "extra == 'dev'", specifier = ">=5.13.2" },
     { name = "litellm", specifier = ">=1.75.0" },
