@@ -54,7 +54,7 @@ class TestOrchestratorErrorHandling:
     async def test_bedrock_configuration_error(self, bedrock_thread):
         """Test Bedrock configuration error handling"""
         # Temporarily set BOTO3_AVAILABLE to False to test the error path
-        with patch("decision_matrix_mcp.orchestrator.BOTO3_AVAILABLE", False):
+        with patch("decision_matrix_mcp.backends.bedrock.BOTO3_AVAILABLE", False):
             from decision_matrix_mcp.orchestrator import DecisionOrchestrator
 
             orchestrator = DecisionOrchestrator()
@@ -65,7 +65,7 @@ class TestOrchestratorErrorHandling:
             error = exc_info.value
             assert error.backend == "bedrock"
             assert "boto3 is not installed" in str(error)
-            assert error.user_message == "bedrock backend not properly configured"
+            assert error.user_message == "AWS Bedrock requires boto3. Install: pip install boto3"
 
     @pytest.mark.asyncio()
     async def test_bedrock_rate_limit_error(self, orchestrator, bedrock_thread):

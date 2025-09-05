@@ -124,7 +124,7 @@ class DecisionReasoningOrchestrator:
             return []
         return TOOL_SPECS
 
-    async def evaluate_with_reasoning(
+    async def evaluate_with_reasoning(  # noqa: PLR0915
         self,
         thread: CriterionThread,
         option: Option,
@@ -174,10 +174,12 @@ JUSTIFICATION: [summary of your reasoning]"""
         # Prepare initial request with CoT tools
         messages = []
 
-        # Add conversation history
+        # Add conversation history, filtering out system messages (AWS Bedrock compliance)
+        filtered_history = [
+            msg for msg in thread.conversation_history if msg.get("role") != "system"
+        ]
         messages = [
-            {"role": msg["role"], "content": [{"text": msg["content"]}]}
-            for msg in thread.conversation_history
+            {"role": msg["role"], "content": [{"text": msg["content"]}]} for msg in filtered_history
         ]
 
         # Add the evaluation prompt with sanitized inputs
@@ -199,6 +201,15 @@ JUSTIFICATION: [your reasoning summary]""",
                 ],
             },
         )
+
+        # AWS Bedrock requires conversations to start with a user message
+        # Since we always append a user message above, we need to check if the first message from
+        # conversation history isn't user and insert a default user message if needed
+        if len(messages) > 1 and messages[0]["role"] != "user":
+            # Insert a default user message at the beginning
+            messages.insert(
+                0, {"role": "user", "content": [{"text": "Please help me evaluate this option."}]}
+            )
 
         request = {
             "modelId": thread.criterion.model_name or "anthropic.claude-3-sonnet-20240229-v1:0",

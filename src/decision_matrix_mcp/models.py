@@ -451,7 +451,7 @@ class DecisionSession:
     evaluations: list[dict[str, Any]] = field(default_factory=list)  # History of evaluations
     default_temperature: float = 0.1
     # Performance optimization caches
-    _matrix_cache: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
+    _matrix_cache: dict[str, Any] | None = field(default=None, init=False, repr=False)
     _cache_timestamp: float = field(default=0.0, init=False, repr=False)
     _criteria_weights_cache: dict[str, float] = field(default_factory=dict, init=False, repr=False)
 
@@ -691,7 +691,7 @@ class DecisionSession:
 
     def _invalidate_cache(self) -> None:
         """Invalidate all cached calculations when data changes."""
-        self._matrix_cache.clear()
+        self._matrix_cache = None
         self._criteria_weights_cache.clear()
         self._cache_timestamp = 0.0
 

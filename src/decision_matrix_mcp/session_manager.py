@@ -75,24 +75,21 @@ class SessionManager:
     ) -> DecisionSession:
         """Create a new decision analysis session with the given topic and options."""
         with self._session_lock:
-            # Always run cleanup first (includes both TTL and LRU eviction)
-            self._cleanup_if_needed()
+            # Always run cleanup first for expired sessions
+            self._cleanup_expired_sessions()
 
-            # Check if we're at the creation limit (max_sessions)
+            # Check if we would exceed the global memory limit after creating this session
+            if len(self.sessions) >= SessionLimits.MAX_ACTIVE_SESSIONS:
+                # We're at or exceeding the global limit, need to make room via LRU eviction
+                self._evict_lru_sessions()
+
+            # Also check if we're at the per-instance creation limit (max_sessions)
             if len(self.sessions) >= self.max_sessions:
-                # Try TTL cleanup first
-                self._cleanup_expired_sessions()
-
-                # If still at creation limit, try LRU eviction to make room
-                if len(self.sessions) >= self.max_sessions:
-                    self._evict_lru_sessions()
-
-                    # If still at creation limit after all cleanup attempts, reject
-                    if len(self.sessions) >= self.max_sessions:
-                        raise ResourceLimitError(
-                            f"Session limit of {self.max_sessions} exceeded",
-                            f"Maximum number of active sessions ({self.max_sessions}) reached. Please try again later.",
-                        )
+                # If still at per-instance creation limit after all cleanup attempts, reject
+                raise ResourceLimitError(
+                    f"Session limit of {self.max_sessions} exceeded",
+                    f"Maximum number of active sessions ({self.max_sessions}) reached. Please try again later.",
+                )
 
             session_id = str(uuid4())
             session = DecisionSession(
@@ -203,29 +200,24 @@ class SessionManager:
             self.sessions.move_to_end(session_id)
 
     def _evict_lru_sessions(self) -> None:
-        """Evict least recently used sessions when approaching memory limits."""
+        """Evict least recently used sessions when at or exceeding MAX_ACTIVE_SESSIONS."""
         current_count = len(self.sessions)
 
-        # Only evict if we're approaching the memory limit (95% threshold)
-        memory_threshold = int(SessionLimits.MAX_ACTIVE_SESSIONS * 0.95)
-        if current_count < memory_threshold:
+        # Only evict if we are at or exceed the memory limit
+        if current_count < SessionLimits.MAX_ACTIVE_SESSIONS:
             return
 
-        # Calculate target final size: try to get down to a safe level below the limit
-        # Aim for the smaller of: max_sessions limit, or 90% of MAX_ACTIVE_SESSIONS
-        target_final_size = min(self.max_sessions, int(SessionLimits.MAX_ACTIVE_SESSIONS * 0.9))
+        # Calculate target final size: exactly MAX_ACTIVE_SESSIONS
+        target_final_size = SessionLimits.MAX_ACTIVE_SESSIONS
 
-        # Calculate how many to evict
-        if current_count > target_final_size:
-            target_evictions = current_count - target_final_size
-            # Cap at batch size to avoid massive cleanups
-            target_evictions = min(target_evictions, SessionLimits.LRU_EVICTION_BATCH_SIZE)
-        else:
-            # If we're not that far over, just evict the batch size
-            target_evictions = SessionLimits.LRU_EVICTION_BATCH_SIZE
+        # Calculate how many to evict to get back to the limit
+        target_evictions = current_count - target_final_size
+
+        # Cap at batch size to avoid massive cleanups if somehow way over limit
+        target_evictions = min(target_evictions, SessionLimits.LRU_EVICTION_BATCH_SIZE)
 
         # Ensure we evict at least 1 but never more than available
-        target_evictions = max(1, min(target_evictions, current_count - 1))
+        target_evictions = max(1, min(target_evictions, current_count))
 
         sessions_to_evict: list[str] = []
 
@@ -248,18 +240,15 @@ class SessionManager:
             )
 
     def _cleanup_if_needed(self) -> None:
-        """More aggressive cleanup including both TTL and LRU-based eviction."""
+        """Cleanup expired sessions and check memory limits."""
         now = datetime.now(timezone.utc)
 
         # Check if cleanup interval has passed
         if now - self.last_cleanup > self.cleanup_interval:
             self._cleanup_expired_sessions()
 
-        # Always check if we're approaching memory limits - be more proactive
-        # Start LRU eviction when we get close to the limit, not just at it
-        memory_threshold = int(SessionLimits.MAX_ACTIVE_SESSIONS * 0.95)  # 95% of limit
-        if len(self.sessions) >= memory_threshold:
-            self._evict_lru_sessions()
+        # Only check memory limits in get_session, not during creation
+        # Creation handles LRU eviction explicitly when needed
 
     def _remove_session(self, session_id: str) -> bool:
         if session_id in self.sessions:

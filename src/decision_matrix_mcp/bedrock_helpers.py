@@ -44,16 +44,34 @@ def get_aws_region() -> str:
 def format_messages_for_converse(thread: CriterionThread) -> list[dict[str, Any]]:
     """Format thread messages for Bedrock converse API.
 
+    Ensures AWS Bedrock API compliance by:
+    - Filtering out system messages (they belong in the system parameter)
+    - Ensuring conversations start with a user message
+    - Handling empty conversations gracefully
+
     Args:
         thread: CriterionThread containing conversation history
 
     Returns:
-        List of formatted messages for converse API
+        List of formatted messages for converse API that start with a user message
     """
-    return [
-        {"role": msg["role"], "content": [{"text": msg["content"]}]}
-        for msg in thread.conversation_history
+    # Filter out system messages - they should only be in the system parameter
+    filtered_messages = [msg for msg in thread.conversation_history if msg.get("role") != "system"]
+
+    # Format messages for Bedrock converse API
+    formatted_messages = [
+        {"role": msg["role"], "content": [{"text": msg["content"]}]} for msg in filtered_messages
     ]
+
+    # AWS Bedrock requires conversations to start with a user message
+    # If we don't have any messages or the first message isn't from user, add a default user message
+    if not formatted_messages or formatted_messages[0]["role"] != "user":
+        # Insert a default user message at the beginning
+        formatted_messages.insert(
+            0, {"role": "user", "content": [{"text": "Please help me evaluate this option."}]}
+        )
+
+    return formatted_messages
 
 
 def build_converse_request(

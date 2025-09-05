@@ -24,6 +24,7 @@
 
 from .base import LLMBackend
 from .bedrock import BedrockBackend
+from .defensive import DefensiveBackendWrapper, defensive_exception_wrapper
 from .factory import BackendFactory
 from .litellm import LiteLLMBackend
 from .ollama import OllamaBackend
@@ -31,7 +32,9 @@ from .ollama import OllamaBackend
 __all__ = [
     "BackendFactory",
     "BedrockBackend",
+    "DefensiveBackendWrapper",
     "LLMBackend",
     "LiteLLMBackend",
     "OllamaBackend",
+    "defensive_exception_wrapper",
 ]

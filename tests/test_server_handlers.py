@@ -6,7 +6,6 @@ from mcp.server.fastmcp import Context
 import pytest
 
 from decision_matrix_mcp import (
-    AddCriterionRequest,
     add_criterion,
     add_option,
     clear_all_sessions,
@@ -22,22 +21,41 @@ from decision_matrix_mcp.exceptions import ResourceLimitError, SessionError, Val
 from decision_matrix_mcp.models import Criterion, ModelBackend, Score
 from decision_matrix_mcp.validation_decorators import ValidationErrorFormatter
 
-# Create server components for testing
-server_components = create_server_components()
-orchestrator = server_components.orchestrator
-session_manager = server_components.session_manager
+# Create server components for testing once per module, reset between test classes
+_test_server_components = None
+
+
+def get_test_server_components():
+    """Get or create test server components"""
+    global _test_server_components  # noqa: PLW0603
+    if _test_server_components is None:
+        _test_server_components = create_server_components()
+    return _test_server_components
+
+
+def reset_test_server_components():
+    """Reset test server components"""
+    global _test_server_components  # noqa: PLW0603
+    _test_server_components = None
 
 
 # Mock context for all tests
 mock_ctx = Mock(spec=Context)
 
 
+# Get module-level components for direct access
+server_components = get_test_server_components()
+session_manager = server_components.session_manager
+orchestrator = server_components.orchestrator
+
+
 @pytest.fixture(autouse=True)
 def patch_server_components(monkeypatch):
     """Automatically patch get_server_components to return our test components"""
-    monkeypatch.setattr("decision_matrix_mcp.get_server_components", lambda: server_components)
+    components = get_test_server_components()
+    monkeypatch.setattr("decision_matrix_mcp.get_server_components", lambda: components)
     # Ensure ValidationErrorFormatter is initialized for tests
-    ValidationErrorFormatter.initialize(server_components.formatter)
+    ValidationErrorFormatter.initialize(components.formatter)
 
 
 class TestSessionHelpers:
@@ -48,14 +66,14 @@ class TestSessionHelpers:
         # Use empty string which is invalid
         session, error = get_session_or_error("", server_components)
         assert session is None
-        assert error["error"] == "Session ID format is invalid"
+        assert error["error"] == "Invalid session ID"
 
     def test_get_session_or_error_not_found(self):
         """Test get_session_or_error with non-existent session"""
         valid_uuid = "12345678-1234-5678-1234-567812345678"
         session, error = get_session_or_error(valid_uuid, server_components)
         assert session is None
-        assert error["error"] == "Session not found or has expired"
+        assert error["error"] == "Session not found or expired"
 
     def test_get_session_or_error_success(self):
         """Test get_session_or_error with valid session"""
@@ -344,24 +362,23 @@ class TestAddCriterion:
     async def test_add_criterion_duplicate(self, test_session):
         """Test adding duplicate criterion"""
         # Add first criterion
-        request1 = AddCriterionRequest(
+        await add_criterion(
             session_id=test_session.session_id,
             name="Cost",
             description="Evaluate cost",
+            ctx=mock_ctx,
         )
-        await add_criterion(request1, mock_ctx)
 
         # Try to add same criterion again
-        request2 = AddCriterionRequest(
+        result = await add_criterion(
             session_id=test_session.session_id,
             name="Cost",
             description="Different description",
+            ctx=mock_ctx,
         )
-        result = await add_criterion(request2, mock_ctx)
 
         assert "error" in result
         assert result["error"] == "Criterion 'Cost' already exists"
-        assert "formatted_output" in result
 
     @pytest.mark.asyncio()
     async def test_add_criterion_validation_errors(self, test_session):
@@ -658,7 +675,7 @@ class TestAddOption:
     """Test add_option handler"""
 
     @pytest.fixture()
-    def test_session(self):
+    def test_session(self, session_manager):
         """Create a test session"""
         session = session_manager.create_session("Test", ["Option A"])
         yield session

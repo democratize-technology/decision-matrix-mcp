@@ -145,27 +145,48 @@ class TestSessionTTL:
             assert manager._is_session_expired(session)
 
     def test_concurrent_cleanup_safety(self):
-        """Test that cleanup is safe with concurrent session modifications."""
-        manager = SessionManager(session_ttl_hours=1)
+        """Test that automatic cleanup works correctly during session creation."""
+        manager = SessionManager(session_ttl_hours=1, max_sessions=50)
 
-        # Create multiple sessions
+        # Create sessions, some will be expired and automatically cleaned up
         session_ids = []
+        remaining_sessions = []
+
         for i in range(5):
             session = manager.create_session(f"Decision {i}")
             session_ids.append(session.session_id)
 
-            # Make some old
+            # Make some old (these will be cleaned up automatically during next session creation)
             if i < 2:
                 session.created_at = datetime.now(timezone.utc) - timedelta(hours=2)
+            else:
+                # These sessions should remain
+                remaining_sessions.append(session.session_id)
 
-        # Track original count
-        original_count = len(manager.sessions)
+        # The automatic cleanup during session creation should have removed expired sessions
+        # Only sessions 2, 3, 4 should remain (sessions 0, 1 were cleaned up automatically)
+        final_count = len(manager.sessions)
 
-        # Run cleanup
+        # Verify that only non-expired sessions remain
+        assert (
+            final_count == 3
+        ), f"Expected 3 sessions to remain after automatic cleanup, got {final_count}"
+        assert (
+            session_ids[0] not in manager.sessions
+        ), "Expired session 0 should have been auto-cleaned"
+        assert (
+            session_ids[1] not in manager.sessions
+        ), "Expired session 1 should have been auto-cleaned"
+        assert all(
+            sid in manager.sessions for sid in remaining_sessions
+        ), "Non-expired sessions should remain"
+
+        # Verify the remaining sessions are the expected ones
+        remaining_topics = [s.topic for s in manager.sessions.values()]
+        assert remaining_topics == ["Decision 2", "Decision 3", "Decision 4"]
+
+        # Run explicit cleanup (should be no-op since already cleaned)
         manager._cleanup_expired_sessions()
 
-        # Verify correct sessions were removed
-        assert len(manager.sessions) == original_count - 2
-        assert session_ids[0] not in manager.sessions
-        assert session_ids[1] not in manager.sessions
-        assert all(sid in manager.sessions for sid in session_ids[2:])
+        # Verify no change after explicit cleanup
+        assert len(manager.sessions) == 3, "Explicit cleanup should not change anything"

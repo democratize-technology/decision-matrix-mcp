@@ -28,7 +28,6 @@ Handles session validation, input validation, and prerequisite checking.
 import logging
 from typing import Any
 
-from ..exceptions import SessionError, ValidationError
 from ..models import DecisionSession
 from ..session_manager import SessionValidator
 
@@ -57,7 +56,7 @@ class ValidationService:
         self,
         session_id: str,
         session_manager: Any,
-    ) -> DecisionSession:
+    ) -> tuple[DecisionSession | None, dict[str, Any] | None]:
         """Validate session exists and return it.
 
         Args:
@@ -65,60 +64,46 @@ class ValidationService:
             session_manager: Session manager instance
 
         Returns:
-            The valid session
-
-        Raises:
-            ValidationError: If session ID format is invalid
-            SessionError: If session not found or expired
+            Tuple of (session, None) if successful, or (None, error_dict) if failed
         """
         # Validate session ID format first
         if not self.validate_session_id(session_id):
-            raise ValidationError(
-                f"Invalid session ID format: {session_id}",
-                user_message="Invalid session ID",
-                error_code="DMX_1001",
-                context={"session_id": session_id},
-                recovery_suggestion="Provide a valid UUID session ID",
-            )
+            error_dict = {
+                "error": "Invalid session ID",
+            }
+            return None, error_dict
 
         session = session_manager.get_session(session_id)
         if not session:
-            raise SessionError(
-                f"Session {session_id} not found or expired",
-                user_message="Session not found or has expired",
-                error_code="DMX_2001",
-                context={"session_id": session_id},
-                recovery_suggestion="Create a new session or use a valid session ID",
-            )
+            error_dict = {
+                "error": "Session not found or expired",
+            }
+            return None, error_dict
 
-        return session
+        return session, None
 
-    def validate_evaluation_prerequisites(self, session: DecisionSession) -> None:
+    def validate_evaluation_prerequisites(self, session: DecisionSession) -> dict[str, Any] | None:
         """Validate that a session is ready for evaluation.
 
         Args:
             session: The decision session to validate
 
-        Raises:
-            ValidationError: If session is not ready for evaluation
+        Returns:
+            Error dict if validation fails, None if valid
         """
         if not session.options:
-            raise ValidationError(
-                "Cannot evaluate session without options",
-                user_message="No options to evaluate. Add options first.",
-                error_code="DMX_1002",
-                context={"has_options": False, "has_criteria": bool(session.criteria)},
-                recovery_suggestion="Add options to the decision session before evaluation",
-            )
+            return {
+                "error": "No options to evaluate. Add options first.",
+                "validation_context": "prerequisites",
+            }
 
         if not session.criteria:
-            raise ValidationError(
-                "Cannot evaluate session without criteria",
-                user_message="No criteria defined. Add criteria first.",
-                error_code="DMX_1003",
-                context={"has_options": bool(session.options), "has_criteria": False},
-                recovery_suggestion="Add evaluation criteria before running evaluation",
-            )
+            return {
+                "error": "No criteria defined. Add criteria first.",
+                "validation_context": "prerequisites",
+            }
+
+        return None
 
     def validate_criterion_name(self, name: str) -> bool:
         """Validate criterion name.

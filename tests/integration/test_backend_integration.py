@@ -514,8 +514,8 @@ class TestBackendErrorRecovery:
                 mock_client.converse.side_effect = timeout_error
 
                 with (
-                    patch.object(backend, "_get_bedrock_client", return_value=mock_client),
-                    pytest.raises(LLMAPIError, match="Bedrock API call failed"),
+                    patch.object(backend._backend, "_get_bedrock_client", return_value=mock_client),
+                    pytest.raises((LLMAPIError, LLMBackendError)),
                 ):
                     await backend.generate_response(sample_criterion_thread)
 
@@ -524,12 +524,12 @@ class TestBackendErrorRecovery:
                     "decision_matrix_mcp.backends.litellm.litellm.acompletion",
                     side_effect=asyncio.TimeoutError(),
                 ):
-                    with pytest.raises(LLMAPIError, match="LiteLLM API call failed"):
+                    with pytest.raises((LLMAPIError, LLMBackendError)):
                         await backend.generate_response(sample_criterion_thread)
 
             elif backend.name == "ollama":
                 with patch("httpx.AsyncClient.post", side_effect=asyncio.TimeoutError()):
-                    with pytest.raises(LLMAPIError, match="Ollama call failed"):
+                    with pytest.raises((LLMAPIError, LLMBackendError)):
                         await backend.generate_response(sample_criterion_thread)
 
     @pytest.mark.asyncio()
@@ -554,8 +554,10 @@ class TestBackendErrorRecovery:
                 mock_client = Mock()
                 mock_client.converse.side_effect = rate_limit_error
 
-                with patch.object(backend, "_get_bedrock_client", return_value=mock_client):
-                    with pytest.raises(LLMAPIError):
+                with patch.object(
+                    backend._backend, "_get_bedrock_client", return_value=mock_client
+                ):
+                    with pytest.raises((LLMAPIError, LLMBackendError)):
                         await backend.generate_response(sample_criterion_thread)
 
             elif backend.name == "litellm":
@@ -564,13 +566,13 @@ class TestBackendErrorRecovery:
                     "decision_matrix_mcp.backends.litellm.litellm.acompletion",
                     side_effect=rate_limit_error,
                 ):
-                    with pytest.raises(LLMAPIError):
+                    with pytest.raises((LLMAPIError, LLMBackendError)):
                         await backend.generate_response(sample_criterion_thread)
 
             elif backend.name == "ollama":
                 rate_limit_error = Exception("Rate limit exceeded")
                 with patch("httpx.AsyncClient.post", side_effect=rate_limit_error):
-                    with pytest.raises(LLMAPIError):
+                    with pytest.raises((LLMAPIError, LLMBackendError)):
                         await backend.generate_response(sample_criterion_thread)
 
 

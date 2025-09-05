@@ -304,12 +304,15 @@ def _extract_score_legacy(response: str) -> float | None:
     score_patterns = [
         (r"SCORE:\s*([+-]?[0-9]+(?:\.[0-9]+)?)", 1),  # Fixed: handles negative numbers
         (r"SCORE:\s*([+-]?[0-9]+)/10", 1),  # Fixed: handles negative numbers
+        (r"SCORE:\s*.*?([+-]?[0-9]+(?:\.[0-9]+)?).*?", 1),  # SCORE with text around number
         (r"Rating:\s*([+-]?[0-9]+(?:\.[0-9]+)?)", 1),  # Fixed: handles negative numbers
         (r"([+-]?[0-9]+(?:\.[0-9]+)?)/10", 1),  # Fixed: handles negative numbers
         (r"Score\s*=\s*([+-]?[0-9]+(?:\.[0-9]+)?)", 1),  # Fixed: handles negative numbers
         (r"score\s+is\s+([+-]?[0-9]+(?:\.[0-9]+)?)", 1),  # "score is X" - fixed
         (r"rate\s+this\s+([+-]?[0-9]+(?:\.[0-9]+)?)", 1),  # "rate this X" - fixed
-        # Removed pure number pattern - numbers without context should not be treated as scores
+        # Pure number pattern - match standalone numbers (but be careful about context)
+        (r"^\s*([+-]?[0-9]+(?:\.[0-9]+)?)\s*$", 1),  # Standalone number (full line match)
+        (r"^\s*([+-]?[0-9]+(?:\.[0-9]+)?)\s*\n", 1),  # Number on first line of multiline response
     ]
 
     for pattern, group in score_patterns:
@@ -356,13 +359,21 @@ def _extract_justification_legacy(response: str) -> str:
     lines = response.strip().split("\n")
     if len(lines) > 1 and re.search(r"(score|rating|^\d+)", lines[0], re.IGNORECASE):
         # Skip first line if it contains score
-        return "\n".join(lines[1:]).strip()
+        justification_lines = "\n".join(lines[1:]).strip()
+        return justification_lines if justification_lines else "No justification provided"
+
+    # Check if this is a simple score-only response like "SCORE: 7"
+    response_stripped = response.strip()
+    if re.match(r"^\s*SCORE:\s*[+-]?\d+(\.\d+)?\s*$", response_stripped, re.IGNORECASE):
+        return "No justification provided"
 
     # Enhanced fallback: Return original text for descriptive responses or abstention phrases
-    response_stripped = response.strip()
-
     # If it's a short descriptive phrase (like abstention text), return it
-    if len(response_stripped) <= 100 and len(response_stripped) > 3:
+    if (
+        len(response_stripped) <= 100
+        and len(response_stripped) > 3
+        and not re.match(r"^[+-]?\d+(\.\d+)?$", response_stripped)
+    ):
         return response_stripped
 
     # If it's longer descriptive text, return it (capped at 500 chars)

@@ -250,7 +250,7 @@ class TestValidationService:
             )
 
             assert session is None
-            assert error == {"error": "Invalid session ID format"}
+            assert error == {"error": "Invalid session ID"}
 
     def test_validate_session_exists_not_found(self, validation_service):
         """Test session existence validation when session not found"""
@@ -268,7 +268,7 @@ class TestValidationService:
             )
 
             assert session is None
-            assert error == {"error": "Session missing-id not found or expired"}
+            assert error == {"error": "Session not found or expired"}
 
     def test_validate_evaluation_prerequisites_no_options(self, validation_service):
         """Test evaluation prerequisites with no options"""

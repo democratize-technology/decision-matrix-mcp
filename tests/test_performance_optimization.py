@@ -177,13 +177,13 @@ class TestPerformanceOptimizations:
         # Add new option (should invalidate cache)
         self.session.add_option("New_Option", "A newly added option")
 
-        # Add score for new option
+        # Add score for new option (guaranteed to be highest - existing scores max at 10.0)
         for criterion_name in self.session.criteria:
             score = Score(
                 criterion_name=criterion_name,
                 option_name="New_Option",
-                score=9.0,
-                justification="High score for new option",
+                score=10.0,  # Maximum possible score to guarantee top ranking
+                justification="Maximum score for new option",
             )
             self.session.options["New_Option"].add_score(score)
 

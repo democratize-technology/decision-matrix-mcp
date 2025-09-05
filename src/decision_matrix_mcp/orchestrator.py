@@ -43,6 +43,12 @@ try:
 except ImportError:
     BOTO3_AVAILABLE = False
 
+# Use importlib to check availability without importing
+import importlib.util
+
+LITELLM_AVAILABLE = importlib.util.find_spec("litellm") is not None
+HTTPX_AVAILABLE = importlib.util.find_spec("httpx") is not None
+
 logger = logging.getLogger(__name__)
 
 NO_RESPONSE = "[NO_RESPONSE]"
@@ -541,11 +547,27 @@ JUSTIFICATION: [your reasoning]"""
 
     async def _call_litellm(self, thread: CriterionThread) -> str:
         """Legacy facade method - delegates to LiteLLMBackend."""
+        if not LITELLM_AVAILABLE:
+            from .exceptions import LLMConfigurationError
+
+            raise LLMConfigurationError(
+                backend="litellm",
+                message="litellm is not installed. Please install with: pip install litellm",
+            )
+
         backend = self.backend_factory.create_backend(ModelBackend.LITELLM)
         return await backend.generate_response(thread)
 
     async def _call_ollama(self, thread: CriterionThread) -> str:
         """Legacy facade method - delegates to OllamaBackend."""
+        if not HTTPX_AVAILABLE:
+            from .exceptions import LLMConfigurationError
+
+            raise LLMConfigurationError(
+                backend="ollama",
+                message="httpx is not installed. Please install with: pip install httpx",
+            )
+
         backend = self.backend_factory.create_backend(ModelBackend.OLLAMA)
         return await backend.generate_response(thread)
 

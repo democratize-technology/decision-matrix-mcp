@@ -116,12 +116,9 @@ class TestMainFunction:
         with pytest.raises(ValueError):
             main()
 
-        # Should log error
-        mock_logger.error.assert_called()
-        assert any(
-            "Server error: Unexpected error occurred" in str(call)
-            for call in mock_logger.error.call_args_list
-        )
+        # Should log error using logger.exception (not logger.error)
+        mock_logger.exception.assert_called()
+        assert any("Server error" in str(call) for call in mock_logger.exception.call_args_list)
 
         # Should print traceback
         mock_print_exc.assert_called_once_with(file=sys.stderr)

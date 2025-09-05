@@ -23,11 +23,13 @@
 """Factory for creating LLM backend instances."""
 
 import logging
+from typing import Any
 
 from ..exceptions import ConfigurationError
 from ..models import ModelBackend
 from .base import LLMBackend
 from .bedrock import BedrockBackend
+from .defensive import DefensiveBackendWrapper
 from .litellm import LiteLLMBackend
 from .ollama import OllamaBackend
 
@@ -54,7 +56,7 @@ class BackendFactory:
             backend_type: The type of backend to create
 
         Returns:
-            LLMBackend instance for the specified type
+            LLMBackend instance for the specified type (wrapped in defensive handler)
 
         Raises:
             ConfigurationError: If backend type is unknown
@@ -71,13 +73,32 @@ class BackendFactory:
 
         # Create new instance
         backend_class = self._backends[backend_type]
-        instance = backend_class()
+        raw_instance = backend_class()
 
-        # Cache the instance
-        self._instances[backend_type] = instance
+        # Always wrap in defensive handler for additional error handling
+        wrapped_instance = self._ensure_defensive_wrapper(raw_instance)
 
-        logger.debug("Created new %s backend instance", backend_type.value)
-        return instance
+        # Cache the wrapped instance
+        self._instances[backend_type] = wrapped_instance
+
+        logger.debug("Created new %s backend instance (with defensive wrapper)", backend_type.value)
+        return wrapped_instance
+
+    def _ensure_defensive_wrapper(self, backend: Any) -> LLMBackend:
+        """Ensure backend is wrapped with defensive exception handling.
+
+        Args:
+            backend: The backend instance to potentially wrap
+
+        Returns:
+            Backend instance wrapped with defensive error handling
+        """
+        # If already wrapped, return as-is
+        if isinstance(backend, DefensiveBackendWrapper):
+            return backend
+
+        # Wrap in defensive handler
+        return DefensiveBackendWrapper(backend)
 
     def validate_backend_availability(self, backend_type: ModelBackend) -> bool:
         """Check if backend dependencies are available.

@@ -2,13 +2,22 @@
 
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from decision_matrix_mcp.constants import SessionLimits
 from decision_matrix_mcp.exceptions import ResourceLimitError
 from decision_matrix_mcp.session_manager import SessionManager
 
 
+@pytest.mark.forked()
 class TestMemoryLeakFix:
     """Test the LRU-based memory leak fix implementation"""
+
+    def setup_method(self):
+        """Set up fresh state for each test"""
+
+    def teardown_method(self):
+        """Clean up after each test"""
 
     def test_sessions_stored_in_ordered_dict(self):
         """Test that sessions are stored in OrderedDict for LRU tracking"""
@@ -99,6 +108,7 @@ class TestMemoryLeakFix:
         # Verify we don't exceed the memory bound
         assert len(manager.sessions) <= SessionLimits.MAX_ACTIVE_SESSIONS
 
+    @pytest.mark.forked()
     def test_no_eviction_when_under_memory_limit(self):
         """Test that LRU eviction doesn't happen when under MAX_ACTIVE_SESSIONS"""
         manager = SessionManager(max_sessions=50)
@@ -219,6 +229,7 @@ class TestMemoryLeakFix:
             sessions_created >= SessionLimits.MAX_ACTIVE_SESSIONS
         )  # Should create at least this many
 
+    @pytest.mark.forked()
     def test_lru_eviction_preserves_recently_used(self):
         """Test that LRU eviction preserves recently accessed sessions"""
         manager = SessionManager(max_sessions=200)

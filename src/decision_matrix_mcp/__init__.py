@@ -185,23 +185,17 @@ def get_session_or_error(
     Returns:
         Tuple of (session, None) if successful, or (None, error_dict) if failed
     """
-    try:
-        session = components.validation_service.validate_session_exists(
-            session_id,
-            components.session_manager,
-        )
-    except (ValidationError, SessionError) as e:
-        error_dict = components.response_service.create_error_response(
-            message=e.user_message,
-            context="Session validation",
-            error_code=e.error_code,
-            error_category=e.error_category,
-            recovery_suggestion=e.recovery_suggestion,
-            diagnostic_context=e.context,
-        )
+    # Use the new tuple-returning validation method
+    session, error_dict = components.validation_service.validate_session_exists(
+        session_id,
+        components.session_manager,
+    )
+
+    if error_dict:
+        # Return the simple error dict directly for handler tests
         return None, error_dict
-    else:
-        return session, None
+
+    return session, None
 
 
 async def _execute_parallel_evaluation(
@@ -341,7 +335,7 @@ class AddCriterionRequest(BaseModel):
 @mcp.tool(
     description="When you identify another factor to consider - add evaluation criteria with weights to structure your decision analysis",
 )
-async def add_criterion(
+async def add_criterion(  # noqa: PLR0911
     session_id: str,
     name: str,
     description: str,
@@ -380,6 +374,33 @@ async def add_criterion(
     assert (
         session is not None
     ), "Session should not be None after successful get_session_or_error"  # nosec B101
+
+    # Validate criterion name
+    if not components.validation_service.validate_criterion_name(request.name):
+        from decision_matrix_mcp.validation_decorators import ERROR_MESSAGES
+
+        return components.response_service.create_error_response(
+            ERROR_MESSAGES["name"],
+            "Invalid criterion name",
+        )
+
+    # Validate description
+    if not components.validation_service.validate_description(request.description):
+        from decision_matrix_mcp.validation_decorators import ERROR_MESSAGES
+
+        return components.response_service.create_error_response(
+            ERROR_MESSAGES["description"],
+            "Invalid description",
+        )
+
+    # Validate weight
+    if not components.validation_service.validate_weight(request.weight):
+        from decision_matrix_mcp.validation_decorators import ERROR_MESSAGES
+
+        return components.response_service.create_error_response(
+            ERROR_MESSAGES["weight"],
+            "Invalid weight",
+        )
 
     # Check if criterion already exists
     if components.validation_service.validate_criterion_exists(session, request.name):
@@ -444,16 +465,11 @@ async def evaluate_options(
     ), "Session should not be None after successful get_session_or_error"  # nosec B101
 
     # Validate prerequisites
-    try:
-        components.validation_service.validate_evaluation_prerequisites(session)
-    except ValidationError as e:
+    validation_error = components.validation_service.validate_evaluation_prerequisites(session)
+    if validation_error:
         return components.response_service.create_error_response(
-            message=e.user_message,
-            context="Prerequisites",
-            error_code=e.error_code,
-            error_category=e.error_category,
-            recovery_suggestion=e.recovery_suggestion,
-            diagnostic_context=e.context,
+            validation_error["error"],
+            "Prerequisites",
         )
 
     try:
@@ -531,6 +547,11 @@ async def get_decision_matrix(
 
     except (ValidationError, SessionError, ValueError, RuntimeError) as e:
         return components.error_handler.handle_exception(e, "Matrix generation")
+    except Exception as e:  # noqa: BLE001
+        return components.response_service.create_error_response(
+            f"Failed to generate matrix: {e!s}",
+            "Matrix generation",
+        )
 
 
 class AddOptionRequest(BaseModel):

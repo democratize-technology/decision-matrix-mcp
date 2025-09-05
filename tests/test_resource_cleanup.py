@@ -60,21 +60,22 @@ class TestResourceCleanup:
 
     def test_server_components_cleanup(self):
         """Test that ServerComponents cleanup calls all component cleanups."""
-        # Create components with mocks
+        # Create a mock service container with the required methods
+        mock_container = MagicMock()
         mock_orchestrator = MagicMock()
         mock_session_manager = MagicMock()
 
-        components = ServerComponents(
-            orchestrator=mock_orchestrator,
-            session_manager=mock_session_manager,
-        )
+        # Set up container to return our mocked components
+        mock_container.get_orchestrator.return_value = mock_orchestrator
+        mock_container.get_session_manager.return_value = mock_session_manager
+
+        components = ServerComponents(service_container=mock_container)
 
         # Call cleanup
         components.cleanup()
 
-        # Verify both components were cleaned up
-        mock_session_manager.clear_all_sessions.assert_called_once()
-        mock_orchestrator.cleanup.assert_called_once()
+        # Verify container cleanup was called (which should clean up all components)
+        mock_container.cleanup.assert_called_once()
 
     def test_cleanup_on_server_shutdown(self):
         """Test that cleanup is called during server shutdown."""
@@ -113,8 +114,9 @@ class TestResourceCleanup:
                     with contextlib.suppress(SystemExit):
                         decision_matrix_mcp.main()
 
-                    # Verify error was logged
-                    mock_logger.error.assert_any_call("Error during cleanup: Cleanup failed")
+                    # Verify error was logged - logger.exception() just logs "Error during cleanup"
+                    # The exception details are automatically included by the logging framework
+                    mock_logger.exception.assert_any_call("Error during cleanup")
 
     def test_cleanup_idempotency(self):
         """Test that cleanup can be called multiple times safely."""

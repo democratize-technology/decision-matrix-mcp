@@ -121,16 +121,16 @@ class TestBackendFactory:
 
         assert len(factory._instances) == 2
 
-        # Mock cleanup methods
-        backend1.cleanup = MagicMock()
-        backend2.cleanup = MagicMock()
+        # Mock cleanup methods on the wrapped backends
+        backend1._backend.cleanup = MagicMock()
+        backend2._backend.cleanup = MagicMock()
 
         # Cleanup
         factory.cleanup()
 
         # Verify cleanup was called and instances cleared
-        backend1.cleanup.assert_called_once()
-        backend2.cleanup.assert_called_once()
+        backend1._backend.cleanup.assert_called_once()
+        backend2._backend.cleanup.assert_called_once()
         assert len(factory._instances) == 0
 
     def test_cleanup_with_error(self, factory):
@@ -147,10 +147,12 @@ class TestBackendFactory:
 
     def test_cleanup_no_cleanup_method(self, factory):
         """Test cleanup when backend doesn't have cleanup method"""
-        # Create backend and remove cleanup method
+        # Create backend and remove cleanup method from the wrapped backend
         backend = factory.create_backend(ModelBackend.LITELLM)
-        if hasattr(backend, "cleanup"):
-            delattr(backend, "cleanup")
+
+        # Remove cleanup method from the wrapped backend, not the wrapper
+        if hasattr(backend._backend, "cleanup"):
+            delattr(backend._backend, "cleanup")
 
         # Cleanup should not raise error
         factory.cleanup()

@@ -134,9 +134,15 @@ class TestBackendDefensivePatterns:
 
         for exception, expected_error_type in error_scenarios:
             mock_backend = AsyncMock()
+            mock_backend.name = "test_backend"
             mock_backend.generate_response.side_effect = exception
 
-            with patch.object(factory, "create_backend", return_value=mock_backend):
+            # Create a custom side_effect for create_backend that preserves defensive wrapper
+            def create_backend_side_effect(backend_type):
+                # Apply the defensive wrapper to the mock backend
+                return factory._ensure_defensive_wrapper(mock_backend)
+
+            with patch.object(factory, "create_backend", side_effect=create_backend_side_effect):
                 backend = factory.create_backend(ModelBackend.BEDROCK)
 
                 # Should raise LLMBackendError with appropriate context
