@@ -14,6 +14,7 @@ from mcp.server.fastmcp import Context
 import pytest
 
 from decision_matrix_mcp import ServerComponents, create_server_components
+from decision_matrix_mcp.dependency_injection.container import ServiceContainer
 from decision_matrix_mcp.models import Criterion, DecisionSession, ModelBackend, Option, Score
 from decision_matrix_mcp.orchestrator import DecisionOrchestrator
 from decision_matrix_mcp.session_manager import SessionManager
@@ -34,17 +35,21 @@ class TestDependencyInjection:
         assert isinstance(components.session_manager, SessionManager)
 
     def test_server_components_with_custom_instances(self):
-        """Test ServerComponents with custom injected instances"""
-        custom_orchestrator = DecisionOrchestrator()
-        custom_session_manager = SessionManager()
+        """Test ServerComponents with dependency injection"""
+        # Create a custom service container
+        custom_container = ServiceContainer()
 
-        components = ServerComponents(
-            orchestrator=custom_orchestrator,
-            session_manager=custom_session_manager,
-        )
+        # Initialize the container so it creates instances
+        custom_container.initialize()
 
-        assert components.orchestrator is custom_orchestrator
-        assert components.session_manager is custom_session_manager
+        # Create ServerComponents with the custom container
+        components = ServerComponents(service_container=custom_container)
+
+        # Verify components are properly initialized
+        assert components.orchestrator is not None
+        assert components.session_manager is not None
+        assert isinstance(components.orchestrator, DecisionOrchestrator)
+        assert isinstance(components.session_manager, SessionManager)
 
     def test_server_components_cleanup(self):
         """Test that cleanup properly clears resources"""
@@ -188,18 +193,17 @@ class TestSessionValidationGuards:
     @pytest.mark.asyncio()
     async def test_add_criterion_with_invalid_session(self):
         """Test that add_criterion properly handles invalid session"""
-        from decision_matrix_mcp import AddCriterionRequest, add_criterion, get_server_components
+        from decision_matrix_mcp import add_criterion, get_server_components
 
         get_server_components()
 
         # Test with non-existent session
-        request = AddCriterionRequest(
+        result = await add_criterion(
             session_id="invalid-session-id",
             name="Test Criterion",
             description="Test Description",
+            ctx=mock_ctx,
         )
-
-        result = await add_criterion(request, mock_ctx)
 
         # Should return error, not crash
         assert "error" in result
@@ -234,10 +238,6 @@ class TestSessionValidationGuards:
     async def test_all_handlers_have_session_guards(self):
         """Test that all session-dependent handlers have proper guards"""
         from decision_matrix_mcp import (
-            AddCriterionRequest,
-            AddOptionRequest,
-            EvaluateOptionsRequest,
-            GetDecisionMatrixRequest,
             add_criterion,
             add_option,
             evaluate_options,
@@ -250,29 +250,32 @@ class TestSessionValidationGuards:
 
         # Test add_criterion
         result = await add_criterion(
-            AddCriterionRequest(session_id=invalid_session_id, name="Test", description="Test"),
-            mock_ctx,
+            session_id=invalid_session_id,
+            name="Test",
+            description="Test",
+            ctx=mock_ctx,
         )
         assert "error" in result
 
         # Test evaluate_options
         result = await evaluate_options(
-            EvaluateOptionsRequest(session_id=invalid_session_id),
-            mock_ctx,
+            session_id=invalid_session_id,
+            ctx=mock_ctx,
         )
         assert "error" in result
 
         # Test get_decision_matrix
         result = await get_decision_matrix(
-            GetDecisionMatrixRequest(session_id=invalid_session_id),
-            mock_ctx,
+            session_id=invalid_session_id,
+            ctx=mock_ctx,
         )
         assert "error" in result
 
         # Test add_option
         result = await add_option(
-            AddOptionRequest(session_id=invalid_session_id, option_name="Test Option"),
-            mock_ctx,
+            session_id=invalid_session_id,
+            option_name="Test Option",
+            ctx=mock_ctx,
         )
         assert "error" in result
 
@@ -284,10 +287,6 @@ class TestIntegration:
     async def test_full_workflow_with_fixes(self):
         """Test complete decision analysis workflow with all fixes"""
         from decision_matrix_mcp import (
-            AddCriterionRequest,
-            EvaluateOptionsRequest,
-            GetDecisionMatrixRequest,
-            StartDecisionAnalysisRequest,
             add_criterion,
             evaluate_options,
             get_decision_matrix,
@@ -300,12 +299,10 @@ class TestIntegration:
 
         # Start analysis
         start_result = await start_decision_analysis(
-            StartDecisionAnalysisRequest(
-                topic="Choose Framework",
-                options=["React", "Vue", "Angular"],
-                model_backend=ModelBackend.BEDROCK,
-            ),
-            mock_ctx,
+            topic="Choose Framework",
+            options=["React", "Vue", "Angular"],
+            model_backend=ModelBackend.BEDROCK,
+            ctx=mock_ctx,
         )
 
         assert "session_id" in start_result
@@ -313,13 +310,11 @@ class TestIntegration:
 
         # Add criterion
         criterion_result = await add_criterion(
-            AddCriterionRequest(
-                session_id=session_id,
-                name="Performance",
-                description="Runtime performance",
-                weight=3.0,
-            ),
-            mock_ctx,
+            session_id=session_id,
+            name="Performance",
+            description="Runtime performance",
+            weight=3.0,
+            ctx=mock_ctx,
         )
 
         assert "error" not in criterion_result
@@ -338,8 +333,8 @@ class TestIntegration:
 
             # Evaluate
             eval_result = await evaluate_options(
-                EvaluateOptionsRequest(session_id=session_id),
-                mock_ctx,
+                session_id=session_id,
+                ctx=mock_ctx,
             )
 
             assert "error" not in eval_result
@@ -348,8 +343,8 @@ class TestIntegration:
 
         # Get matrix
         matrix_result = await get_decision_matrix(
-            GetDecisionMatrixRequest(session_id=session_id),
-            mock_ctx,
+            session_id=session_id,
+            ctx=mock_ctx,
         )
 
         assert "error" not in matrix_result

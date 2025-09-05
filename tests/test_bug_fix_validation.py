@@ -299,6 +299,65 @@ class TestBugFixValidation:
             assert len(matrix["matrix"]) == 3  # All options
             assert len(matrix["criteria_weights"]) == 3  # All criteria
 
+    def test_dict_check_vs_hasattr_behavior(self):
+        """
+        Test that __dict__ check avoids property triggering while hasattr would trigger it.
+
+        This validates the core technical mechanism of the bug fix:
+        - __dict__ check does not trigger @cached_property
+        - This is why the fix works (hasattr() would trigger the property prematurely)
+        """
+        session = DecisionSession(
+            session_id=str(uuid4()),
+            created_at=datetime.now(timezone.utc),
+            topic="Technical Fix Validation",
+        )
+
+        # Setup minimal data
+        session.add_option("Option A")
+        session.add_criterion(Criterion(name="Test", description="Test criterion", weight=1.0))
+
+        # __dict__ check should not trigger property
+        assert "decision_matrix" not in session.__dict__
+        has_property_dict = "decision_matrix" in session.__dict__
+        assert has_property_dict is False
+        assert "decision_matrix" not in session.__dict__  # Still not triggered
+
+        # Access property explicitly to verify it works
+        _ = session.decision_matrix
+        assert "decision_matrix" in session.__dict__
+
+        # Now __dict__ check returns True
+        has_property_dict = "decision_matrix" in session.__dict__
+        assert has_property_dict is True
+
+    def test_cached_property_behavior_after_fix(self):
+        """
+        Test that @cached_property still works correctly after the fix.
+
+        Validates that the bug fix didn't break normal cached property functionality:
+        - First access computes and caches the property
+        - Second access returns the same cached object
+        """
+        session = DecisionSession(
+            session_id=str(uuid4()),
+            created_at=datetime.now(timezone.utc),
+            topic="Property Caching Validation",
+        )
+
+        # Add minimal setup for property to work
+        session.add_option("Option A")
+        session.add_criterion(Criterion(name="Test", description="Test criterion", weight=1.0))
+
+        # First access should compute and cache the property
+        assert "decision_matrix" not in session.__dict__
+        matrix1 = session.decision_matrix
+        assert "decision_matrix" in session.__dict__
+
+        # Second access should return cached value
+        matrix2 = session.decision_matrix
+        assert matrix1 is matrix2  # Same object reference (cached)
+
 
 if __name__ == "__main__":
     import pytest

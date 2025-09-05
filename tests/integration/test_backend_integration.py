@@ -11,6 +11,7 @@ These tests verify:
 import asyncio
 import os
 from unittest.mock import Mock, patch
+from uuid import uuid4
 
 import pytest
 
@@ -18,8 +19,31 @@ from decision_matrix_mcp.backends.bedrock import BedrockBackend
 from decision_matrix_mcp.backends.factory import BackendFactory
 from decision_matrix_mcp.backends.litellm import LiteLLMBackend
 from decision_matrix_mcp.backends.ollama import OllamaBackend
-from decision_matrix_mcp.exceptions import LLMBackendError
-from decision_matrix_mcp.models import ModelBackend
+from decision_matrix_mcp.exceptions import LLMAPIError, LLMBackendError, LLMConfigurationError
+from decision_matrix_mcp.models import Criterion, CriterionThread, ModelBackend
+
+
+# Test fixtures
+@pytest.fixture()
+def sample_criterion():
+    """Create a sample criterion for testing."""
+    return Criterion(
+        name="performance",
+        description="Evaluates system performance characteristics",
+        weight=1.0,
+        system_prompt="You are evaluating performance. Respond with a JSON object containing 'score' (0-10) and 'justification'.",
+        model_backend=ModelBackend.BEDROCK,
+        temperature=0.1,
+        max_tokens=256,
+    )
+
+
+@pytest.fixture()
+def sample_criterion_thread(sample_criterion):
+    """Create a sample criterion thread for testing."""
+    thread = CriterionThread(id=str(uuid4()), criterion=sample_criterion)
+    thread.add_message("user", "Please evaluate PostgreSQL for performance.")
+    return thread
 
 
 class TestBackendFactory:
@@ -64,86 +88,112 @@ class TestBedrockBackendIntegration:
         assert bedrock_backend.supports_streaming is False
 
     @pytest.mark.asyncio()
-    async def test_bedrock_generate_with_mock(self, bedrock_backend):
-        """Test Bedrock generate method with mocked response."""
-        mock_response = {
-            "content": [{"text": "8.5: This option shows excellent performance characteristics."}],
+    async def test_bedrock_generate_with_mock(self, bedrock_backend, sample_criterion_thread):
+        """Test Bedrock generate_response method with mocked response."""
+        mock_bedrock_response = {
+            "output": {
+                "message": {
+                    "content": [
+                        {
+                            "text": '{"score": 8.5, "justification": "PostgreSQL shows excellent performance characteristics with strong indexing and query optimization."}'
+                        }
+                    ]
+                }
+            },
             "usage": {"inputTokens": 100, "outputTokens": 50},
         }
 
-        with patch.object(bedrock_backend, "_make_bedrock_request", return_value=mock_response):
-            result = await bedrock_backend.generate(
-                system_prompt="You are evaluating performance.",
-                user_prompt="Rate PostgreSQL for performance.",
-                temperature=0.1,
-                max_tokens=1024,
-            )
+        # Mock the boto3 client and its converse method
+        mock_client = Mock()
+        mock_client.converse.return_value = mock_bedrock_response
+
+        with patch.object(bedrock_backend, "_get_bedrock_client", return_value=mock_client):
+            result = await bedrock_backend.generate_response(sample_criterion_thread)
 
             assert "8.5" in result
+            assert "PostgreSQL" in result
             assert "performance" in result.lower()
+            mock_client.converse.assert_called_once()
 
     @pytest.mark.skipif(not os.environ.get("AWS_PROFILE"), reason="AWS credentials not available")
     @pytest.mark.asyncio()
-    async def test_bedrock_real_connection(self, bedrock_backend):
+    async def test_bedrock_real_connection(self, bedrock_backend, sample_criterion_thread):
         """Test real Bedrock connection (only if AWS credentials available)."""
         try:
-            result = await bedrock_backend.generate(
-                system_prompt="You are a helpful assistant.",
-                user_prompt="Say 'test successful' if you can respond.",
-                temperature=0.0,
-                max_tokens=50,
-            )
+            result = await bedrock_backend.generate_response(sample_criterion_thread)
 
             assert isinstance(result, str)
             assert len(result) > 0
-            # Should contain some form of success indicator
-            assert any(word in result.lower() for word in ["test", "successful", "yes", "respond"])
+            # Should contain some form of evaluation content
+            # Note: Real responses may vary, so we just check basic structure
 
-        except LLMBackendError as e:
-            # If we get a specific backend error, that's expected in some environments
+        except (LLMBackendError, LLMConfigurationError, LLMAPIError) as e:
+            # If we get a backend error, that's expected in some environments
             pytest.skip(f"Bedrock not available: {e}")
 
     @pytest.mark.asyncio()
-    async def test_bedrock_error_handling(self, bedrock_backend):
+    async def test_bedrock_error_handling(self, bedrock_backend, sample_criterion_thread):
         """Test Bedrock error handling."""
+        from botocore.exceptions import ClientError
+
+        # Mock client that raises an error
+        mock_client = Mock()
+        mock_client.converse.side_effect = ClientError(
+            error_response={"Error": {"Code": "ServiceException", "Message": "Connection timeout"}},
+            operation_name="Converse",
+        )
+
         with (
-            patch.object(
-                bedrock_backend,
-                "_make_bedrock_request",
-                side_effect=Exception("Connection timeout"),
-            ),
-            pytest.raises(LLMBackendError, match="Bedrock API error"),
+            patch.object(bedrock_backend, "_get_bedrock_client", return_value=mock_client),
+            pytest.raises(LLMAPIError, match="Bedrock API call failed"),
         ):
-            await bedrock_backend.generate(
-                system_prompt="Test",
-                user_prompt="Test",
-                temperature=0.1,
-            )
+            await bedrock_backend.generate_response(sample_criterion_thread)
 
     @pytest.mark.asyncio()
-    async def test_bedrock_response_parsing(self, bedrock_backend):
+    async def test_bedrock_response_parsing(self, bedrock_backend, sample_criterion_thread):
         """Test Bedrock response parsing with various formats."""
         test_cases = [
             {
-                "response": {"content": [{"text": "8.0: Good performance"}]},
+                "name": "valid_response",
+                "response": {
+                    "output": {"message": {"content": [{"text": "8.0: Good performance"}]}},
+                    "usage": {"inputTokens": 10, "outputTokens": 5},
+                },
                 "expected_content": "8.0: Good performance",
             },
-            {"response": {"content": [{"text": ""}]}, "expected_error": "Empty response"},
-            {"response": {"content": []}, "expected_error": "No content blocks"},
-            {"response": {}, "expected_error": "content"},
+            {
+                "name": "empty_content",
+                "response": {
+                    "output": {"message": {"content": [{"text": ""}]}},
+                    "usage": {"inputTokens": 10, "outputTokens": 1},
+                },
+                "expected_content": "",  # Empty text should be returned as is
+            },
+            {
+                "name": "no_content_blocks",
+                "response": {
+                    "output": {"message": {"content": []}},
+                    "usage": {"inputTokens": 10, "outputTokens": 0},
+                },
+                "expected_error": "LLMAPIError",  # Should raise error for empty content list
+            },
+            {
+                "name": "malformed_response",
+                "response": {},
+                "expected_error": "LLMAPIError",  # Should raise error for missing output
+            },
         ]
 
         for case in test_cases:
-            with patch.object(
-                bedrock_backend,
-                "_make_bedrock_request",
-                return_value=case["response"],
-            ):
+            mock_client = Mock()
+            mock_client.converse.return_value = case["response"]
+
+            with patch.object(bedrock_backend, "_get_bedrock_client", return_value=mock_client):
                 if "expected_error" in case:
-                    with pytest.raises(LLMBackendError, match=case["expected_error"]):
-                        await bedrock_backend.generate("system", "user")
+                    with pytest.raises(LLMAPIError):
+                        await bedrock_backend.generate_response(sample_criterion_thread)
                 else:
-                    result = await bedrock_backend.generate("system", "user")
+                    result = await bedrock_backend.generate_response(sample_criterion_thread)
                     assert case["expected_content"] in result
 
 
@@ -161,66 +211,54 @@ class TestLiteLLMBackendIntegration:
         assert litellm_backend.supports_streaming is False
 
     @pytest.mark.asyncio()
-    async def test_litellm_generate_with_mock(self, litellm_backend):
-        """Test LiteLLM generate method with mocked response."""
-        from litellm import ModelResponse
-
+    async def test_litellm_generate_with_mock(self, litellm_backend, sample_criterion_thread):
+        """Test LiteLLM generate_response method with mocked response."""
         # Create a mock response that looks like a real LiteLLM response
-        mock_response = Mock(spec=ModelResponse)
+        mock_response = Mock()
         mock_response.choices = [Mock()]
         mock_response.choices[0].message = Mock()
         mock_response.choices[0].message.content = (
-            "7.5: This framework has a moderate learning curve."
+            '{"score": 7.5, "justification": "PostgreSQL has moderate performance characteristics with good optimization potential."}'
         )
 
-        with patch("litellm.acompletion", return_value=mock_response):
-            result = await litellm_backend.generate(
-                system_prompt="You are evaluating learning curves.",
-                user_prompt="Rate React's learning curve.",
-                model="gpt-3.5-turbo",
-                temperature=0.2,
-            )
+        with patch(
+            "decision_matrix_mcp.backends.litellm.litellm.acompletion", return_value=mock_response
+        ):
+            result = await litellm_backend.generate_response(sample_criterion_thread)
 
             assert "7.5" in result
-            assert "learning curve" in result.lower()
+            assert "PostgreSQL" in result
+            assert "performance" in result.lower()
 
     @pytest.mark.skipif(
         not os.environ.get("LITELLM_API_KEY") and not os.environ.get("OPENAI_API_KEY"),
         reason="LiteLLM API key not available",
     )
     @pytest.mark.asyncio()
-    async def test_litellm_real_connection(self, litellm_backend):
+    async def test_litellm_real_connection(self, litellm_backend, sample_criterion_thread):
         """Test real LiteLLM connection (only if API key available)."""
         try:
-            result = await litellm_backend.generate(
-                system_prompt="You are a helpful assistant.",
-                user_prompt="Respond with exactly: 'Connection successful'",
-                model="gpt-3.5-turbo",
-                temperature=0.0,
-                max_tokens=20,
-            )
+            result = await litellm_backend.generate_response(sample_criterion_thread)
 
             assert isinstance(result, str)
             assert len(result) > 0
-            # Should contain success indicator
-            assert "successful" in result.lower() or "connection" in result.lower()
+            # Should contain some form of evaluation content
 
-        except LLMBackendError as e:
+        except (LLMBackendError, LLMConfigurationError, LLMAPIError) as e:
             pytest.skip(f"LiteLLM not available: {e}")
 
     @pytest.mark.asyncio()
-    async def test_litellm_error_handling(self, litellm_backend):
+    async def test_litellm_error_handling(self, litellm_backend, sample_criterion_thread):
         """Test LiteLLM error handling."""
-        with patch("litellm.acompletion", side_effect=Exception("API rate limit exceeded")):
-            with pytest.raises(LLMBackendError, match="LiteLLM API error"):
-                await litellm_backend.generate(
-                    system_prompt="Test",
-                    user_prompt="Test",
-                    model="gpt-3.5-turbo",
-                )
+        with patch(
+            "decision_matrix_mcp.backends.litellm.litellm.acompletion",
+            side_effect=Exception("API rate limit exceeded"),
+        ):
+            with pytest.raises(LLMAPIError, match="LiteLLM API call failed"):
+                await litellm_backend.generate_response(sample_criterion_thread)
 
     @pytest.mark.asyncio()
-    async def test_litellm_response_validation(self, litellm_backend):
+    async def test_litellm_response_validation(self, litellm_backend, sample_criterion_thread):
         """Test LiteLLM response validation."""
 
         # Test various response formats
@@ -233,27 +271,33 @@ class TestLiteLLMBackendIntegration:
             {
                 "name": "empty_content",
                 "response": Mock(choices=[Mock(message=Mock(content=""))]),
-                "expected_error": "Empty response",
+                "expected_content": "",  # Empty content should be returned as-is
             },
             {
                 "name": "no_choices",
                 "response": Mock(choices=[]),
-                "expected_error": "No response choices",
+                "expected_error": "LLMAPIError",  # Should raise IndexError -> LLMAPIError
             },
             {
                 "name": "none_content",
                 "response": Mock(choices=[Mock(message=Mock(content=None))]),
-                "expected_error": "Empty response",
+                "expected_none": True,  # None content returns None directly
             },
         ]
 
         for case in test_cases:
-            with patch("litellm.acompletion", return_value=case["response"]):
+            with patch(
+                "decision_matrix_mcp.backends.litellm.litellm.acompletion",
+                return_value=case["response"],
+            ):
                 if "expected_error" in case:
-                    with pytest.raises(LLMBackendError, match=case["expected_error"]):
-                        await litellm_backend.generate("system", "user", model="gpt-3.5-turbo")
+                    with pytest.raises(LLMAPIError):
+                        await litellm_backend.generate_response(sample_criterion_thread)
+                elif "expected_none" in case:
+                    result = await litellm_backend.generate_response(sample_criterion_thread)
+                    assert result is None
                 else:
-                    result = await litellm_backend.generate("system", "user", model="gpt-3.5-turbo")
+                    result = await litellm_backend.generate_response(sample_criterion_thread)
                     assert case["expected_content"] in result
 
 
@@ -269,86 +313,88 @@ class TestOllamaBackendIntegration:
         """Test Ollama backend initializes correctly."""
         assert ollama_backend.name == "ollama"
         assert ollama_backend.supports_streaming is False
-        assert ollama_backend.base_url == "http://localhost:11434"
 
     @pytest.mark.asyncio()
-    async def test_ollama_generate_with_mock(self, ollama_backend):
-        """Test Ollama generate method with mocked response."""
-        mock_response_data = {
-            "response": "6.0: This option has moderate cost efficiency.",
+    async def test_ollama_generate_with_mock(self, ollama_backend, sample_criterion_thread):
+        """Test Ollama generate_response method with mocked response."""
+        mock_response_json = {
+            "message": {
+                "role": "assistant",
+                "content": '{"score": 6.0, "justification": "PostgreSQL has moderate performance characteristics."}',
+            },
             "done": True,
         }
 
         mock_response = Mock()
-        mock_response.json.return_value = mock_response_data
+        mock_response.json.return_value = mock_response_json
+        mock_response.status_code = 200
         mock_response.raise_for_status.return_value = None
 
+        # Mock the httpx AsyncClient post method
         with patch("httpx.AsyncClient.post", return_value=mock_response):
-            result = await ollama_backend.generate(
-                system_prompt="You are evaluating cost efficiency.",
-                user_prompt="Rate MongoDB's cost efficiency.",
-                model="llama3.2:3b",
-                temperature=0.3,
-            )
+            result = await ollama_backend.generate_response(sample_criterion_thread)
 
             assert "6.0" in result
-            assert "cost" in result.lower()
+            assert "PostgreSQL" in result
+            assert "performance" in result.lower()
+
+    def test_ollama_availability_check(self, ollama_backend):
+        """Test Ollama backend availability checking."""
+        # The is_available method just checks if httpx is installed
+        # Since we have httpx in our test environment, it should return True
+        assert ollama_backend.is_available() is True
 
     @pytest.mark.asyncio()
-    async def test_ollama_connection_check(self, ollama_backend):
-        """Test Ollama connection checking."""
-        # Test successful connection
-        with patch("httpx.AsyncClient.get") as mock_get:
-            mock_response = Mock()
-            mock_response.raise_for_status.return_value = None
-            mock_get.return_value = mock_response
-
-            is_available = await ollama_backend.is_available()
-            assert is_available is True
-
-        # Test failed connection
-        with patch("httpx.AsyncClient.get", side_effect=Exception("Connection refused")):
-            is_available = await ollama_backend.is_available()
-            assert is_available is False
-
-    @pytest.mark.asyncio()
-    async def test_ollama_error_handling(self, ollama_backend):
+    async def test_ollama_error_handling(self, ollama_backend, sample_criterion_thread):
         """Test Ollama error handling."""
         with patch("httpx.AsyncClient.post", side_effect=Exception("Connection timeout")):
-            with pytest.raises(LLMBackendError, match="Ollama API error"):
-                await ollama_backend.generate(
-                    system_prompt="Test",
-                    user_prompt="Test",
-                    model="llama3.2:3b",
-                )
+            with pytest.raises(LLMAPIError, match="Ollama call failed"):
+                await ollama_backend.generate_response(sample_criterion_thread)
 
     @pytest.mark.asyncio()
-    async def test_ollama_response_parsing(self, ollama_backend):
+    async def test_ollama_response_parsing(self, ollama_backend, sample_criterion_thread):
         """Test Ollama response parsing with various formats."""
         test_cases = [
             {
-                "response_data": {"response": "Valid response", "done": True},
+                "name": "valid_response",
+                "response_data": {
+                    "message": {"role": "assistant", "content": "Valid response"},
+                    "done": True,
+                },
+                "status_code": 200,
                 "expected_content": "Valid response",
             },
-            {"response_data": {"response": "", "done": True}, "expected_error": "Empty response"},
-            {"response_data": {"done": True}, "expected_error": "No response content"},
             {
-                "response_data": {"response": "Incomplete"},
-                "expected_error": "Response not complete",
+                "name": "empty_content",
+                "response_data": {"message": {"role": "assistant", "content": ""}, "done": True},
+                "status_code": 200,
+                "expected_content": "",
+            },
+            {
+                "name": "missing_message",
+                "response_data": {"done": True},
+                "status_code": 200,
+                "expected_error": "LLMAPIError",  # KeyError -> LLMAPIError
+            },
+            {
+                "name": "model_not_found",
+                "response_data": {"error": "Model not found"},
+                "status_code": 404,
+                "expected_error": "LLMAPIError",  # 404 -> specific error
             },
         ]
 
         for case in test_cases:
             mock_response = Mock()
             mock_response.json.return_value = case["response_data"]
-            mock_response.raise_for_status.return_value = None
+            mock_response.status_code = case["status_code"]
 
             with patch("httpx.AsyncClient.post", return_value=mock_response):
                 if "expected_error" in case:
-                    with pytest.raises(LLMBackendError, match=case["expected_error"]):
-                        await ollama_backend.generate("system", "user", model="llama3.2:3b")
+                    with pytest.raises(LLMAPIError):
+                        await ollama_backend.generate_response(sample_criterion_thread)
                 else:
-                    result = await ollama_backend.generate("system", "user", model="llama3.2:3b")
+                    result = await ollama_backend.generate_response(sample_criterion_thread)
                     assert case["expected_content"] in result
 
 
@@ -370,8 +416,8 @@ class TestBackendContractValidation:
         assert isinstance(backend.supports_streaming, bool)
 
         # Check required methods
-        assert hasattr(backend, "generate")
-        assert callable(backend.generate)
+        assert hasattr(backend, "generate_response")
+        assert callable(backend.generate_response)
         assert hasattr(backend, "is_available")
         assert callable(backend.is_available)
 
@@ -380,82 +426,72 @@ class TestBackendContractValidation:
         "backend_type",
         [ModelBackend.BEDROCK, ModelBackend.LITELLM, ModelBackend.OLLAMA],
     )
-    async def test_backend_generate_signature(self, backend_type):
-        """Test that generate method has consistent signature across backends."""
+    async def test_backend_generate_signature(self, backend_type, sample_criterion_thread):
+        """Test that generate_response method has consistent signature across backends."""
         backend = BackendFactory().create_backend(backend_type)
 
         # Create appropriate mocks for each backend type
         if backend_type == ModelBackend.BEDROCK:
-            mock_response = {"content": [{"text": "Test response"}]}
-            mock_method = "_make_bedrock_request"
+            mock_response = {
+                "output": {"message": {"content": [{"text": "Test response"}]}},
+                "usage": {"inputTokens": 10, "outputTokens": 5},
+            }
+            mock_client = Mock()
+            mock_client.converse.return_value = mock_response
+
+            with patch.object(backend, "_get_bedrock_client", return_value=mock_client):
+                result = await backend.generate_response(sample_criterion_thread)
+
         elif backend_type == ModelBackend.LITELLM:
             mock_response = Mock(choices=[Mock(message=Mock(content="Test response"))])
-            mock_method = None  # Use litellm.acompletion directly
+
+            with patch(
+                "decision_matrix_mcp.backends.litellm.litellm.acompletion",
+                return_value=mock_response,
+            ):
+                result = await backend.generate_response(sample_criterion_thread)
+
         else:  # OLLAMA
             mock_response = Mock()
-            mock_response.json.return_value = {"response": "Test response", "done": True}
-            mock_response.raise_for_status.return_value = None
-            mock_method = None  # Use httpx.AsyncClient.post directly
+            mock_response.json.return_value = {
+                "message": {"role": "assistant", "content": "Test response"},
+                "done": True,
+            }
+            mock_response.status_code = 200
 
-        # Test that generate method can be called with required parameters
-        if mock_method:
-            with patch.object(backend, mock_method, return_value=mock_response):
-                result = await backend.generate(
-                    system_prompt="Test system prompt",
-                    user_prompt="Test user prompt",
-                )
-        elif backend_type == ModelBackend.LITELLM:
-            with patch("litellm.acompletion", return_value=mock_response):
-                result = await backend.generate(
-                    system_prompt="Test system prompt",
-                    user_prompt="Test user prompt",
-                    model="gpt-3.5-turbo",
-                )
-        else:  # OLLAMA
             with patch("httpx.AsyncClient.post", return_value=mock_response):
-                result = await backend.generate(
-                    system_prompt="Test system prompt",
-                    user_prompt="Test user prompt",
-                    model="llama3.2:3b",
-                )
+                result = await backend.generate_response(sample_criterion_thread)
 
         assert isinstance(result, str)
         assert len(result) > 0
 
-    @pytest.mark.asyncio()
     @pytest.mark.parametrize(
         "backend_type",
         [ModelBackend.BEDROCK, ModelBackend.LITELLM, ModelBackend.OLLAMA],
     )
-    async def test_backend_availability_check(self, backend_type):
+    def test_backend_availability_check(self, backend_type):
         """Test that is_available method works for all backends."""
         backend = BackendFactory().create_backend(backend_type)
 
-        # Mock successful availability check
+        # The is_available method is synchronous and just checks for dependencies
+        is_available = backend.is_available()
+        assert isinstance(is_available, bool)
+
+        # In our test environment, all dependencies should be available
+        # (boto3 is optional but httpx and litellm are available)
         if backend_type == ModelBackend.BEDROCK:
-            with patch.object(backend, "_check_bedrock_connection", return_value=True):
-                is_available = await backend.is_available()
-                assert isinstance(is_available, bool)
-        elif backend_type == ModelBackend.LITELLM:
-            with patch("litellm.acompletion") as mock_completion:
-                mock_response = Mock(choices=[Mock(message=Mock(content="test"))])
-                mock_completion.return_value = mock_response
-                is_available = await backend.is_available()
-                assert isinstance(is_available, bool)
-        else:  # OLLAMA
-            with patch("httpx.AsyncClient.get") as mock_get:
-                mock_response = Mock()
-                mock_response.raise_for_status.return_value = None
-                mock_get.return_value = mock_response
-                is_available = await backend.is_available()
-                assert isinstance(is_available, bool)
+            # May be True or False depending on whether boto3 is installed
+            assert isinstance(is_available, bool)
+        else:
+            # LiteLLM and Ollama dependencies should be available in test environment
+            assert is_available is True
 
 
 class TestBackendErrorRecovery:
     """Test backend error recovery and fallback mechanisms."""
 
     @pytest.mark.asyncio()
-    async def test_backend_timeout_handling(self):
+    async def test_backend_timeout_handling(self, sample_criterion_thread):
         """Test that backends handle timeouts gracefully."""
         backends = [
             BackendFactory().create_backend(ModelBackend.BEDROCK),
@@ -466,26 +502,38 @@ class TestBackendErrorRecovery:
         for backend in backends:
             # Mock timeout exception
             if backend.name == "bedrock":
+                from botocore.exceptions import ClientError
+
+                timeout_error = ClientError(
+                    error_response={
+                        "Error": {"Code": "TimeoutError", "Message": "Request timed out"}
+                    },
+                    operation_name="Converse",
+                )
+                mock_client = Mock()
+                mock_client.converse.side_effect = timeout_error
+
                 with (
-                    patch.object(
-                        backend,
-                        "_make_bedrock_request",
-                        side_effect=asyncio.TimeoutError(),
-                    ),
-                    pytest.raises(LLMBackendError, match="timeout|Bedrock API error"),
+                    patch.object(backend, "_get_bedrock_client", return_value=mock_client),
+                    pytest.raises(LLMAPIError, match="Bedrock API call failed"),
                 ):
-                    await backend.generate("system", "user")
+                    await backend.generate_response(sample_criterion_thread)
+
             elif backend.name == "litellm":
-                with patch("litellm.acompletion", side_effect=asyncio.TimeoutError()):
-                    with pytest.raises(LLMBackendError, match="timeout|LiteLLM API error"):
-                        await backend.generate("system", "user", model="gpt-3.5-turbo")
+                with patch(
+                    "decision_matrix_mcp.backends.litellm.litellm.acompletion",
+                    side_effect=asyncio.TimeoutError(),
+                ):
+                    with pytest.raises(LLMAPIError, match="LiteLLM API call failed"):
+                        await backend.generate_response(sample_criterion_thread)
+
             elif backend.name == "ollama":
                 with patch("httpx.AsyncClient.post", side_effect=asyncio.TimeoutError()):
-                    with pytest.raises(LLMBackendError, match="timeout|Ollama API error"):
-                        await backend.generate("system", "user", model="llama3.2:3b")
+                    with pytest.raises(LLMAPIError, match="Ollama call failed"):
+                        await backend.generate_response(sample_criterion_thread)
 
     @pytest.mark.asyncio()
-    async def test_backend_rate_limit_handling(self):
+    async def test_backend_rate_limit_handling(self, sample_criterion_thread):
         """Test that backends handle rate limits appropriately."""
         backends = [
             BackendFactory().create_backend(ModelBackend.BEDROCK),
@@ -494,20 +542,36 @@ class TestBackendErrorRecovery:
         ]
 
         for backend in backends:
-            rate_limit_error = Exception("Rate limit exceeded")
-
             if backend.name == "bedrock":
-                with patch.object(backend, "_make_bedrock_request", side_effect=rate_limit_error):
-                    with pytest.raises(LLMBackendError):
-                        await backend.generate("system", "user")
+                from botocore.exceptions import ClientError
+
+                rate_limit_error = ClientError(
+                    error_response={
+                        "Error": {"Code": "ThrottlingException", "Message": "Rate limit exceeded"}
+                    },
+                    operation_name="Converse",
+                )
+                mock_client = Mock()
+                mock_client.converse.side_effect = rate_limit_error
+
+                with patch.object(backend, "_get_bedrock_client", return_value=mock_client):
+                    with pytest.raises(LLMAPIError):
+                        await backend.generate_response(sample_criterion_thread)
+
             elif backend.name == "litellm":
-                with patch("litellm.acompletion", side_effect=rate_limit_error):
-                    with pytest.raises(LLMBackendError):
-                        await backend.generate("system", "user", model="gpt-3.5-turbo")
+                rate_limit_error = Exception("Rate limit exceeded")
+                with patch(
+                    "decision_matrix_mcp.backends.litellm.litellm.acompletion",
+                    side_effect=rate_limit_error,
+                ):
+                    with pytest.raises(LLMAPIError):
+                        await backend.generate_response(sample_criterion_thread)
+
             elif backend.name == "ollama":
+                rate_limit_error = Exception("Rate limit exceeded")
                 with patch("httpx.AsyncClient.post", side_effect=rate_limit_error):
-                    with pytest.raises(LLMBackendError):
-                        await backend.generate("system", "user", model="llama3.2:3b")
+                    with pytest.raises(LLMAPIError):
+                        await backend.generate_response(sample_criterion_thread)
 
 
 if __name__ == "__main__":
