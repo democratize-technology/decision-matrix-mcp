@@ -252,5 +252,7 @@ match_dir = "^(?!tests|test_).*"
 
 [dependency-groups]
 dev = [
+    "pytest-asyncio>=1.1.0",
+    "pytest-forked>=1.6.0",
     "types-psutil>=7.0.0.20250801",
 ]
