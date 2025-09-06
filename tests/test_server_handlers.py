@@ -17,6 +17,7 @@ from decision_matrix_mcp import (
     list_sessions,
     start_decision_analysis,
 )
+from decision_matrix_mcp.constants import ValidationLimits
 from decision_matrix_mcp.exceptions import ResourceLimitError, SessionError, ValidationError
 from decision_matrix_mcp.models import Criterion, ModelBackend, Score
 from decision_matrix_mcp.validation_decorators import ValidationErrorFormatter
@@ -177,10 +178,15 @@ class TestStartDecisionAnalysis:
 
         # Too many options
         result = await start_decision_analysis(
-            topic="Test", options=[f"Option{i}" for i in range(21)], ctx=mock_ctx
+            topic="Test",
+            options=[f"Option{i}" for i in range(ValidationLimits.MAX_OPTIONS_ALLOWED + 1)],
+            ctx=mock_ctx,
         )
         assert "error" in result
-        assert result["error"] == "Too many options (max 20). Consider grouping similar options."
+        assert (
+            result["error"]
+            == f"Too many options (max {ValidationLimits.MAX_OPTIONS_ALLOWED}). Consider grouping similar options."
+        )
         assert "formatted_output" in result
 
         # Invalid option name
@@ -675,7 +681,7 @@ class TestAddOption:
     """Test add_option handler"""
 
     @pytest.fixture()
-    def test_session(self, session_manager):
+    def test_session(self):
         """Create a test session"""
         session = session_manager.create_session("Test", ["Option A"])
         yield session
