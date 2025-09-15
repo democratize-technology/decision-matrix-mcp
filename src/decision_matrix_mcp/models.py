@@ -107,8 +107,10 @@ class Score:
         ...     score=8.0,
         ...     justification="Low operational costs with minimal overhead"
         ... )
-        >>> print(score.abstained)  # False
-        >>> print(score.score)      # 8.0
+        >>> score.abstained
+        False
+        >>> score.score
+        8.0
 
     Note:
         Abstained scores (score=None) are excluded from weighted calculations
@@ -327,7 +329,8 @@ class Option:
         Example:
             >>> breakdown = option.get_score_breakdown(criteria)
             >>> for item in breakdown:
-            ...     print(f"{item['criterion']}: {item['raw_score']} → {item['weighted_score']}")
+            ...     f"{item['criterion']}: {item['raw_score']} → {item['weighted_score']}"
+            # Output: 'performance: 8.0 → 3.2'
 
         Note:
             - Includes entries for all criteria that have scores
@@ -547,10 +550,11 @@ class DecisionSession:
 
         Example:
             >>> matrix = session.get_decision_matrix()
-            >>> print(matrix['recommendation'])
+            >>> matrix['recommendation']
             'AWS is the clear winner with 8.3 points'
             >>> top_option = matrix['rankings'][0]
-            >>> print(f"Winner: {top_option['option']} ({top_option['weighted_total']:.1f})")
+            >>> f"Winner: {top_option['option']} ({top_option['weighted_total']:.1f})"
+            # Output: 'Winner: AWS (8.3)'
 
         Note:
             - Abstained scores are preserved but excluded from totals

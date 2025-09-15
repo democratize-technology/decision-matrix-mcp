@@ -67,7 +67,7 @@ dev = [
     "isort>=5.13.2",
     "pre-commit>=3.7.0",
     "bandit>=1.7.8",
-    "safety>=3.5.0",
+    # "safety>=3.6.1b0", # Temporarily disabled - incompatible with pydantic 2.11.0
     "pydocstyle>=6.3.0",
     # Security constraint: Ensure virtualenv >= 20.26.6 to prevent PYSEC-2024-187 (command injection)
     "virtualenv>=20.26.6",
@@ -272,7 +272,7 @@ match_dir = "^(?!tests|test_).*"
 
 [dependency-groups]
 dev = [
-    "pytest-asyncio>=1.1.0",
+    "pytest-asyncio>=0.24.0,<1.0.0",
     "pytest-forked>=1.6.0",
     "types-psutil>=7.0.0.20250801",
 ]
