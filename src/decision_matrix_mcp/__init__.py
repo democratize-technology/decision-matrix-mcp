@@ -28,7 +28,7 @@ Structured decision analysis using thread orchestration for parallel criterion e
 CRITICAL: This server uses stdio transport for MCP protocol communication.
 - stdout is reserved for MCP JSON-RPC messages
 - All logging/debug output must go to stderr or files
-- Never print() to stdout in MCP server code
+- Never logger.info() to stdout in MCP server code
 """
 
 import asyncio
