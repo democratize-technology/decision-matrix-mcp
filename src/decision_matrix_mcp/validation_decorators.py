@@ -64,7 +64,11 @@ class ValidationErrorFormatter:
             return f"❌ {message}"
 
         result = cls._formatter.format_error(message, context)
-        return str(result) if result is not None else f"❌ {context}: {message}" if context else f"❌ {message}"
+        return (
+            str(result)
+            if result is not None
+            else f"❌ {context}: {message}" if context else f"❌ {message}"
+        )
 
     @classmethod
     def reset(cls) -> None:
