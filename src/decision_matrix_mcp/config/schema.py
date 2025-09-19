@@ -26,7 +26,12 @@ This module defines the complete configuration schema using Pydantic models
 for type safety, validation, and auto-completion support.
 """
 
-from pydantic import BaseModel, Field, ValidationInfo, field_validator  # type: ignore[import-not-found]
+from pydantic import (  # type: ignore[import-not-found]
+    BaseModel,
+    Field,
+    ValidationInfo,
+    field_validator,
+)
 
 
 class ValidationLimitsConfig(BaseModel):
