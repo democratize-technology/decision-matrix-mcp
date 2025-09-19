@@ -30,8 +30,15 @@ import threading
 from typing import Any
 
 from .backends import BackendFactory
-from .exceptions import ChainOfThoughtError, ConfigurationError, CoTTimeoutError, LLMBackendError
-from .models import CriterionThread, ModelBackend, Option
+from .config import config
+from .exceptions import (
+    ChainOfThoughtError,
+    ConfigurationError,
+    CoTTimeoutError,
+    LLMBackendError,
+    LLMConfigurationError,
+)
+from .models import Criterion, CriterionThread, ModelBackend, Option
 from .reasoning_orchestrator import DecisionReasoningOrchestrator
 from .response_schemas import parse_structured_response
 
@@ -69,9 +76,6 @@ class DecisionOrchestrator:
         cot_timeout: float | None = None,
         backend_factory: BackendFactory = None,
     ) -> None:
-        # Import config here to avoid circular imports
-        from .config import config
-
         # Initialize backend factory
         self.backend_factory = backend_factory or BackendFactory()
 
@@ -131,8 +135,6 @@ class DecisionOrchestrator:
             backend = self.backend_factory.create_backend(ModelBackend.BEDROCK)
 
             # Test with minimal request using Haiku (cheaper and faster)
-            from .models import Criterion
-
             test_criterion = Criterion(
                 name="test",
                 description="test",
@@ -548,8 +550,6 @@ JUSTIFICATION: [your reasoning]"""
     async def _call_litellm(self, thread: CriterionThread) -> str:
         """Legacy facade method - delegates to LiteLLMBackend."""
         if not LITELLM_AVAILABLE:
-            from .exceptions import LLMConfigurationError
-
             raise LLMConfigurationError(
                 backend="litellm",
                 message="litellm is not installed. Please install with: pip install litellm",
@@ -561,8 +561,6 @@ JUSTIFICATION: [your reasoning]"""
     async def _call_ollama(self, thread: CriterionThread) -> str:
         """Legacy facade method - delegates to OllamaBackend."""
         if not HTTPX_AVAILABLE:
-            from .exceptions import LLMConfigurationError
-
             raise LLMConfigurationError(
                 backend="ollama",
                 message="httpx is not installed. Please install with: pip install httpx",

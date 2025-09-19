@@ -24,6 +24,7 @@
 
 import logging
 
+from ..config import config
 from ..exceptions import LLMAPIError, LLMBackendError, LLMConfigurationError
 from ..models import CriterionThread
 from .base import LLMBackend
@@ -81,9 +82,6 @@ class LiteLLMBackend(LLMBackend):
             )
 
             # Choose model
-            # Import config for default model
-            from ..config import config
-
             model = thread.criterion.model_name or config.backend.litellm_model
 
             response = await litellm.acompletion(
@@ -109,9 +107,6 @@ class LiteLLMBackend(LLMBackend):
             elif "api key" in error_message.lower() or "authentication" in error_message.lower():
                 user_message = "API authentication failed, check your API key"
             elif "model" in error_message.lower() and "not found" in error_message.lower():
-                # Import config for default model
-                from ..config import config
-
                 model = thread.criterion.model_name or config.backend.litellm_model
                 user_message = f"Model not available: {model}"
             elif isinstance(e, (LLMBackendError, LLMConfigurationError)):

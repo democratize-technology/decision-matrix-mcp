@@ -27,6 +27,7 @@ escape from backend implementations, providing comprehensive defensive programmi
 patterns for reliable error handling.
 """
 
+import asyncio
 from collections.abc import Callable
 import functools
 import logging
@@ -169,8 +170,6 @@ def defensive_exception_wrapper(backend_name: str) -> Callable[[F], F]:
                 ) from e
 
         # Return async wrapper if the function is a coroutine
-        import asyncio
-
         if asyncio.iscoroutinefunction(func):
             return async_wrapper  # type: ignore[return-value]
         return sync_wrapper  # type: ignore[return-value]

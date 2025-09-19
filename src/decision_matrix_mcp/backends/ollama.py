@@ -24,6 +24,7 @@
 
 import logging
 
+from ..config import config
 from ..exceptions import LLMAPIError, LLMBackendError, LLMConfigurationError
 from ..models import CriterionThread
 from .base import LLMBackend
@@ -35,6 +36,16 @@ try:
     HTTPX_AVAILABLE = True
 except ImportError:
     HTTPX_AVAILABLE = False
+
+# Import ollama helpers if httpx is available
+if HTTPX_AVAILABLE:
+    from ..ollama_helpers import (
+        build_ollama_request,
+        diagnose_ollama_error,
+        format_messages_for_ollama,
+        get_ollama_host,
+        parse_ollama_response,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -72,25 +83,12 @@ class OllamaBackend(LLMBackend):
                 message="httpx is not installed. Please install with: pip install httpx",
             )
 
-        # Import helpers here to avoid circular imports when httpx not available
-        # Import config for default model
-        from ..config import config
-        from ..ollama_helpers import (
-            build_ollama_request,
-            format_messages_for_ollama,
-            get_ollama_host,
-            parse_ollama_response,
-        )
-
         model = thread.criterion.model_name or config.backend.ollama_model
 
         try:
             # Format messages and build request
             messages = format_messages_for_ollama(thread)
             request_body = build_ollama_request(thread, messages, model)
-
-            # Import config for timeout
-            from ..config import config
 
             # Make API call with configurable timeout
             async with httpx.AsyncClient(timeout=config.backend.ollama_timeout_seconds) as client:
@@ -112,9 +110,6 @@ class OllamaBackend(LLMBackend):
         except Exception as e:
             if isinstance(e, (LLMBackendError, LLMConfigurationError)):
                 raise  # Re-raise our custom exceptions
-
-            # Import diagnose function here to avoid circular imports
-            from ..ollama_helpers import diagnose_ollama_error
 
             user_message = diagnose_ollama_error(e)
 

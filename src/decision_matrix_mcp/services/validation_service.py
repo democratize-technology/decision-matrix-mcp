@@ -30,6 +30,7 @@ from typing import Any
 
 from ..models import DecisionSession
 from ..session_manager import SessionValidator
+from ..validation_decorators import validate_criteria_spec
 
 logger = logging.getLogger(__name__)
 
@@ -169,9 +170,6 @@ class ValidationService:
         Returns:
             Error dict if validation fails, None if valid
         """
-        # Import here to avoid circular imports
-        from ..validation_decorators import validate_criteria_spec
-
         return validate_criteria_spec(criteria_spec)
 
     def validate_criterion_exists(self, session: DecisionSession, criterion_name: str) -> bool:

@@ -25,7 +25,7 @@
 import json
 import logging
 import re
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -124,8 +124,6 @@ class EvaluationResponse:
     def get_legacy_format(self) -> tuple[float | None, str]:
         """Get response in legacy (score, justification) format for compatibility."""
         # Type assertion needed since we know score is either float or None, not str
-        from typing import cast
-
         return (cast("float | None", self.score), self.reasoning)
 
 
@@ -298,8 +296,6 @@ def _parse_legacy_regex(response: str) -> tuple[float | None, str]:  # noqa: PLR
 
 def _extract_score_legacy(response: str) -> float | None:
     """Legacy score extraction logic."""
-    import re
-
     # Pattern 1: SCORE: X (now handles negative numbers correctly)
     score_patterns = [
         (r"SCORE:\s*([+-]?[0-9]+(?:\.[0-9]+)?)", 1),  # Fixed: handles negative numbers
@@ -330,8 +326,6 @@ def _extract_score_legacy(response: str) -> float | None:
 
 def _extract_justification_legacy(response: str) -> str:
     """Legacy justification extraction logic."""
-    import re
-
     # Pattern 1: JUSTIFICATION: text
     patterns = [
         r"JUSTIFICATION:\s*(.+)",

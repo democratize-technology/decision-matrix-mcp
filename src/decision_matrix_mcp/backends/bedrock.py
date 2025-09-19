@@ -83,6 +83,7 @@ import os
 import threading
 from typing import Any
 
+from ..config import config
 from ..exceptions import LLMAPIError, LLMBackendError, LLMConfigurationError
 from ..models import CriterionThread
 from .base import LLMBackend
@@ -283,9 +284,6 @@ class BedrockBackend(LLMBackend):
                 message="boto3 is not installed. Please install with: pip install boto3",
                 user_message="AWS Bedrock requires boto3. Install: pip install boto3",
             )
-
-        # Import config for default model
-        from ..config import config
 
         model_id = thread.criterion.model_name or config.backend.bedrock_model
 

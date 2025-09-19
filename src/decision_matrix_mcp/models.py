@@ -55,8 +55,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from functools import cached_property
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
+
+from .response_schemas import generate_json_prompt_suffix
 
 
 class ModelBackend(str, Enum):
@@ -185,9 +187,6 @@ class Criterion:
             Uses late import to avoid circular dependency with response_schemas.
         """
         if not self.system_prompt:
-            # Import here to avoid circular import
-            from .response_schemas import generate_json_prompt_suffix
-
             self.system_prompt = f"""You are evaluating options based on the '{self.name}' criterion: {self.description}
 
 SCORING INSTRUCTIONS:
@@ -666,8 +665,6 @@ class DecisionSession:
         ]
 
         # Single sort operation with proper type annotation
-        from typing import cast
-
         rankings.sort(key=lambda x: cast("float", x["weighted_total"]), reverse=True)
         return rankings
 

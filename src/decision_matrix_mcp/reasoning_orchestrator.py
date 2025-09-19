@@ -26,6 +26,8 @@ import asyncio
 import logging
 import re
 from typing import Any
+import unicodedata
+import uuid
 
 try:
     from chain_of_thought import TOOL_SPECS, AsyncChainOfThoughtProcessor  # type: ignore[import]
@@ -34,6 +36,7 @@ try:
 except ImportError:
     COT_AVAILABLE = False
 
+from .config import config
 from .convergence import ConvergenceManager, create_evaluation_id
 from .exceptions import ChainOfThoughtError, CoTProcessingError, CoTTimeoutError
 from .models import CriterionThread, Option
@@ -51,9 +54,6 @@ class DecisionReasoningOrchestrator:
             cot_timeout: Maximum time in seconds for CoT processing.
                         If None, uses configuration default.
         """
-        # Import config here to avoid circular imports
-        from .config import config
-
         # Use configuration value if not explicitly provided
         resolved_timeout = (
             cot_timeout if cot_timeout is not None else config.performance.cot_timeout_seconds
@@ -90,9 +90,6 @@ class DecisionReasoningOrchestrator:
             return ""
 
         # Remove control characters and normalize whitespace
-        import re
-        import unicodedata
-
         # Normalize unicode
         text = unicodedata.normalize("NFKC", text)
 
@@ -124,7 +121,7 @@ class DecisionReasoningOrchestrator:
             return []
         return TOOL_SPECS
 
-    async def evaluate_with_reasoning(  # noqa: PLR0915
+    async def evaluate_with_reasoning(
         self,
         thread: CriterionThread,
         option: Option,
@@ -149,8 +146,6 @@ class DecisionReasoningOrchestrator:
         evaluation_id = create_evaluation_id(thread.criterion.name, option_name)
 
         # Create a CoT processor for this evaluation with unique ID
-        import uuid
-
         unique_id = uuid.uuid4().hex[:8]
         processor = AsyncChainOfThoughtProcessor(
             conversation_id=f"{thread.id}-{option_name}-{unique_id}",
@@ -245,9 +240,6 @@ JUSTIFICATION: [your reasoning summary]""",
 
             # Get reasoning summary with timeout
             try:
-                # Import config here to avoid issues
-                from .config import config
-
                 reasoning_summary = await asyncio.wait_for(
                     processor.get_reasoning_summary(),
                     timeout=config.performance.cot_summary_timeout_seconds,
@@ -458,8 +450,6 @@ JUSTIFICATION: [your reasoning summary]""",
         Raises:
             CoTProcessingError: If response format is invalid
         """
-        import re
-
         if not response or not isinstance(response, str):
             raise CoTProcessingError(
                 "Invalid response format: expected non-empty string",

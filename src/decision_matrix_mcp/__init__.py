@@ -36,6 +36,7 @@ from datetime import datetime, timezone
 import logging
 import sys
 import threading
+import traceback
 from typing import Any
 from uuid import uuid4
 
@@ -57,6 +58,7 @@ from .models import Criterion, DecisionSession, ModelBackend, Option, Score
 from .orchestrator import DecisionOrchestrator
 from .session_manager import SessionManager, SessionValidator
 from .validation_decorators import (
+    ERROR_MESSAGES,
     ValidationErrorFormatter,
     validate_criteria_spec,
     validate_request,
@@ -242,8 +244,6 @@ async def start_decision_analysis(  # noqa: PLR0911
 
     # Validate topic
     if not components.validation_service.validate_topic(request.topic):
-        from decision_matrix_mcp.validation_decorators import ERROR_MESSAGES
-
         return components.response_service.create_error_response(
             ERROR_MESSAGES["topic"],
             "Invalid topic",
@@ -263,8 +263,6 @@ async def start_decision_analysis(  # noqa: PLR0911
     # Validate individual option names
     for option_name in request.options:
         if not components.validation_service.validate_option_name(option_name):
-            from decision_matrix_mcp.validation_decorators import ERROR_MESSAGES
-
             return components.response_service.create_error_response(
                 ERROR_MESSAGES["option_name"],
                 "Invalid option name",
@@ -377,8 +375,6 @@ async def add_criterion(  # noqa: PLR0911
 
     # Validate criterion name
     if not components.validation_service.validate_criterion_name(request.name):
-        from decision_matrix_mcp.validation_decorators import ERROR_MESSAGES
-
         return components.response_service.create_error_response(
             ERROR_MESSAGES["name"],
             "Invalid criterion name",
@@ -386,8 +382,6 @@ async def add_criterion(  # noqa: PLR0911
 
     # Validate description
     if not components.validation_service.validate_description(request.description):
-        from decision_matrix_mcp.validation_decorators import ERROR_MESSAGES
-
         return components.response_service.create_error_response(
             ERROR_MESSAGES["description"],
             "Invalid description",
@@ -395,8 +389,6 @@ async def add_criterion(  # noqa: PLR0911
 
     # Validate weight
     if not components.validation_service.validate_weight(request.weight):
-        from decision_matrix_mcp.validation_decorators import ERROR_MESSAGES
-
         return components.response_service.create_error_response(
             ERROR_MESSAGES["weight"],
             "Invalid weight",
@@ -584,8 +576,6 @@ async def add_option(
 
     # Validate option name
     if not components.validation_service.validate_option_name(request.option_name):
-        from decision_matrix_mcp.validation_decorators import ERROR_MESSAGES
-
         return components.response_service.create_error_response(
             ERROR_MESSAGES["option_name"],
             "Invalid option name",
@@ -743,8 +733,6 @@ def main() -> None:
             logger.debug("Client disconnected (stdio closed)")
         else:
             logger.exception("Server error")
-            import traceback
-
             traceback.print_exc(file=sys.stderr)
             raise
     finally:

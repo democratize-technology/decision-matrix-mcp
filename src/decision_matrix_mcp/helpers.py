@@ -25,7 +25,7 @@
 import logging
 from typing import Any
 
-from .models import DecisionSession, Score
+from .models import Criterion, DecisionSession, Score
 
 logger = logging.getLogger(__name__)
 
@@ -172,8 +172,6 @@ def process_initial_criteria(request: Any, session: DecisionSession) -> list[str
         description = criterion_spec.get("description", "")
         weight = criterion_spec.get("weight", 1.0)
 
-        from .models import Criterion
-
         criterion = Criterion(
             name=name,
             description=description,
@@ -234,8 +232,6 @@ def create_criterion_from_request(request: Any, session: DecisionSession) -> Any
     Returns:
         Criterion object
     """
-    from .models import Criterion
-
     criterion = Criterion(
         name=request.name,
         description=request.description,
