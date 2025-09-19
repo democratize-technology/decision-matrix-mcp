@@ -60,7 +60,7 @@ ENV_VAR_MAPPING = {
     "DMM_COT_TIMEOUT_SECONDS": "performance.cot_timeout_seconds",
     "DMM_COT_SUMMARY_TIMEOUT_SECONDS": "performance.cot_summary_timeout_seconds",
     # Backend configuration
-    "DMM_BEDROCK_MODEL": "backend.bedrock_model",
+    "BEDROCK_MODEL_ID": "backend.bedrock_model",
     "DMM_LITELLM_MODEL": "backend.litellm_model",
     "DMM_OLLAMA_MODEL": "backend.ollama_model",
     "DMM_BEDROCK_TIMEOUT_SECONDS": "backend.bedrock_timeout_seconds",
@@ -105,7 +105,7 @@ ENV_VAR_TYPES = {
     # Boolean types
     "DMM_DEBUG_MODE": bool,
     # String types (default)
-    "DMM_BEDROCK_MODEL": str,
+    "BEDROCK_MODEL_ID": str,
     "DMM_LITELLM_MODEL": str,
     "DMM_OLLAMA_MODEL": str,
     "DMM_ENVIRONMENT": str,

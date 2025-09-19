@@ -202,7 +202,7 @@ class TestEnvironmentVariableLoading:
         with patch.dict(
             os.environ,
             {
-                "DMM_BEDROCK_MODEL": "anthropic.claude-3-haiku-20240307-v1:0",
+                "BEDROCK_MODEL_ID": "anthropic.claude-3-haiku-20240307-v1:0",
                 "DMM_ENVIRONMENT": "development",
             },
         ):
@@ -518,7 +518,7 @@ class TestConfigurationIntegration:
                 "DMM_ENVIRONMENT": "development",
                 "DMM_MAX_OPTIONS_ALLOWED": "15",
                 "DMM_MAX_ACTIVE_SESSIONS": "75",
-                "DMM_BEDROCK_MODEL": "anthropic.claude-3-haiku-20240307-v1:0",
+                "BEDROCK_MODEL_ID": "anthropic.claude-3-haiku-20240307-v1:0",
                 "DMM_DEBUG_MODE": "true",
             },
         ):
