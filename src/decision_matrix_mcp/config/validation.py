@@ -78,12 +78,8 @@ class ConfigValidator:
             self._validate_performance_constraints(config)
 
         except ValidationError as e:
-            error_dicts = []
-            for error in e.errors():
-                if hasattr(error, "dict"):
-                    error_dicts.append(error.dict())
-                else:
-                    error_dicts.append({"error": str(error)})
+            # In Pydantic v2, e.errors() already returns a list of dicts
+            error_dicts = list(e.errors())
             raise ConfigValidationError("Configuration validation failed", error_dicts) from e
         except Exception as e:
             msg = f"Unexpected validation error: {e}"
@@ -146,7 +142,7 @@ class ConfigValidator:
 
             # Check CPU constraints
             cpu_count = psutil.cpu_count()
-            if config.performance.max_concurrent_evaluations > cpu_count * 2:
+            if cpu_count is not None and config.performance.max_concurrent_evaluations > cpu_count * 2:
                 self.recommendations.append(
                     f"Max concurrent evaluations ({config.performance.max_concurrent_evaluations}) "
                     f"exceeds 2x CPU cores ({cpu_count}). Consider reducing for optimal performance.",
