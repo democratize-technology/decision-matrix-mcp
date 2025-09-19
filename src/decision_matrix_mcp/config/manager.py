@@ -38,7 +38,7 @@ import threading
 from typing import Any, Optional
 
 try:
-    import yaml
+    import yaml  # type: ignore[import-untyped]
 except ImportError:
     yaml = None
 

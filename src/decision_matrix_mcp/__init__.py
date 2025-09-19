@@ -41,7 +41,7 @@ from typing import Any
 from uuid import uuid4
 
 from mcp.server.fastmcp import Context, FastMCP
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field  # type: ignore[import-not-found]
 
 from .constants import ValidationLimits
 from .dependency_injection import ServiceContainer

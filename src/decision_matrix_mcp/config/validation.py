@@ -29,7 +29,7 @@ including cross-field validation, security checks, and resource limit verificati
 from typing import Any
 
 import psutil  # type: ignore[import-untyped]
-from pydantic import ValidationError
+from pydantic import ValidationError  # type: ignore[import-not-found]
 
 from .schema import ConfigSchema
 

@@ -297,7 +297,7 @@ class SessionValidator:
         )
 
     @staticmethod
-    def validate_weight(weight: float) -> bool:
+    def validate_weight(weight: Any) -> bool:
         """Validate criterion weight is within allowed range."""
         if not isinstance(weight, (int, float)):
             return False

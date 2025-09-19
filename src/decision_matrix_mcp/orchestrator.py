@@ -576,6 +576,6 @@ JUSTIFICATION: [your reasoning]"""
 
         # Legacy Bedrock client cleanup
         if self._bedrock_client:
-            with self._client_lock:
+            with self._client_lock:  # type: ignore[unreachable]
                 self._bedrock_client = None
                 logger.info("Legacy Bedrock client cleaned up")

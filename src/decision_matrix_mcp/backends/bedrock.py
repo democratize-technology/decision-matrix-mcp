@@ -353,7 +353,7 @@ class BedrockBackend(LLMBackend):
             application shutdown. Manual calls are safe but not required.
         """
         if self._bedrock_client:
-            with self._client_lock:
+            with self._client_lock:  # type: ignore[unreachable]
                 # boto3 clients don't have an explicit close method,
                 # but we can help the garbage collector by clearing the reference
                 self._bedrock_client = None
