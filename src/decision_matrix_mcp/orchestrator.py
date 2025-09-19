@@ -74,7 +74,7 @@ class DecisionOrchestrator:
         retry_delay: float | None = None,
         use_cot: bool = True,
         cot_timeout: float | None = None,
-        backend_factory: BackendFactory = None,
+        backend_factory: BackendFactory | None = None,
     ) -> None:
         # Initialize backend factory
         self.backend_factory = backend_factory or BackendFactory()
@@ -577,6 +577,5 @@ JUSTIFICATION: [your reasoning]"""
         # Legacy Bedrock client cleanup
         if self._bedrock_client:
             with self._client_lock:
-                if self._bedrock_client:
-                    self._bedrock_client = None
-                    logger.info("Legacy Bedrock client cleaned up")
+                self._bedrock_client = None
+                logger.info("Legacy Bedrock client cleaned up")

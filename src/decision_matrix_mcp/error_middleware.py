@@ -23,6 +23,7 @@
 """Error handling middleware for MCP tools."""
 
 from collections.abc import Callable
+from functools import wraps
 import logging
 from typing import Any, TypeVar
 
@@ -149,12 +150,13 @@ class MCPErrorHandler:
         """
 
         def decorator(func: F) -> F:
+            @wraps(func)
             def wrapper(*args: Any, **kwargs: Any) -> Any:
                 try:
                     return func(*args, **kwargs)
                 except (ValueError, TypeError, RuntimeError) as e:
                     return self.handle_exception(e, operation)
 
-            return wrapper
+            return wrapper  # type: ignore[return-value]
 
         return decorator

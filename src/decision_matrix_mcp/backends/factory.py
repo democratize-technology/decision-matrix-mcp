@@ -95,10 +95,10 @@ class BackendFactory:
         """
         # If already wrapped, return as-is
         if isinstance(backend, DefensiveBackendWrapper):
-            return backend
+            return backend  # type: ignore[return-value]
 
         # Wrap in defensive handler
-        return DefensiveBackendWrapper(backend)
+        return DefensiveBackendWrapper(backend)  # type: ignore[return-value]
 
     def validate_backend_availability(self, backend_type: ModelBackend) -> bool:
         """Check if backend dependencies are available.

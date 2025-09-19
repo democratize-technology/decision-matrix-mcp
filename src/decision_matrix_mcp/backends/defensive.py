@@ -216,15 +216,14 @@ class DefensiveBackendWrapper:
         else:
             setattr(self._backend, name, value)
 
-    @property
-    def __class__(self) -> type:
-        """Return the wrapped backend's class for isinstance checks."""
-        return self._backend.__class__
+    def __class_getitem__(cls, item: Any) -> Any:
+        """Support for generic type checking."""
+        return cls
 
     @property
     def name(self) -> str:
         """Get the backend name."""
-        return self._backend.name
+        return str(getattr(self._backend, "name", "unknown"))
 
     @property
     def supports_streaming(self) -> bool:
@@ -234,7 +233,8 @@ class DefensiveBackendWrapper:
     def is_available(self) -> bool:
         """Check if backend is available."""
         try:
-            return self._backend.is_available()
+            result = self._backend.is_available()
+            return bool(result)
         except Exception as e:  # noqa: BLE001
             logger.warning("Error checking availability for %s backend: %s", self._backend_name, e)
             return False
@@ -252,7 +252,8 @@ class DefensiveBackendWrapper:
             LLMBackendError: For any errors encountered (raw exceptions are wrapped)
         """
         try:
-            return await self._backend.generate_response(thread)
+            result = await self._backend.generate_response(thread)
+            return str(result)
         except DecisionMatrixError:
             # Re-raise our custom exceptions unchanged
             raise

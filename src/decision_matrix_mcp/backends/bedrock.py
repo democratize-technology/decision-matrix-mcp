@@ -354,8 +354,7 @@ class BedrockBackend(LLMBackend):
         """
         if self._bedrock_client:
             with self._client_lock:
-                if self._bedrock_client:
-                    # boto3 clients don't have an explicit close method,
-                    # but we can help the garbage collector by clearing the reference
-                    self._bedrock_client = None
-                    logger.info("Bedrock client cleaned up")
+                # boto3 clients don't have an explicit close method,
+                # but we can help the garbage collector by clearing the reference
+                self._bedrock_client = None
+                logger.info("Bedrock client cleaned up")

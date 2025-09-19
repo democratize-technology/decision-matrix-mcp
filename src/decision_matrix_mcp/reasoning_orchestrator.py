@@ -30,7 +30,10 @@ import unicodedata
 import uuid
 
 try:
-    from chain_of_thought import TOOL_SPECS, AsyncChainOfThoughtProcessor  # type: ignore[import]
+    from chain_of_thought import (  # type: ignore[import-not-found]
+        TOOL_SPECS,
+        AsyncChainOfThoughtProcessor,
+    )
 
     COT_AVAILABLE = True
 except ImportError:
@@ -119,7 +122,7 @@ class DecisionReasoningOrchestrator:
         """Get Chain of Thought tool specifications for Bedrock."""
         if not COT_AVAILABLE:
             return []
-        return TOOL_SPECS
+        return list(TOOL_SPECS) if TOOL_SPECS else []
 
     async def evaluate_with_reasoning(
         self,

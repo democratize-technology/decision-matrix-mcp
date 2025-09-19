@@ -312,7 +312,7 @@ class ConvergenceManager:
         total_evaluations = len(self.trackers)
         converged_count = sum(1 for tracker in self.trackers.values() if tracker.converged)
 
-        summary = {
+        summary: dict[str, Any] = {
             "total_evaluations": total_evaluations,
             "converged_evaluations": converged_count,
             "convergence_rate": (

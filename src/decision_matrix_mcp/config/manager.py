@@ -43,7 +43,7 @@ except ImportError:
     yaml = None
 
 from .defaults import DEFAULT_CONFIG, ENV_VAR_MAPPING, ENV_VAR_TYPES, get_profile_overrides
-from .schema import ConfigSchema
+from .schema import ConfigSchema, SessionLimitsConfig, ValidationLimitsConfig
 from .validation import ConfigValidationError, ConfigValidator
 
 logger = logging.getLogger(__name__)
@@ -235,15 +235,16 @@ class ConfigManager:
     def config(self) -> ConfigSchema:
         """Get current configuration (thread-safe)."""
         with self._config_lock:
-            return self._config.model_copy(deep=True)
+            result: ConfigSchema = self._config.model_copy(deep=True)
+            return result
 
     @property
-    def validation(self) -> Any:
+    def validation(self) -> ValidationLimitsConfig:
         """Get validation limits configuration."""
         return self._config.validation
 
     @property
-    def session(self) -> Any:
+    def session(self) -> SessionLimitsConfig:
         """Get session limits configuration."""
         return self._config.session
 
@@ -323,7 +324,7 @@ class ConfigManager:
         if format.lower() == "yaml":
             if yaml is None:
                 raise ValueError("YAML support not available. Install PyYAML: pip install pyyaml")
-            return yaml.dump(config_dict, default_flow_style=False, indent=2)
+            return str(yaml.dump(config_dict, default_flow_style=False, indent=2))
         return json.dumps(config_dict, indent=2)
 
     def get_env_var_help(self) -> dict[str, str]:

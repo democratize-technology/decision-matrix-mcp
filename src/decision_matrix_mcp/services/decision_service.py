@@ -150,7 +150,7 @@ class DecisionService:
         Returns:
             List of criteria names that were added
         """
-        criteria_added = []
+        criteria_added: list[str] = []
 
         if not hasattr(request, "initial_criteria") or not request.initial_criteria:
             return criteria_added

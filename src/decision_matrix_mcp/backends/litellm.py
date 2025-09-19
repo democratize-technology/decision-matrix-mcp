@@ -91,7 +91,7 @@ class LiteLLMBackend(LLMBackend):
                 max_tokens=thread.criterion.max_tokens,
             )
 
-            return response.choices[0].message.content
+            return str(response.choices[0].message.content or "")
 
         except ImportError as e:
             raise LLMConfigurationError(

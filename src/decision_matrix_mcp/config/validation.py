@@ -81,7 +81,7 @@ class ConfigValidator:
             error_dicts = []
             for error in e.errors():
                 if hasattr(error, "dict"):
-                    error_dicts.append(error.dict())  # type: ignore[attr-defined]
+                    error_dicts.append(error.dict())
                 else:
                     error_dicts.append({"error": str(error)})
             raise ConfigValidationError("Configuration validation failed", error_dicts) from e
