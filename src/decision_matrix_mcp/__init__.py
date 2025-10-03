@@ -686,7 +686,7 @@ async def current_session(*, ctx: Context | None = None) -> dict[str, Any]:  # n
 @mcp.tool(
     description="Test AWS Bedrock connectivity and configuration for debugging connection issues",
 )
-async def test_aws_bedrock_connection(*, ctx: Context | None = None) -> dict[str, Any]:  # noqa: ARG001
+async def test_aws_bedrock_connection() -> dict[str, Any]:
     """Test Bedrock connectivity and return detailed diagnostics."""
     components = get_server_components()
 
@@ -706,9 +706,9 @@ async def test_aws_bedrock_connection(*, ctx: Context | None = None) -> dict[str
 
 
 def main() -> None:
-    """Run the Decision Matrix MCP server."""
+    """Run the Decision Matrix MCP server (stdio transport)."""
     try:
-        logger.info("Starting Decision Matrix MCP server...")
+        logger.info("Starting Decision Matrix MCP server (stdio)...")
         logger.debug("Initializing FastMCP...")
 
         # Initialize server components at startup
@@ -745,6 +745,45 @@ def main() -> None:
             logger.exception("Error during cleanup")
 
 
+def http_main(host: str = "127.0.0.1", port: int = 8081) -> None:
+    """Run the Decision Matrix MCP server (HTTP transport).
+
+    Args:
+        host: Host to bind to (default: 127.0.0.1 for localhost only)
+        port: Port to bind to (default: 8081)
+    """
+    logger.info("Starting Decision Matrix MCP server (HTTP) on %s:%s", host, port)
+
+    # Initialize server components
+    try:
+        initialize_server_components()
+        logger.info("Server components initialized")
+    except Exception:
+        logger.exception("Failed to initialize server")
+        sys.exit(1)
+
+    # Import HTTP transport
+    from .transports import create_http_app
+
+    # Create HTTP app
+    app = create_http_app()
+
+    # Run with uvicorn
+    import uvicorn
+
+    uvicorn.run(app, host=host, port=port, log_level="info")
+
+
 if __name__ == "__main__":
     logger.debug("Module started as main")
-    main()
+
+    # Check if HTTP mode requested
+    import os
+
+    transport = os.environ.get("MCP_TRANSPORT", "stdio")
+
+    if transport == "http":
+        port = int(os.environ.get("MCP_HTTP_PORT", "8081"))
+        http_main(port=port)
+    else:
+        main()
