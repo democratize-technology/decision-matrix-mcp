@@ -49,6 +49,8 @@ dependencies = [
     "starlette>=0.47.3",
     # Security constraint: Use latest available idna >= 3.10 for security patches
     "idna>=3.10",
+    # HTTP transport runtime dependency: Previously transitive via starlette
+    "uvicorn>=0.35.0,<1.0.0",
     "pip-licenses>=5.0.0",
     "chain-of-thought-tool==0.1.1",
 ]

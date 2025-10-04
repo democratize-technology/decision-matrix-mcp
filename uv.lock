@@ -623,6 +623,7 @@ dependencies = [
     { name = "requests" },
     { name = "starlette" },
     { name = "tqdm" },
+    { name = "uvicorn" },
 ]
 
 [package.optional-dependencies]
@@ -692,6 +693,7 @@ requires-dist = [
     { name = "types-pyyaml", marker = "extra == 'dev'" },
     { name = "types-requests", marker = "extra == 'dev'" },
     { name = "types-urllib3", marker = "extra == 'dev'" },
+    { name = "uvicorn", specifier = ">=0.35.0,<1.0.0" },
     { name = "virtualenv", marker = "extra == 'dev'", specifier = ">=20.26.6" },
 ]
 
