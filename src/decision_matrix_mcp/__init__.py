@@ -574,21 +574,25 @@ async def add_option(
         description=description,
     )
 
-    # Validate option name
-    if not components.validation_service.validate_option_name(request.option_name):
-        return components.response_service.create_error_response(
-            ERROR_MESSAGES["option_name"],
-            "Invalid option name",
-        )
-
+    # Get session and handle errors (validate session BEFORE input validation)
     session, error = get_session_or_error(request.session_id, components)
     if error:
-        return components.response_service.create_error_response(error["error"])
+        return components.response_service.create_error_response(
+            error["error"],
+            "Session retrieval",
+        )
 
     # Session validation guard
     assert (
         session is not None
     ), "Session should not be None after successful get_session_or_error"  # nosec B101
+
+    # Validate option name (after session validation)
+    if not components.validation_service.validate_option_name(request.option_name):
+        return components.response_service.create_error_response(
+            ERROR_MESSAGES["option_name"],
+            "Invalid option name",
+        )
 
     # Check if option already exists
     if components.validation_service.validate_option_exists(session, request.option_name):

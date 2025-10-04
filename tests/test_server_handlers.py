@@ -710,6 +710,24 @@ class TestAddOption:
         assert "formatted_output" in result
 
     @pytest.mark.asyncio()
+    async def test_add_option_validation_order_prioritizes_session(self):
+        """Test that session validation happens before option name validation.
+
+        This ensures consistency with add_criterion and prevents information leakage.
+        When both session_id and option_name are invalid, session error should take priority.
+        """
+        result = await add_option(
+            session_id="", option_name="", ctx=mock_ctx  # Invalid session  # Invalid option name
+        )
+        assert "error" in result
+        # Should get session error FIRST, not option name error
+        assert result["error"] == "Invalid session ID", (
+            "Expected session validation error, not option name validation error. "
+            "Session validation should occur before input validation for consistency "
+            "with add_criterion and to prevent information leakage."
+        )
+
+    @pytest.mark.asyncio()
     async def test_add_option_invalid_name(self, test_session):
         """Test validation of option name"""
         result = await add_option(session_id=test_session.session_id, option_name="", ctx=mock_ctx)
