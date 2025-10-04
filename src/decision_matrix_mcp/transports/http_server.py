@@ -24,7 +24,7 @@ def create_http_app() -> Starlette:
     Returns:
         Starlette application instance
     """
-    from ..core import mcp
+    from .. import mcp
 
     # Security validator
     validator = SecurityValidator()
