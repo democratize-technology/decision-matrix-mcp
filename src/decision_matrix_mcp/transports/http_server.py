@@ -128,34 +128,101 @@ def _should_stream(body: Any) -> bool:
     return False
 
 
-async def _handle_json(
-    body: Any, _mcp: Any, validator: "SecurityValidator", origin: str
+async def _handle_json(  # noqa: PLR0911
+    body: Any, mcp_server: Any, validator: "SecurityValidator", origin: str
 ) -> JSONResponse:
-    """Handle JSON response."""
-    # Simple pass-through to FastMCP
-    # FastMCP handles tool execution internally
+    """Handle JSON-RPC requests and route to FastMCP methods.
+
+    Implements MCP Spec 2025-06-18 JSON-RPC 2.0 protocol.
+
+    Args:
+        body: Parsed JSON-RPC request body
+        mcp_server: FastMCP server instance
+        validator: Security validator for CORS
+        origin: Request origin for CORS headers
+
+    Returns:
+        JSONResponse with JSON-RPC 2.0 formatted result or error
+    """
+    request_id = body.get("id") if isinstance(body, dict) else None
+
     try:
-        # For now, return not implemented
-        # Full implementation would integrate with FastMCP's internal tool routing
+        # Validate JSON-RPC structure
+        if not isinstance(body, dict):
+            return JSONResponse(
+                JSONRPCHandler.create_error_response(
+                    request_id, -32600, "Invalid Request: body must be object"
+                ),
+                status_code=400,
+                headers=validator.get_cors_headers(origin),
+            )
+
+        method = body.get("method")
+        if not method:
+            return JSONResponse(
+                JSONRPCHandler.create_error_response(
+                    request_id, -32600, "Invalid Request: missing method"
+                ),
+                status_code=400,
+                headers=validator.get_cors_headers(origin),
+            )
+
+        params = body.get("params", {})
+
+        # Route to appropriate MCP method
+        if method == "tools/call":
+            # Extract tool name and arguments
+            tool_name = params.get("name")
+            if not tool_name:
+                return JSONResponse(
+                    JSONRPCHandler.create_error_response(
+                        request_id, -32602, "Invalid params: missing tool name"
+                    ),
+                    status_code=400,
+                    headers=validator.get_cors_headers(origin),
+                )
+
+            arguments = params.get("arguments", {})
+
+            # Call FastMCP tool execution via public API
+            # Note: FastMCP's call_tool returns the tool result directly
+            result = await mcp_server.call_tool(tool_name, arguments)
+
+            return JSONResponse(
+                JSONRPCHandler.create_success_response(request_id, {"content": result}),
+                headers=validator.get_cors_headers(origin),
+            )
+
+        if method == "tools/list":
+            # List available tools via public API
+            tools = await mcp_server.list_tools()
+            # FastMCP's list_tools() already returns a list of mcp.types.Tool objects
+            # These need to be serialized to dicts for JSON-RPC response
+            tools_serialized = [
+                {
+                    "name": tool.name,
+                    "description": tool.description,
+                    "inputSchema": tool.inputSchema,
+                }
+                for tool in tools
+            ]
+
+            return JSONResponse(
+                JSONRPCHandler.create_success_response(request_id, {"tools": tools_serialized}),
+                headers=validator.get_cors_headers(origin),
+            )
+
+        # Unknown method
         return JSONResponse(
-            {
-                "jsonrpc": "2.0",
-                "id": body.get("id") if isinstance(body, dict) else None,
-                "error": {
-                    "code": -32601,
-                    "message": "HTTP transport not yet fully implemented - use stdio",
-                },
-            },
+            JSONRPCHandler.create_error_response(request_id, -32601, f"Method not found: {method}"),
+            status_code=404,
             headers=validator.get_cors_headers(origin),
         )
+
     except Exception:
         logger.exception("Tool execution error")
         return JSONResponse(
-            {
-                "jsonrpc": "2.0",
-                "id": body.get("id") if isinstance(body, dict) else None,
-                "error": {"code": -32603, "message": "Internal error"},
-            },
+            JSONRPCHandler.create_error_response(request_id, -32603, "Internal error"),
             status_code=500,
             headers=validator.get_cors_headers(origin),
         )
