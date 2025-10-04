@@ -3,6 +3,8 @@
 Tests the MCP Spec 2025-06-18 Streamable HTTP transport implementation.
 """
 
+import os
+
 import pytest
 from starlette.testclient import TestClient
 
@@ -185,3 +187,167 @@ class TestHTTPCORS:
 
         assert response.status_code == 200
         assert "Access-Control-Allow-Origin" in response.headers
+
+
+class TestCORSConfiguration:
+    """Test CORS environment variable configuration."""
+
+    def test_default_cors_origins(self):
+        """Test default CORS origins when environment variable not set."""
+        # Ensure MCP_CORS_ORIGINS is not set
+        env_backup = os.environ.get("MCP_CORS_ORIGINS")
+        if "MCP_CORS_ORIGINS" in os.environ:
+            del os.environ["MCP_CORS_ORIGINS"]
+
+        try:
+            from decision_matrix_mcp.transports import create_http_app
+
+            app = create_http_app()
+            client = TestClient(app)
+
+            # Test default localhost origins work
+            response = client.post(
+                "/mcp",
+                json={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
+                headers={"Content-Type": "application/json", "Origin": "http://localhost:3000"},
+            )
+
+            assert response.status_code == 200
+            assert response.headers.get("Access-Control-Allow-Origin") == "http://localhost:3000"
+
+        finally:
+            # Restore environment
+            if env_backup:
+                os.environ["MCP_CORS_ORIGINS"] = env_backup
+
+    def test_custom_cors_origins_from_env(self, monkeypatch):
+        """Test custom CORS origins from environment variable."""
+        # Set custom origins
+        monkeypatch.setenv("MCP_CORS_ORIGINS", "https://example.com,https://app.example.com")
+
+        # Import after setting environment variable
+        import sys
+
+        # Remove cached module to force reimport with new env
+        if "decision_matrix_mcp.transports.http_server" in sys.modules:
+            del sys.modules["decision_matrix_mcp.transports.http_server"]
+        if "decision_matrix_mcp.transports" in sys.modules:
+            del sys.modules["decision_matrix_mcp.transports"]
+
+        from decision_matrix_mcp.transports import create_http_app
+
+        app = create_http_app()
+        client = TestClient(app)
+
+        # Test custom origin works
+        response = client.post(
+            "/mcp",
+            json={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
+            headers={"Content-Type": "application/json", "Origin": "https://example.com"},
+        )
+
+        assert response.status_code == 200
+        assert response.headers.get("Access-Control-Allow-Origin") == "https://example.com"
+
+    def test_cors_rejects_unauthorized_origin(self):
+        """Test CORS rejects unauthorized origins."""
+        from decision_matrix_mcp.transports import create_http_app
+
+        app = create_http_app()
+        client = TestClient(app)
+
+        # Test unauthorized origin is rejected
+        response = client.post(
+            "/mcp",
+            json={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
+            headers={"Content-Type": "application/json", "Origin": "https://evil.com"},
+        )
+
+        # Should return 403 for invalid origin
+        assert response.status_code == 403
+
+
+class TestCORSValidation:
+    """Test CORS origin validation security."""
+
+    def test_wildcard_origin_rejected(self, monkeypatch):
+        """Test wildcard CORS origins are rejected for security."""
+        import sys
+
+        monkeypatch.setenv("MCP_CORS_ORIGINS", "*")
+
+        # Remove cached module to force reimport with new env
+        if "decision_matrix_mcp.transports.http_server" in sys.modules:
+            del sys.modules["decision_matrix_mcp.transports.http_server"]
+        if "decision_matrix_mcp.transports" in sys.modules:
+            del sys.modules["decision_matrix_mcp.transports"]
+
+        # Should raise ValueError when trying to create app
+        import pytest
+
+        from decision_matrix_mcp.transports import create_http_app
+
+        with pytest.raises(ValueError, match="Wildcard CORS origins"):
+            create_http_app()
+
+    def test_malformed_url_rejected(self, monkeypatch):
+        """Test malformed URLs are rejected."""
+        import sys
+
+        monkeypatch.setenv("MCP_CORS_ORIGINS", "not-a-url,ftp://wrong-protocol.com")
+
+        # Remove cached module to force reimport with new env
+        if "decision_matrix_mcp.transports.http_server" in sys.modules:
+            del sys.modules["decision_matrix_mcp.transports.http_server"]
+        if "decision_matrix_mcp.transports" in sys.modules:
+            del sys.modules["decision_matrix_mcp.transports"]
+
+        # Should raise ValueError for invalid format
+        import pytest
+
+        from decision_matrix_mcp.transports import create_http_app
+
+        with pytest.raises(ValueError, match="Invalid CORS origin format"):
+            create_http_app()
+
+    def test_empty_origins_rejected(self, monkeypatch):
+        """Test empty CORS origins configuration is rejected."""
+        import sys
+
+        monkeypatch.setenv("MCP_CORS_ORIGINS", "   ,  ,  ")
+
+        # Remove cached module to force reimport with new env
+        if "decision_matrix_mcp.transports.http_server" in sys.modules:
+            del sys.modules["decision_matrix_mcp.transports.http_server"]
+        if "decision_matrix_mcp.transports" in sys.modules:
+            del sys.modules["decision_matrix_mcp.transports"]
+
+        # Should raise ValueError for no valid origins
+        import pytest
+
+        from decision_matrix_mcp.transports import create_http_app
+
+        with pytest.raises(ValueError, match="No valid CORS origins"):
+            create_http_app()
+
+    def test_too_many_origins_rejected(self, monkeypatch):
+        """Test excessive number of CORS origins is rejected."""
+        import sys
+
+        # Create 21 origins (exceeds MAX_CORS_ORIGINS = 20)
+        many_origins = ",".join([f"https://app{i}.example.com" for i in range(21)])
+        monkeypatch.setenv("MCP_CORS_ORIGINS", many_origins)
+
+        # Remove cached module to force reimport with new env
+        if "decision_matrix_mcp.transports.http_server" in sys.modules:
+            del sys.modules["decision_matrix_mcp.transports.http_server"]
+        if "decision_matrix_mcp.transports" in sys.modules:
+            del sys.modules["decision_matrix_mcp.transports"]
+
+        # Should raise ValueError for too many origins
+        import pytest
+
+        from decision_matrix_mcp.transports import create_http_app
+
+        with pytest.raises(ValueError, match="Too many CORS origins"):
+            create_http_app()

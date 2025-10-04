@@ -2,10 +2,24 @@
 
 Implements MCP Spec 2025-06-18 Streamable HTTP transport.
 Self-contained implementation with no external dependencies.
+
+CORS Configuration:
+    Set MCP_CORS_ORIGINS environment variable with comma-separated origins:
+        MCP_CORS_ORIGINS="https://app.example.com,https://api.example.com"
+
+    Format requirements:
+        - HTTP or HTTPS protocol required
+        - No wildcards (*) allowed for security
+        - Maximum 20 origins
+        - Whitespace around origins is trimmed
+
+    Defaults to localhost origins for development if not set.
 """
 
 import json
 import logging
+import os
+import re
 import secrets
 from typing import Any
 
@@ -16,6 +30,67 @@ from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
 
 logger = logging.getLogger(__name__)
+
+# CORS origin validation pattern - only allow http/https with valid hostname
+CORS_ORIGIN_PATTERN = re.compile(r"^https?://[a-zA-Z0-9.-]+(:[0-9]+)?$")
+MAX_CORS_ORIGINS = 20
+
+
+def validate_cors_origins(origins_str: str) -> list[str]:
+    """Validate and parse CORS origins from environment variable.
+
+    Args:
+        origins_str: Comma-separated list of origin URLs
+
+    Returns:
+        List of validated origin URLs
+
+    Raises:
+        ValueError: If validation fails (wildcard, invalid format, too many origins)
+    """
+    origins = [origin.strip() for origin in origins_str.split(",") if origin.strip()]
+
+    if not origins:
+        raise ValueError("No valid CORS origins provided")
+
+    if len(origins) > MAX_CORS_ORIGINS:
+        raise ValueError(f"Too many CORS origins: {len(origins)} > {MAX_CORS_ORIGINS}")
+
+    validated = []
+    for origin in origins:
+        # CRITICAL SECURITY: Reject wildcard origins
+        if origin == "*":
+            logger.error("SECURITY: Wildcard CORS origin (*) detected - rejecting")
+            raise ValueError("Wildcard CORS origins (*) are forbidden for security")
+
+        # Validate URL format
+        if not CORS_ORIGIN_PATTERN.match(origin):
+            raise ValueError(f"Invalid CORS origin format: {origin}")
+
+        validated.append(origin)
+
+    logger.info(
+        "CORS configured with %d allowed origin(s): %s", len(validated), ", ".join(validated)
+    )
+    return validated
+
+
+def get_cors_origins() -> list[str]:
+    """Get validated CORS origins from environment variable.
+
+    Returns:
+        List of validated CORS origin URLs
+
+    Raises:
+        ValueError: If MCP_CORS_ORIGINS is set but invalid
+    """
+    cors_origins_env = os.getenv("MCP_CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+
+    try:
+        return validate_cors_origins(cors_origins_env)
+    except ValueError as e:
+        logger.exception("CORS configuration error")
+        raise ValueError(f"Invalid MCP_CORS_ORIGINS configuration: {e}") from e
 
 
 def create_http_app() -> Starlette:
@@ -106,10 +181,12 @@ def create_http_app() -> Starlette:
         ]
     )
 
-    # Add CORS middleware
+    # Add CORS middleware with validated environment-configurable origins
+    cors_origins = get_cors_origins()
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+        allow_origins=cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["*"],
@@ -260,13 +337,15 @@ def _cors_preflight(request: Request, validator: "SecurityValidator") -> Respons
 
 
 class SecurityValidator:
-    """Security validation for HTTP transport."""
+    """Security validation for HTTP transport.
+
+    CORS origins are configurable via MCP_CORS_ORIGINS environment variable.
+    Defaults to localhost origins for development if not set.
+    """
 
     def __init__(self) -> None:
-        self.allowed_origins = {
-            "http://localhost:3000",
-            "http://127.0.0.1:3000",
-        }
+        # Read validated CORS origins from environment variable
+        self.allowed_origins = set(get_cors_origins())
 
     def validate_origin(self, origin: str) -> bool:
         """Validate origin header."""
