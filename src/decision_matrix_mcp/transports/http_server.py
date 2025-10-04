@@ -35,6 +35,11 @@ logger = logging.getLogger(__name__)
 CORS_ORIGIN_PATTERN = re.compile(r"^https?://[a-zA-Z0-9.-]+(:[0-9]+)?$")
 MAX_CORS_ORIGINS = 20
 
+# Request size limits - prevent DoS attacks
+MAX_REQUEST_SIZE = int(os.getenv("MCP_MAX_REQUEST_SIZE", str(10 * 1024 * 1024)))  # 10MB default
+MAX_JSON_DEPTH = 32  # Prevent deeply nested JSON DoS
+MAX_JSON_BREADTH = 1000  # Max keys per object/array level
+
 
 def validate_cors_origins(origins_str: str) -> list[str]:
     """Validate and parse CORS origins from environment variable.
@@ -93,6 +98,75 @@ def get_cors_origins() -> list[str]:
         raise ValueError(f"Invalid MCP_CORS_ORIGINS configuration: {e}") from e
 
 
+def validate_json_complexity(
+    data: Any, max_depth: int = MAX_JSON_DEPTH, current_depth: int = 0
+) -> None:
+    """Validate JSON complexity to prevent DoS attacks.
+
+    Args:
+        data: JSON data to validate
+        max_depth: Maximum nesting depth allowed
+        current_depth: Current recursion depth
+
+    Raises:
+        ValueError: If JSON exceeds complexity limits
+    """
+    if current_depth > max_depth:
+        raise ValueError(f"JSON nesting too deep: {current_depth} > {max_depth}")
+
+    if isinstance(data, dict):
+        if len(data) > MAX_JSON_BREADTH:
+            raise ValueError(f"JSON object too wide: {len(data)} keys > {MAX_JSON_BREADTH}")
+        for value in data.values():
+            validate_json_complexity(value, max_depth, current_depth + 1)
+    elif isinstance(data, list):
+        if len(data) > MAX_JSON_BREADTH:
+            raise ValueError(f"JSON array too large: {len(data)} items > {MAX_JSON_BREADTH}")
+        for item in data:
+            validate_json_complexity(item, max_depth, current_depth + 1)
+
+
+class RequestSizeLimitMiddleware:
+    """Middleware to enforce request size limits and prevent DoS attacks."""
+
+    def __init__(self, app: Any, max_size: int = MAX_REQUEST_SIZE) -> None:
+        self.app = app
+        self.max_size = max_size
+
+    async def __call__(self, scope: dict, receive: Any, send: Any) -> None:
+        """Process request and enforce size limits."""
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        # Check Content-Length header
+        headers = dict(scope.get("headers", []))
+        content_length = headers.get(b"content-length")
+
+        if content_length:
+            try:
+                size = int(content_length.decode())
+                if size > self.max_size:
+                    logger.warning("Request too large: %d bytes > %d bytes", size, self.max_size)
+                    response = JSONResponse(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": None,
+                            "error": {
+                                "code": -32000,
+                                "message": f"Request too large: {size} bytes > {self.max_size} bytes",
+                            },
+                        },
+                        status_code=413,
+                    )
+                    await response(scope, receive, send)
+                    return
+            except (ValueError, UnicodeDecodeError):
+                logger.warning("Invalid Content-Length header")
+
+        await self.app(scope, receive, send)
+
+
 def create_http_app() -> Starlette:
     """Create Starlette HTTP app for MCP server.
 
@@ -148,6 +222,21 @@ def create_http_app() -> Starlette:
                 headers=validator.get_cors_headers(origin),
             )
 
+        # Validate JSON complexity to prevent DoS
+        try:
+            validate_json_complexity(body)
+        except ValueError as e:
+            logger.warning("JSON complexity validation failed: %s", e)
+            return JSONResponse(
+                {
+                    "jsonrpc": "2.0",
+                    "id": body.get("id") if isinstance(body, dict) else None,
+                    "error": {"code": -32000, "message": f"Invalid request: {e}"},
+                },
+                status_code=400,
+                headers=validator.get_cors_headers(origin),
+            )
+
         # Handle request
         try:
             # Check if streaming requested
@@ -180,6 +269,9 @@ def create_http_app() -> Starlette:
             Route("/health", health_check, methods=["GET"]),
         ]
     )
+
+    # Add request size limit middleware (applied first - fail fast for oversized requests)
+    app.add_middleware(RequestSizeLimitMiddleware, max_size=MAX_REQUEST_SIZE)
 
     # Add CORS middleware with validated environment-configurable origins
     cors_origins = get_cors_origins()

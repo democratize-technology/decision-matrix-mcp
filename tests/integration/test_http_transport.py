@@ -351,3 +351,142 @@ class TestCORSValidation:
 
         with pytest.raises(ValueError, match="Too many CORS origins"):
             create_http_app()
+
+
+class TestRequestSizeLimits:
+    """Test request size limit security controls."""
+
+    @pytest.fixture()
+    def client(self):
+        """Create test client fixture."""
+        from decision_matrix_mcp.transports import create_http_app
+
+        app = create_http_app()
+        return TestClient(app)
+
+    def test_oversized_request_rejected(self, client, monkeypatch):
+        """Test requests exceeding size limit are rejected."""
+        # Set small limit for testing (1KB)
+        monkeypatch.setenv("MCP_MAX_REQUEST_SIZE", "1024")
+
+        # Force module reload with new env var
+        import sys
+
+        if "decision_matrix_mcp.transports.http_server" in sys.modules:
+            del sys.modules["decision_matrix_mcp.transports.http_server"]
+        if "decision_matrix_mcp.transports" in sys.modules:
+            del sys.modules["decision_matrix_mcp.transports"]
+
+        from decision_matrix_mcp.transports import create_http_app
+
+        app = create_http_app()
+        client = TestClient(app)
+
+        # Create request body exceeding 1KB
+        large_payload = {"data": "x" * 2000}  # ~2KB JSON
+
+        response = client.post(
+            "/mcp",
+            json=large_payload,
+            headers={"Content-Type": "application/json", "Origin": "http://localhost:3000"},
+        )
+
+        assert response.status_code == 413
+        data = response.json()
+        assert "error" in data
+        assert "too large" in data["error"]["message"].lower()
+
+    def test_deeply_nested_json_rejected(self, client):
+        """Test JSON with excessive nesting is rejected."""
+        # Create deeply nested JSON (depth > 32)
+        nested = {"level": 1}
+        current = nested
+        for i in range(2, 40):  # Create 39 levels of nesting
+            current["nested"] = {"level": i}
+            current = current["nested"]
+
+        response = client.post(
+            "/mcp",
+            json={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": nested},
+            headers={"Content-Type": "application/json", "Origin": "http://localhost:3000"},
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        assert "error" in data
+        assert "nesting too deep" in data["error"]["message"].lower()
+
+    def test_wide_json_object_rejected(self, monkeypatch):
+        """Test JSON object with too many keys is rejected."""
+        # Ensure large request size limit for this test
+        monkeypatch.setenv("MCP_MAX_REQUEST_SIZE", str(100 * 1024 * 1024))  # 100MB
+
+        # Force module reload
+        import sys
+
+        if "decision_matrix_mcp.transports.http_server" in sys.modules:
+            del sys.modules["decision_matrix_mcp.transports.http_server"]
+        if "decision_matrix_mcp.transports" in sys.modules:
+            del sys.modules["decision_matrix_mcp.transports"]
+
+        from decision_matrix_mcp.transports import create_http_app
+
+        app = create_http_app()
+        client = TestClient(app)
+
+        # Create object with > 1000 keys
+        wide_object = {f"key_{i}": f"value_{i}" for i in range(1500)}
+
+        response = client.post(
+            "/mcp",
+            json={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": wide_object},
+            headers={"Content-Type": "application/json", "Origin": "http://localhost:3000"},
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        assert "error" in data
+        assert "too wide" in data["error"]["message"].lower()
+
+    def test_large_json_array_rejected(self, monkeypatch):
+        """Test JSON array with too many items is rejected."""
+        # Ensure large request size limit for this test
+        monkeypatch.setenv("MCP_MAX_REQUEST_SIZE", str(100 * 1024 * 1024))  # 100MB
+
+        # Force module reload
+        import sys
+
+        if "decision_matrix_mcp.transports.http_server" in sys.modules:
+            del sys.modules["decision_matrix_mcp.transports.http_server"]
+        if "decision_matrix_mcp.transports" in sys.modules:
+            del sys.modules["decision_matrix_mcp.transports"]
+
+        from decision_matrix_mcp.transports import create_http_app
+
+        app = create_http_app()
+        client = TestClient(app)
+
+        # Create array with > 1000 items
+        large_array = [f"item_{i}" for i in range(1500)]
+
+        response = client.post(
+            "/mcp",
+            json={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": large_array},
+            headers={"Content-Type": "application/json", "Origin": "http://localhost:3000"},
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        assert "error" in data
+        assert "too large" in data["error"]["message"].lower()
+
+    def test_normal_request_accepted(self, client):
+        """Test normal-sized requests are not blocked."""
+        response = client.post(
+            "/mcp",
+            json={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
+            headers={"Content-Type": "application/json", "Origin": "http://localhost:3000"},
+        )
+
+        # Should succeed (not be rejected by size limits)
+        assert response.status_code == 200
