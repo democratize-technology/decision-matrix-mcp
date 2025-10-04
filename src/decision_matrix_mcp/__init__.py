@@ -127,12 +127,38 @@ def create_server_components() -> ServerComponents:
     return ServerComponents()
 
 
-# Create FastMCP instance with component factory
-mcp = FastMCP("decision-matrix")
+# Module-level mcp instance (for backward compatibility)
+_mcp_instance: FastMCP | None = None
 
 # Server components - created once at startup with thread-safe initialization
 _server_components: ServerComponents | None = None
 _server_components_lock = threading.Lock()
+
+
+def create_mcp_server(host: str = "127.0.0.1", port: int = 8081) -> FastMCP:
+    """Create FastMCP server instance with specified host and port.
+
+    Args:
+        host: Host to bind to for HTTP transport (default: 127.0.0.1 - localhost only)
+        port: Port to bind to for HTTP transport (default: 8081 - standard MCP HTTP port)
+
+    Returns:
+        Configured FastMCP server instance
+    """
+    global _mcp_instance  # noqa: PLW0603
+
+    # Create new instance with specified host/port
+    mcp_server = FastMCP("decision-matrix", host=host, port=port)
+
+    # Cache for module-level access
+    if _mcp_instance is None:
+        _mcp_instance = mcp_server
+
+    return mcp_server
+
+
+# Create default instance for backward compatibility
+mcp = create_mcp_server()
 
 
 def get_server_components() -> ServerComponents:
@@ -751,45 +777,6 @@ def main() -> None:
             logger.exception("Error during cleanup")
 
 
-def http_main(host: str = "127.0.0.1", port: int = 8081) -> None:
-    """Run the Decision Matrix MCP server (HTTP transport).
-
-    Args:
-        host: Host to bind to (default: 127.0.0.1 for localhost only)
-        port: Port to bind to (default: 8081)
-    """
-    logger.info("Starting Decision Matrix MCP server (HTTP) on %s:%s", host, port)
-
-    # Initialize server components
-    try:
-        initialize_server_components()
-        logger.info("Server components initialized")
-    except Exception:
-        logger.exception("Failed to initialize server")
-        sys.exit(1)
-
-    # Import HTTP transport
-    from .transports import create_http_app
-
-    # Create HTTP app
-    app = create_http_app()
-
-    # Run with uvicorn
-    import uvicorn
-
-    uvicorn.run(app, host=host, port=port, log_level="info")
-
-
 if __name__ == "__main__":
     logger.debug("Module started as main")
-
-    # Check if HTTP mode requested
-    import os
-
-    transport = os.environ.get("MCP_TRANSPORT", "stdio")
-
-    if transport == "http":
-        port = int(os.environ.get("MCP_HTTP_PORT", "8081"))
-        http_main(port=port)
-    else:
-        main()
+    main()
