@@ -10,6 +10,7 @@ from decision_matrix_mcp.backends import (
     LiteLLMBackend,
     OllamaBackend,
 )
+from decision_matrix_mcp.backends.defensive import DefensiveBackendWrapper
 from decision_matrix_mcp.exceptions import ConfigurationError
 from decision_matrix_mcp.models import ModelBackend
 
@@ -31,21 +32,24 @@ class TestBackendFactory:
         assert len(factory._instances) == 0
 
     def test_create_backend_bedrock(self, factory):
-        """Test creating Bedrock backend"""
+        """Test creating Bedrock backend wrapped in DefensiveBackendWrapper"""
         backend = factory.create_backend(ModelBackend.BEDROCK)
-        assert isinstance(backend, BedrockBackend)
+        assert isinstance(backend, DefensiveBackendWrapper)
+        assert isinstance(backend._backend, BedrockBackend)
         assert ModelBackend.BEDROCK in factory._instances
 
     def test_create_backend_litellm(self, factory):
-        """Test creating LiteLLM backend"""
+        """Test creating LiteLLM backend wrapped in DefensiveBackendWrapper"""
         backend = factory.create_backend(ModelBackend.LITELLM)
-        assert isinstance(backend, LiteLLMBackend)
+        assert isinstance(backend, DefensiveBackendWrapper)
+        assert isinstance(backend._backend, LiteLLMBackend)
         assert ModelBackend.LITELLM in factory._instances
 
     def test_create_backend_ollama(self, factory):
-        """Test creating Ollama backend"""
+        """Test creating Ollama backend wrapped in DefensiveBackendWrapper"""
         backend = factory.create_backend(ModelBackend.OLLAMA)
-        assert isinstance(backend, OllamaBackend)
+        assert isinstance(backend, DefensiveBackendWrapper)
+        assert isinstance(backend._backend, OllamaBackend)
         assert ModelBackend.OLLAMA in factory._instances
 
     def test_create_backend_unknown(self, factory):

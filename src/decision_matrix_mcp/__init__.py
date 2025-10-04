@@ -686,7 +686,9 @@ async def current_session(*, ctx: Context | None = None) -> dict[str, Any]:  # n
 @mcp.tool(
     description="Test AWS Bedrock connectivity and configuration for debugging connection issues",
 )
-async def test_aws_bedrock_connection() -> dict[str, Any]:
+async def test_aws_bedrock_connection(
+    *, ctx: Context | None = None  # noqa: ARG001
+) -> dict[str, Any]:
     """Test Bedrock connectivity and return detailed diagnostics."""
     components = get_server_components()
 
