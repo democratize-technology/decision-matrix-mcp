@@ -16,6 +16,7 @@ from uuid import uuid4
 import pytest
 
 from decision_matrix_mcp.backends.bedrock import BedrockBackend
+from decision_matrix_mcp.backends.defensive import DefensiveBackendWrapper
 from decision_matrix_mcp.backends.factory import BackendFactory
 from decision_matrix_mcp.backends.litellm import LiteLLMBackend
 from decision_matrix_mcp.backends.ollama import OllamaBackend
@@ -50,21 +51,24 @@ class TestBackendFactory:
     """Test backend factory functionality."""
 
     def test_factory_creates_bedrock_backend(self):
-        """Test factory creates Bedrock backend."""
+        """Test factory creates Bedrock backend wrapped in DefensiveBackendWrapper."""
         factory = BackendFactory()
         backend = factory.create_backend(ModelBackend.BEDROCK)
-        assert isinstance(backend, BedrockBackend)
+        assert isinstance(backend, DefensiveBackendWrapper)
+        assert isinstance(backend._backend, BedrockBackend)
 
     def test_factory_creates_litellm_backend(self):
-        """Test factory creates LiteLLM backend."""
+        """Test factory creates LiteLLM backend wrapped in DefensiveBackendWrapper."""
         factory = BackendFactory()
         backend = factory.create_backend(ModelBackend.LITELLM)
-        assert isinstance(backend, LiteLLMBackend)
+        assert isinstance(backend, DefensiveBackendWrapper)
+        assert isinstance(backend._backend, LiteLLMBackend)
 
     def test_factory_creates_ollama_backend(self):
-        """Test factory creates Ollama backend."""
+        """Test factory creates Ollama backend wrapped in DefensiveBackendWrapper."""
         backend = BackendFactory().create_backend(ModelBackend.OLLAMA)
-        assert isinstance(backend, OllamaBackend)
+        assert isinstance(backend, DefensiveBackendWrapper)
+        assert isinstance(backend._backend, OllamaBackend)
 
     def test_factory_raises_for_invalid_backend(self):
         """Test factory raises error for invalid backend type."""
@@ -281,7 +285,7 @@ class TestLiteLLMBackendIntegration:
             {
                 "name": "none_content",
                 "response": Mock(choices=[Mock(message=Mock(content=None))]),
-                "expected_none": True,  # None content returns None directly
+                "expected_content": "",  # None content returns empty string (defensive programming)
             },
         ]
 
@@ -293,9 +297,6 @@ class TestLiteLLMBackendIntegration:
                 if "expected_error" in case:
                     with pytest.raises(LLMAPIError):
                         await litellm_backend.generate_response(sample_criterion_thread)
-                elif "expected_none" in case:
-                    result = await litellm_backend.generate_response(sample_criterion_thread)
-                    assert result is None
                 else:
                     result = await litellm_backend.generate_response(sample_criterion_thread)
                     assert case["expected_content"] in result
