@@ -188,4 +188,9 @@ Temporary Items
 # Project specific
 *.session
 
-.claude
+# Ruff cache
+.ruff_cache/
+
+# Claude Code - ignore environment-specific files, keep assessments
+.claude/agents
+.claude/settings.local.json
