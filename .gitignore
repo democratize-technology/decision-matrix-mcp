@@ -194,3 +194,4 @@ Temporary Items
 # Claude Code - ignore environment-specific files, keep assessments
 .claude/agents
 .claude/settings.local.json
+.claude
